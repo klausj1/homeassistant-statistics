@@ -1,0 +1,33 @@
+# Describes the format for available statistic import services
+
+import_from_file:
+  fields:
+    filename:
+      required: true
+      example: "statisticdata.tsv"
+      selector:
+        text:
+    timezone_identifier:
+      required: true
+      example: "Europe/Vienna"
+      default: "Europe/Vienna"
+      selector:
+        text:
+    delimiter:
+      required: false
+      example: \t
+      default: \t
+      selector:
+        select:
+          custom_value: true
+          options:
+            - '\t'
+            - ";"
+            - ","
+            - "|"
+    decimal:
+      required: true
+      example: false
+      default: false
+      selector:
+        boolean:

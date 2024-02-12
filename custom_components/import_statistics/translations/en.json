@@ -1,0 +1,26 @@
+{
+    "services": {
+        "import_from_file": {
+            "description": "Imports long term statistic values (1h) from tsv/csv file",
+            "fields": {
+                "decimal": {
+                    "description": "The decimal separator. Default is '.'; set to true to use ','",
+                    "name": "decimal"
+                },
+                "delimiter": {
+                    "description": "The delimiter between fields. Default is empty (auto-detect is tried)",
+                    "name": "delimiter"
+                },
+                "filename": {
+                    "description": "The file containing the statistic data, to be put into the config folder",
+                    "name": "filename"
+                },
+                "timezone_identifier": {
+                    "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)",
+                    "name": "timezone_identifier"
+                }
+            },
+            "name": "import_from_file"
+        }
+    }
+}

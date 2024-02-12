@@ -1,0 +1,16 @@
+{
+  "domain": "import_statistics",
+  "name": "import_statistics",
+  "codeowners": ["@klausj1"],
+  "config_flow": false,
+  "dependencies": ["recorder"],
+  "documentation": "https://github.com/klausj1/homeassistant-statistics",
+  "homekit": {},
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "requirements": ["pandas==2.2.0"],
+  "ssdp": [],
+  "zeroconf": [],
+  "version": "0.1",
+  "issue_tracker": "https://github.com/klausj1/homeassistant-statistics/issues"
+}
