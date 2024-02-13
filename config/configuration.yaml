@@ -1,8 +1,10 @@
 # https://www.home-assistant.io/integrations/default_config/
 default_config:
 
+import_statistics:
+
 # https://www.home-assistant.io/integrations/logger/
 logger:
   default: info
   logs:
-    custom_components.integration_blueprint: debug
+    custom_components.import_statistics: debug
