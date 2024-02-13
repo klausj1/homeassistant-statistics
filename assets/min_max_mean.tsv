@@ -1,0 +1,5 @@
+statistic_id	unit	start	min	max	mean
+sensor.esp32_soundroom_bathroomtempsensor	°C	26.01.2024 00:00	131	231	181
+sensor.esp32_soundroom_bathroomtempsensor	°C	26.01.2024 01:00	141	241	191
+sensor.esp32_soundroom_bathroomtempsensor	°C	30.01.2024 01:00	241	341	291
+sensor.esp32_soundroom_soundroomtempsensor	°C	30.01.2024 01:00	241	341	291
