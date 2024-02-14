@@ -49,11 +49,11 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
         _LOGGER.debug(f"Decimal separator: {decimal}")  # noqa: G004
 
         hass.states.set("import_statistics.import_from_file", filename)
-        base_path = "config"
-        file_path = f"{base_path}/{filename}"
+
+        file_path = f"{hass.config.config_dir}/{filename}"
 
         if not os.path.exists(file_path):
-            _handle_error(f"filename {filename} does not exist in config folder")
+            _handle_error(f"path {file_path} does not exist.")
 
         with open(file_path, encoding="UTF-8") as csvfile:
             df = pd.read_csv(csvfile, sep=delimiter, decimal=decimal, engine="python")
