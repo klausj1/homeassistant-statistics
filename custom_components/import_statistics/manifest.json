@@ -14,7 +14,7 @@
     "iot_class": "calculated",
     "issue_tracker": "https://github.com/klausj1/homeassistant-statistics/issues",
     "requirements": [
-        "pandas==2.2.0"
+        "pandas>=2.0.0"
     ],
     "ssdp": [],
     "version": "0.1",
