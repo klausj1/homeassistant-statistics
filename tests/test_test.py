@@ -11,12 +11,11 @@ import os
 
 TESTFILEPATHS = "tests/testfiles/"
 
-async def xxtest_async_setup(hass):
-    """Test the component gets setup."""
-#    assert await async_setup_component(hass, "recorder", {}) is True
-    assert await async_setup_component(hass, DOMAIN, {}) is True
+#async def test_async_setup(hass): # does not work, commented out
+#    """Test the component gets setup."""
+#    assert await async_setup_component(hass, DOMAIN, {}) is True
 
-async def test_xx():
+async def test_check_columns():
     #tmp = os.getcwd()
     df = pd.read_csv(f"{TESTFILEPATHS}/correctcolumns.csv", sep="\t", engine="python")
     assert impstat._check_columns(df) is True # pylint: disable=protected-access
