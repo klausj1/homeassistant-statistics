@@ -31,82 +31,14 @@ ATTR_DELIMITER = "delimiter"
 ATTR_DECIMAL = "decimal"
 
 
-def setup(hass: HomeAssistant, config: ConfigType) -> bool:
+def setup(hass: HomeAssistant) -> bool:
     """Set up is called when Home Assistant is loading our component."""
 
     def handle_import_from_file(call):
         """Handle the service call."""
-        filename = call.data.get(ATTR_FILENAME)
-        if call.data.get(ATTR_DECIMAL, True):
-            decimal = ","
-        else:
-            decimal = "."
-        timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
-        delimiter = call.data.get(ATTR_DELIMITER)
-        _LOGGER.info(f"Importing statistics from file: {filename}")  # noqa: G004
-        _LOGGER.debug(f"Timezone_identifier: {timezone_identifier}")  # noqa: G004
-        _LOGGER.debug(f"Delimiter: {delimiter}")  # noqa: G004
-        _LOGGER.debug(f"Decimal separator: {decimal}")  # noqa: G004
 
-        hass.states.set("import_statistics.import_from_file", filename)
-
-        file_path = f"{hass.config.config_dir}/{filename}"
-
-        if not os.path.exists(file_path):
-            _handle_error(f"path {file_path} does not exist.")
-
-        with open(file_path, encoding="UTF-8") as csvfile:
-            df = pd.read_csv(csvfile, sep=delimiter, decimal=decimal, engine="python")
-            columns = df.columns
-            _LOGGER.debug("Columns:")
-            _LOGGER.debug(columns)
-            if not _check_columns(columns):
-                _handle_error(
-                    "Implementation error. _check_columns returned false, this should never happen!"
-                )
-            stats = {}
-            timezone = zoneinfo.ZoneInfo(timezone_identifier)
-            has_mean = "mean" in columns
-            has_sum = "sum" in columns
-            if has_mean and has_sum:
-                _handle_error(
-                    "Implementation error. has_mean and has_sum are both true, this should never happen!"
-                )
-            for _index, row in df.iterrows():
-                statistic_id = row["statistic_id"]
-                if statistic_id not in stats:
-                    if "." in statistic_id:
-                        source = "recorder"
-                    elif ":" in statistic_id:
-                        source = statistic_id.split(".")[0]
-                    metadata = {
-                        "has_mean": has_mean,
-                        "has_sum": has_sum,
-                        "source": source,
-                        "statistic_id": statistic_id,
-                        "name": None,
-                        "unit_of_measurement": row["unit"],
-                    }
-                    stats[statistic_id] = (metadata, [])
-
-                if has_mean:
-                    new_stat = {
-                        "start": datetime.strptime(
-                            row["start"], "%d.%m.%Y %H:%M"
-                        ).replace(tzinfo=timezone),
-                        "min": row["min"],
-                        "max": row["max"],
-                        "mean": row["mean"],
-                    }
-                else:
-                    new_stat = {
-                        "start": datetime.strptime(
-                            row["start"], "%d.%m.%Y %H:%M"
-                        ).replace(tzinfo=timezone),
-                        "sum": row["sum"],
-                        "state": row["state"],
-                    }
-                stats[statistic_id][1].append(new_stat)
+        stats = {}
+        stats = _prepare_data_to_import(hass, call)
 
         for stat in stats.values():
             metadata = stat[0]
@@ -133,6 +65,83 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     # Return boolean to indicate that initialization was successful.
     return True
 
+def _prepare_data_to_import(hass, call) -> dict:
+# ToDo: Split, and call splitted methods above
+# 1. handle the call and calculate filename, sep and decimal (variations in call) (Input: Call; output: Whats needed for csv)
+# 2. Do the csv-read (only one test necssary) (Input: Output from 1., Output: df)
+# 3. Handle dataframe and return the dictionary; Input: df, Output: dict
+    filename = call.data.get(ATTR_FILENAME)
+    if call.data.get(ATTR_DECIMAL, True):
+        decimal = ","
+    else:
+        decimal = "."
+    timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
+    delimiter = call.data.get(ATTR_DELIMITER)
+    _LOGGER.info("Importing statistics from file: %s", filename)
+    _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
+    _LOGGER.debug("Delimiter: %s", delimiter)
+    _LOGGER.debug("Decimal separator: %s", decimal)
+
+    hass.states.set("import_statistics.import_from_file", filename)
+
+    file_path = f"{hass.config.config_dir}/{filename}"
+
+    if not os.path.exists(file_path):
+        _handle_error(f"path {file_path} does not exist.")
+
+    with open(file_path, encoding="UTF-8") as csvfile:
+        df = pd.read_csv(csvfile, sep=delimiter, decimal=decimal, engine="python")
+        columns = df.columns
+        _LOGGER.debug("Columns:")
+        _LOGGER.debug(columns)
+        if not _check_columns(columns):
+            _handle_error(
+                "Implementation error. _check_columns returned false, this should never happen!"
+            )
+        stats = {}
+        timezone = zoneinfo.ZoneInfo(timezone_identifier)
+        has_mean = "mean" in columns
+        has_sum = "sum" in columns
+        if has_mean and has_sum:
+            _handle_error(
+                "Implementation error. has_mean and has_sum are both true, this should never happen!"
+            )
+        for _index, row in df.iterrows():
+            statistic_id = row["statistic_id"]
+            if statistic_id not in stats:
+                if "." in statistic_id:
+                    source = "recorder"
+                elif ":" in statistic_id:
+                    source = statistic_id.split(".")[0]
+                metadata = {
+                    "has_mean": has_mean,
+                    "has_sum": has_sum,
+                    "source": source,
+                    "statistic_id": statistic_id,
+                    "name": None,
+                    "unit_of_measurement": row["unit"],
+                }
+                stats[statistic_id] = (metadata, [])
+
+            if has_mean:
+                new_stat = {
+                    "start": datetime.strptime(
+                        row["start"], "%d.%m.%Y %H:%M"
+                    ).replace(tzinfo=timezone),
+                    "min": row["min"],
+                    "max": row["max"],
+                    "mean": row["mean"],
+                }
+            else:
+                new_stat = {
+                    "start": datetime.strptime(
+                        row["start"], "%d.%m.%Y %H:%M"
+                    ).replace(tzinfo=timezone),
+                    "sum": row["sum"],
+                    "state": row["state"],
+                }
+            stats[statistic_id][1].append(new_stat)
+    return stats
 
 def _check_columns(columns: pd.DataFrame.columns) -> bool:
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
