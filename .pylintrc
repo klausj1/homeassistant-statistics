@@ -1,0 +1,5 @@
+# Maximum number of characters on a single line.
+#[max-line-length=150]
+
+[FORMAT]
+max-line-length=180

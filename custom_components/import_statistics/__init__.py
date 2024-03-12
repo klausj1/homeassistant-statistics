@@ -1,6 +1,5 @@
 """The import_statistics integration."""
 
-# import csv
 from datetime import datetime
 import logging
 import os
@@ -8,7 +7,6 @@ import zoneinfo
 
 import pandas as pd
 
-# from homeassistant.components.recorder.statistics import async_add_external_statistics
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     async_import_statistics,
@@ -17,9 +15,8 @@ from homeassistant.components.recorder.statistics import (
 from homeassistant.core import HomeAssistant, valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
-from custom_components.import_statistics.const import ATTR_FILENAME, ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER
+from custom_components.import_statistics.const import ATTR_FILENAME, ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, DOMAIN
 
-DOMAIN = "import_statistics"
 _LOGGER = logging.getLogger(__name__)
 
 # Use empty_config_schema because the component does not have any config options
@@ -29,10 +26,17 @@ def setup(hass: HomeAssistant) -> bool:
     """Set up is called when Home Assistant is loading our component."""
 
     def handle_import_from_file(call):
-        """Handle the service call."""
+        """
+        Handle the service call.
+        This method is the only method which needs the hass object, all other methods are independent of it.
+        """
 
-        stats = {}
-        stats = _prepare_data_to_import(hass, call)
+        # Get the filename from the call data; done here, because the root path needs the hass object
+        file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
+
+        hass.states.set("import_statistics.import_from_file", file_path)
+
+        stats = _prepare_data_to_import(file_path, call)
 
         for stat in stats.values():
             metadata = stat[0]
@@ -59,7 +63,7 @@ def setup(hass: HomeAssistant) -> bool:
     # Return boolean to indicate that initialization was successful.
     return True
 
-def _prepare_data_to_import(hass, call) -> dict:
+def _prepare_data_to_import(file_path: str, call) -> dict:
     """
     Prepare data to import statistics from a file.
 
@@ -75,41 +79,29 @@ def _prepare_data_to_import(hass, call) -> dict:
         ValueError: If there is an implementation error.
 
     """
-    decimal, timezone_identifier, delimiter, file_path = _handle_arguments(hass, call)
+    decimal, timezone_identifier, delimiter = _handle_arguments(file_path, call)
 
     df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
-    columns = df.columns
-    _LOGGER.debug("Columns:")
-    _LOGGER.debug(columns)
-    if not _check_columns(columns):
-        _handle_error(
-            "Implementation error. _check_columns returned false, this should never happen!"
-        )
-    stats = _handle_dataframe(df, columns, timezone_identifier)
+    stats = _handle_dataframe(df, timezone_identifier)
     return stats
 
-def _handle_arguments(hass, call):
-    filename = call.data.get(ATTR_FILENAME)
+def _handle_arguments(file_path: str, call):
     if call.data.get(ATTR_DECIMAL, True):
         decimal = ","
     else:
         decimal = "."
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
     delimiter = call.data.get(ATTR_DELIMITER)
-    _LOGGER.info("Importing statistics from file: %s", filename)
+    _LOGGER.info("Importing statistics from file: %s", file_path)
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
 
-    hass.states.set("import_statistics.import_from_file", filename)
-
-    file_path = f"{hass.config.config_dir}/{filename}"
-
     if not os.path.exists(file_path):
         _handle_error(f"path {file_path} does not exist.")
-    return decimal,timezone_identifier,delimiter,file_path
+    return decimal,timezone_identifier,delimiter
 
-def _handle_dataframe(df, columns, timezone_identifier):
+def _handle_dataframe(df, timezone_identifier):
     """
     Process a dataframe and extract statistics based on the specified columns and timezone.
 
@@ -124,6 +116,13 @@ def _handle_dataframe(df, columns, timezone_identifier):
     Raises:
         ImplementationError: If both 'mean' and 'sum' columns are present in the columns list.
     """
+    columns = df.columns
+    _LOGGER.debug("Columns:")
+    _LOGGER.debug(columns)
+    if not _check_columns(columns):
+        _handle_error(
+            "Implementation error. _check_columns returned false, this should never happen!"
+        )
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
     has_mean = "mean" in columns
@@ -172,6 +171,15 @@ def _handle_dataframe(df, columns, timezone_identifier):
     return stats
 
 def _check_columns(columns: pd.DataFrame.columns) -> bool:
+    """
+    Check if the given DataFrame columns meet the required criteria.
+
+    Args:
+        columns (pd.DataFrame.columns): The columns of the DataFrame.
+
+    Returns:
+        bool: True if the columns meet the required criteria, False otherwise.
+    """
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         _handle_error(
             "The file must contain the columns 'statistic_id', 'start' and 'unit'"
@@ -188,7 +196,6 @@ def _check_columns(columns: pd.DataFrame.columns) -> bool:
             "The file must not contain the columns 'sum' and 'mean'/'min'/'max'"
         )
     return True
-
 
 def _handle_error(error_string):
     _LOGGER.warning(error_string)
