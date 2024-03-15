@@ -15,14 +15,17 @@ from homeassistant.components.recorder.statistics import (
 from homeassistant.core import HomeAssistant, valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+import pytz
 from custom_components.import_statistics.const import ATTR_FILENAME, ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, DOMAIN
+
+from homeassistant.helpers.typing import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
 
 # Use empty_config_schema because the component does not have any config options
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
-def setup(hass: HomeAssistant) -> bool:
+def setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up is called when Home Assistant is loading our component."""
 
     def handle_import_from_file(call):
@@ -87,21 +90,13 @@ def _prepare_data_to_import(file_path: str, call) -> dict:
 
 def _handle_arguments(file_path: str, call):
 
-    def is_valid_timezone(timezone_identifier: str) -> bool:
-        try:
-            zoneinfo.ZoneInfo(timezone_identifier)
-            return True
-        except zoneinfo.ZoneInfoNotFoundError:
-            return False
-
-    print(call)
     if call.data.get(ATTR_DECIMAL, True):
         decimal = ","
     else:
         decimal = "."
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
 
-    if not is_valid_timezone(timezone_identifier):
+    if not timezone_identifier in pytz.all_timezones:
         _handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
     delimiter = call.data.get(ATTR_DELIMITER)
