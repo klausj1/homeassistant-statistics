@@ -86,11 +86,24 @@ def _prepare_data_to_import(file_path: str, call) -> dict:
     return stats
 
 def _handle_arguments(file_path: str, call):
+
+    def is_valid_timezone(timezone_identifier: str) -> bool:
+        try:
+            zoneinfo.ZoneInfo(timezone_identifier)
+            return True
+        except zoneinfo.ZoneInfoNotFoundError:
+            return False
+
+    print(call)
     if call.data.get(ATTR_DECIMAL, True):
         decimal = ","
     else:
         decimal = "."
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
+
+    if not is_valid_timezone(timezone_identifier):
+        _handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
+
     delimiter = call.data.get(ATTR_DELIMITER)
     _LOGGER.info("Importing statistics from file: %s", file_path)
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
