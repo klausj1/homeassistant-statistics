@@ -13,6 +13,7 @@ from homeassistant.components.recorder.statistics import (
     valid_statistic_id,
 )
 from homeassistant.core import HomeAssistant, valid_entity_id
+from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -27,7 +28,7 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=unused-argument
     """Set up is called when Home Assistant is loading our component."""
 
-    def handle_import_from_file(call):
+    def handle_import_from_file(call: ServiceCall):
         """
         Handle the service call.
         This method is the only method which needs the hass object, all other methods are independent of it.
@@ -61,7 +62,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
     # Return boolean to indicate that initialization was successful.
     return True
 
-def _prepare_data_to_import(file_path: str, call) -> dict:
+def _prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
     """
     Prepare data to import statistics from a file.
 
@@ -83,7 +84,21 @@ def _prepare_data_to_import(file_path: str, call) -> dict:
     stats = _handle_dataframe(df, timezone_identifier)
     return stats
 
-def _handle_arguments(file_path: str, call):
+def _handle_arguments(file_path: str, call: ServiceCall) -> tuple:
+    """
+    Handle the arguments for importing statistics from a file.
+
+    Args:
+        file_path (str): The path of the file to import statistics from.
+        call (ServiceCall): The service call object containing additional data.
+
+    Returns:
+        tuple: A tuple containing the decimal separator, timezone identifier, and delimiter.
+
+    Raises:
+        ValueError: If the timezone identifier is invalid.
+        FileNotFoundError: If the file path does not exist.
+    """
 
     if call.data.get(ATTR_DECIMAL, True):
         decimal = ","
@@ -104,7 +119,7 @@ def _handle_arguments(file_path: str, call):
         _handle_error(f"path {file_path} does not exist.")
     return decimal,timezone_identifier,delimiter
 
-def _handle_dataframe(df, timezone_identifier):
+def _handle_dataframe(df: pd.DataFrame, timezone_identifier: str) -> dict:
     """
     Process a dataframe and extract statistics based on the specified columns and timezone.
 
@@ -152,7 +167,20 @@ def _handle_dataframe(df, timezone_identifier):
         stats[statistic_id][1].append(new_stat)
     return stats
 
-def _get_source(statistic_id) -> str:
+def _get_source(statistic_id: str) -> str:
+    """
+    Get the source of a statistic based on the given statistic_id.
+
+    Args:
+        statistic_id (str): The ID of the statistic.
+
+    Returns:
+        str: The source of the statistic.
+
+    Raises:
+        ValueError: If the statistic_id is invalid.
+
+    """
     if valid_entity_id(statistic_id):
         source = statistic_id.split(".")[0]
         if source == "recorder":
@@ -169,7 +197,7 @@ def _get_source(statistic_id) -> str:
 
     return source
 
-def _get_mean_stat(row, timezone):
+def _get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo) -> dict:
     """
     Process a row and extract mean statistics based on the specified columns and timezone.
 
@@ -189,8 +217,9 @@ def _get_mean_stat(row, timezone):
                 "max": row["max"],
                 "mean": row["mean"],
             }
+    return { }
 
-def _get_sum_stat(row, timezone):
+def _get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo) -> dict:
     """
     Process a row and extract sum statistics based on the specified columns and timezone.
 
@@ -208,8 +237,9 @@ def _get_sum_stat(row, timezone):
             "sum": row["sum"],
             "state": row["state"],
         }
+    return { }
 
-def _is_full_hour(timestamp_str) -> bool:
+def _is_full_hour(timestamp_str: str) -> bool:
     """
     Check if the given timestamp is a full hour.
 
@@ -236,7 +266,7 @@ def _is_full_hour(timestamp_str) -> bool:
 
     return True
 
-def _is_valid_float(value) -> bool:
+def _is_valid_float(value: str) -> bool:
     """
     Check if the given value is a valid float.
 
@@ -253,7 +283,7 @@ def _is_valid_float(value) -> bool:
     except ValueError:
         return False
 
-def _min_max_mean_are_valid(min_value, max_value, mean_value):
+def _min_max_mean_are_valid(min_value: str, max_value: str, mean_value: str) -> bool:
     """
     Check if the given min, max, and mean values are valid.
 
@@ -267,8 +297,7 @@ def _min_max_mean_are_valid(min_value, max_value, mean_value):
     """
     if min_value <= mean_value <= max_value:
         return True
-    else:
-        raise HomeAssistantError(f"Invalid values: min: {min_value}, max: {max_value}, mean: {mean_value}, mean must be between min and max.")
+    raise HomeAssistantError(f"Invalid values: min: {min_value}, max: {max_value}, mean: {mean_value}, mean must be between min and max.")
 
 def _are_columns_valid(columns: pd.DataFrame.columns) -> bool:
     """
@@ -297,6 +326,15 @@ def _are_columns_valid(columns: pd.DataFrame.columns) -> bool:
         )
     return True
 
-def _handle_error(error_string):
+def _handle_error(error_string: str) -> None:
+    """
+    Handle an error by logging a warning and raising a HomeAssistantError.
+
+    Args:
+        error_string (str): The error message.
+
+    Raises:
+        HomeAssistantError: The raised exception containing the error message.
+    """
     _LOGGER.warning(error_string)
     raise HomeAssistantError(error_string)

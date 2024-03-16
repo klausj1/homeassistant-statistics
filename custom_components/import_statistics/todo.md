@@ -9,11 +9,15 @@
     - OK Timestamp
     - OK valid number (float)
     - OK min <= mean <=max
-- Tests for columns
-    - Check without unit column
+- OK Tests for columns
+    - OK Check without unit column
 - Tests for handle_dataframe
 
+- Manual tests
 - Create version 1.0, adapt also HACS to this
+
+- Distribute to more files
+- Enhance readme with problems from forum
 
 ## Later
 
