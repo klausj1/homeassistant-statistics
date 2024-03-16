@@ -28,7 +28,7 @@ def test_get_source_invalid_statistic_id():
         _get_source(statistic_id)
         assert False, "Expected an exception to be raised for invalid statistic_id"
     except HomeAssistantError as e:
-        assert str(e) == f"invalid statistic_id. (must not start with ':'): {statistic_id}"
+        assert str(e) == f"Statistic_id {statistic_id} is invalid. Use either an existing entity ID (containing a '.'), or a statistic id (containing a ':')"
 
 def test_get_source_invalid_statistic_id_no_separator():
     """
@@ -39,4 +39,26 @@ def test_get_source_invalid_statistic_id_no_separator():
         _get_source(statistic_id)
         assert False, "Expected an exception to be raised for invalid statistic_id"
     except HomeAssistantError as e:
-        assert str(e) == f"invalid statistic_id (must contain either '.' or ':'): {statistic_id}"
+        assert str(e) == f"Statistic_id {statistic_id} is invalid. Use either an existing entity ID (containing a '.'), or a statistic id (containing a ':')"
+
+def test_get_source_invalid_external_statistic_id_wrong_domain():
+    """
+    Test the _get_source function with an invalid statistic_id that does not contain a dot or colon.
+    """
+    statistic_id = "recorder:temperature"
+    try:
+        _get_source(statistic_id)
+        assert False, "Expected an exception to be raised for invalid statistic_id"
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid statistic_id {statistic_id}. DOMAIN 'recorder' is not allowed."
+
+def test_get_source_invalid_statistic_id_wrong_domain():
+    """
+    Test the _get_source function with an invalid statistic_id that does not contain a dot or colon.
+    """
+    statistic_id = "recorder.temperature"
+    try:
+        _get_source(statistic_id)
+        assert False, "Expected an exception to be raised for invalid statistic_id"
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid statistic_id {statistic_id}. DOMAIN 'recorder' is not allowed."

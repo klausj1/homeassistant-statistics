@@ -62,7 +62,7 @@ def test_handle_dataframe_sum():
     """
     # Create a sample dataframe with 'sum'
     df = pd.DataFrame([
-        ["stat2.sum", "01.01.2022 00:00", "unit2", 100, "state2"]
+        ["stat2.sum", "01.01.2022 00:00", "unit2", 100, 200]
     ], columns=["statistic_id", "start", "unit", "sum", "state"])
 
     # Define the expected output
@@ -80,7 +80,7 @@ def test_handle_dataframe_sum():
                 {
                     "start": datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
                     "sum": 100,
-                    "state": "state2",
+                    "state": 200,
                 }
             ],
         ),

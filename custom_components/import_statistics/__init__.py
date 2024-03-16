@@ -51,14 +51,10 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
             _LOGGER.debug("Statistics:")
             _LOGGER.debug(statistics)
 
-            if valid_entity_id(metadata["statistic_id"]):
+            if metadata["source"] == "recorder":
                 async_import_statistics(hass, metadata, statistics)
-            elif valid_statistic_id(metadata["statistic_id"]):
-                async_add_external_statistics(hass, metadata, statistics)
             else:
-                _handle_error(
-                    f"statistic_id {metadata['statistic_id']} is valid. Use either an existing entity ID, or a statistic id (containing a ':')"
-                )
+                async_add_external_statistics(hass, metadata, statistics)
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
@@ -150,37 +146,129 @@ def _handle_dataframe(df, timezone_identifier):
             stats[statistic_id] = (metadata, [])
 
         if has_mean:
-            new_stat = {
-                "start": datetime.strptime(
-                    row["start"], "%d.%m.%Y %H:%M"
-                ).replace(tzinfo=timezone),
-                "min": row["min"],
-                "max": row["max"],
-                "mean": row["mean"],
-            }
-        else:
-            new_stat = {
-                "start": datetime.strptime(
-                    row["start"], "%d.%m.%Y %H:%M"
-                ).replace(tzinfo=timezone),
-                "sum": row["sum"],
-                "state": row["state"],
-            }
+            new_stat = _get_mean_stat(row, timezone)
+        if has_sum:
+            new_stat = _get_sum_stat(row, timezone)
         stats[statistic_id][1].append(new_stat)
     return stats
 
 def _get_source(statistic_id) -> str:
-    if "." in statistic_id:
+    if valid_entity_id(statistic_id):
+        source = statistic_id.split(".")[0]
+        if source == "recorder":
+            _handle_error(f"Invalid statistic_id {statistic_id}. DOMAIN 'recorder' is not allowed.")
         source = "recorder"
-    elif ":" in statistic_id:
+    elif valid_statistic_id(statistic_id):
         source = statistic_id.split(":")[0]
         if len(source) == 0:
-            _handle_error(f"invalid statistic_id. (must not start with ':'): {statistic_id}")
+            _handle_error(f"Implementation error, this must not happen. Invalid statistic_id. (must not start with ':'): {statistic_id}")
+        if source == "recorder":
+            _handle_error(f"Invalid statistic_id {statistic_id}. DOMAIN 'recorder' is not allowed.")
     else:
-        _handle_error(f"invalid statistic_id (must contain either '.' or ':'): {statistic_id}")
+        _handle_error(f"Statistic_id {statistic_id} is invalid. Use either an existing entity ID (containing a '.'), or a statistic id (containing a ':')")
 
     return source
 
+def _get_mean_stat(row, timezone):
+    """
+    Process a row and extract mean statistics based on the specified columns and timezone.
+
+    Args:
+        row (pandas.Series): The input row containing the statistics data.
+        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
+
+    Returns:
+        dict: A dictionary containing the extracted mean statistics.
+
+    """
+    if _is_full_hour(row["start"]) and _is_valid_float(row["min"]) and _is_valid_float(row["max"]) and _is_valid_float(row["mean"]):
+        if _min_max_mean_are_valid(row["min"], row["max"], row["mean"]):
+            return {
+                "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
+                "min": row["min"],
+                "max": row["max"],
+                "mean": row["mean"],
+            }
+
+def _get_sum_stat(row, timezone):
+    """
+    Process a row and extract sum statistics based on the specified columns and timezone.
+
+    Args:
+        row (pandas.Series): The input row containing the statistics data.
+        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
+
+    Returns:
+        dict: A dictionary containing the extracted sum statistics.
+
+    """
+    if _is_full_hour(row["start"]) and _is_valid_float(row["sum"]) and _is_valid_float(row["state"]):
+        return {
+            "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
+            "sum": row["sum"],
+            "state": row["state"],
+        }
+
+def _is_full_hour(timestamp_str) -> bool:
+    """
+    Check if the given timestamp is a full hour.
+
+    Args:
+        timestamp_str (str): The timestamp string in the format "%d.%m.%Y %H:%M:%S" or "%d.%m.%Y %H:%M".
+
+    Returns:
+        bool: True if the timestamp is a full hour, False is never returned.
+
+    Raises:
+        HomeAssistantError: If the timestamp is not a full hour.
+
+    """
+    try:
+        dt = datetime.strptime(timestamp_str, "%d.%m.%Y %H:%M:%S")
+    except ValueError as exc:
+        try:
+            dt = datetime.strptime(timestamp_str, "%d.%m.%Y %H:%M")
+        except ValueError:
+            raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M' or '%d.%m.%Y %H:%M:%S'.") from exc
+
+    if dt.minute != 0 or dt.second != 0:
+        raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be a full hour.")
+
+    return True
+
+def _is_valid_float(value) -> bool:
+    """
+    Check if the given value is a valid float.
+
+    Args:
+        value: The value to check.
+
+    Returns:
+        bool: True if the value is a valid float, False otherwise.
+
+    """
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+def _min_max_mean_are_valid(min_value, max_value, mean_value):
+    """
+    Check if the given min, max, and mean values are valid.
+
+    Args:
+        min_value (float): The minimum value.
+        max_value (float): The maximum value.
+        mean_value (float): The mean value.
+
+    Returns:
+        bool: True if the values are valid, False otherwise.
+    """
+    if min_value <= mean_value <= max_value:
+        return True
+    else:
+        raise HomeAssistantError(f"Invalid values: min: {min_value}, max: {max_value}, mean: {mean_value}, mean must be between min and max.")
 
 def _are_columns_valid(columns: pd.DataFrame.columns) -> bool:
     """
