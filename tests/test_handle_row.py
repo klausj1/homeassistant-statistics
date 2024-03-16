@@ -132,11 +132,25 @@ def test_is_valid_float_invalid():
     Test the _is_valid_float function with an invalid float value.
     """
     value = "abc"
-    assert not _is_valid_float(value)
+
+    try:
+        _ = _is_valid_float(value)
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid float value: {value}. Check the decimal separator."
+    else:
+        # If no exception is raised, fail the test
+        assert False, "Expected HomeAssistantError to be raised"
 
 def test_is_valid_float_empty():
     """
     Test the _is_valid_float function with an empty value.
     """
     value = ""
-    assert not _is_valid_float(value)
+
+    try:
+        _ = _is_valid_float(value)
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid float value: {value}. Check the decimal separator."
+    else:
+        # If no exception is raised, fail the test
+        assert False, "Expected HomeAssistantError to be raised"

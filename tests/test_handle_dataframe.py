@@ -234,7 +234,7 @@ def test_handle_dataframe_mean_sum():
         _stats = impstat._handle_dataframe(df, "UTC") # pylint: disable=protected-access
     except HomeAssistantError as e:
         # Check that the raised exception has the same error string
-        assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max'"
+        assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"
     else:
         # If no exception is raised, fail the test
         assert False, "Expected HomeAssistantError to be raised"

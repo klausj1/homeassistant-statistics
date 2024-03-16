@@ -280,8 +280,8 @@ def _is_valid_float(value: str) -> bool:
     try:
         float(value)
         return True
-    except ValueError:
-        return False
+    except ValueError as exc:
+        raise HomeAssistantError(f"Invalid float value: {value}. Check the decimal separator.") from exc
 
 def _min_max_mean_are_valid(min_value: str, max_value: str, mean_value: str) -> bool:
     """
@@ -311,18 +311,18 @@ def _are_columns_valid(columns: pd.DataFrame.columns) -> bool:
     """
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         _handle_error(
-            "The file must contain the columns 'statistic_id', 'start' and 'unit'"
+            "The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"
         )
     if not (
         ("mean" in columns and "min" in columns and "max" in columns)
         or ("sum" in columns)
     ):
         _handle_error(
-            "The file must contain either the columns 'mean', 'min' and 'max' or the column 'sum'"
+            "The file must contain either the columns 'mean', 'min' and 'max' or the column 'sum' (check delimiter)"
         )
     if ("mean" in columns or "min" in columns or "max" in columns) and "sum" in columns:
         _handle_error(
-            "The file must not contain the columns 'sum' and 'mean'/'min'/'max'"
+            "The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"
         )
     return True
 

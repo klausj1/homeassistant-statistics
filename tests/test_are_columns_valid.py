@@ -21,7 +21,7 @@ def test_are_columns_valid_missing_required_columns():
         _are_columns_valid(columns)
         assert False, "Expected an exception to be raised for missing required columns"
     except HomeAssistantError as e:
-        assert str(e) == "The file must contain the columns 'statistic_id', 'start' and 'unit'"
+        assert str(e) == "The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"
 
 def test_are_columns_valid_missing_optional_columns():
     """
@@ -39,4 +39,4 @@ def test_are_columns_valid_invalid_columns_combination():
         _are_columns_valid(columns)
         assert False, "Expected an exception to be raised for invalid combination of columns"
     except HomeAssistantError as e:
-        assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max'"
+        assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"
