@@ -1,9 +1,15 @@
 # ToDo
 
-- OK Add counter support (sum and state are identical); include unit
-  - OK Check floats
-- OK Add unit to measured values
-- OK Meaningful logging
-- Move to real system
-- Web documentation
-- Publish (HACS?) and post (?)
+- What shall be checked?
+  - OK Columns
+  - New statistic ID
+    - . oder : contained
+    - for '.': entity must exist: Does not work for test, needs hass-object
+  - Row:
+    - Timestamp
+    - valid number (float)
+    - min <= mean <=max
+- Tests for row
+- Tests for columns
+    - Check without unit column
+- Tests for handle_dataframe

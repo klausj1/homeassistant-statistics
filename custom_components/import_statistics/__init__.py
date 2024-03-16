@@ -15,17 +15,16 @@ from homeassistant.components.recorder.statistics import (
 from homeassistant.core import HomeAssistant, valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 import pytz
 from custom_components.import_statistics.const import ATTR_FILENAME, ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, DOMAIN
-
-from homeassistant.helpers.typing import ConfigType
 
 _LOGGER = logging.getLogger(__name__)
 
 # Use empty_config_schema because the component does not have any config options
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
-def setup(hass: HomeAssistant, config: ConfigType) -> bool:
+def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=unused-argument
     """Set up is called when Home Assistant is loading our component."""
 
     def handle_import_from_file(call):
@@ -127,27 +126,19 @@ def _handle_dataframe(df, timezone_identifier):
     columns = df.columns
     _LOGGER.debug("Columns:")
     _LOGGER.debug(columns)
-    if not _check_columns(columns):
+    if not _are_columns_valid(columns):
         _handle_error(
-            "Implementation error. _check_columns returned false, this should never happen!"
+            "Implementation error. _are_columns_valid returned false, this should never happen, because _are_columns_valid throws an exception!"
         )
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
     has_mean = "mean" in columns
     has_sum = "sum" in columns
-    if has_mean and has_sum:
-        _handle_error(
-            "Implementation error. has_mean and has_sum are both true, this should never happen!"
-        )
     for _index, row in df.iterrows():
         statistic_id = row["statistic_id"]
-        if statistic_id not in stats:
-            if "." in statistic_id:
-                source = "recorder"
-            elif ":" in statistic_id:
-                source = statistic_id.split(".")[0]
-            else:
-                _handle_error(f"invalid statistic_id (must contain either '.' or ':'): {statistic_id}")
+        if statistic_id not in stats: # New statistic id found
+
+            source = _get_source(statistic_id)
             metadata = {
                 "has_mean": has_mean,
                 "has_sum": has_sum,
@@ -178,7 +169,20 @@ def _handle_dataframe(df, timezone_identifier):
         stats[statistic_id][1].append(new_stat)
     return stats
 
-def _check_columns(columns: pd.DataFrame.columns) -> bool:
+def _get_source(statistic_id) -> str:
+    if "." in statistic_id:
+        source = "recorder"
+    elif ":" in statistic_id:
+        source = statistic_id.split(":")[0]
+        if len(source) == 0:
+            _handle_error(f"invalid statistic_id. (must not start with ':'): {statistic_id}")
+    else:
+        _handle_error(f"invalid statistic_id (must contain either '.' or ':'): {statistic_id}")
+
+    return source
+
+
+def _are_columns_valid(columns: pd.DataFrame.columns) -> bool:
     """
     Check if the given DataFrame columns meet the required criteria.
 

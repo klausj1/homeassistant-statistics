@@ -22,9 +22,9 @@ async def test_check_columns():
     """Checks if the check_columns method is working correctly"""
     #tmp = os.getcwd()
     df = pd.read_csv(f"{TESTFILEPATHS}/correctcolumns.csv", sep="\t", engine="python")
-    assert impstat._check_columns(df) is True # pylint: disable=protected-access
+    assert impstat._are_columns_valid(df) is True # pylint: disable=protected-access
 
     df = pd.read_csv(f"{TESTFILEPATHS}/wrongcolumns.csv", sep="\t", engine="python")
     with pytest.raises(HomeAssistantError) as excinfo:
-        impstat._check_columns(df)  # pylint: disable=protected-access
+        impstat._are_columns_valid(df)  # pylint: disable=protected-access
     assert str(excinfo.value) == "The file must contain the columns 'statistic_id', 'start' and 'unit'"
