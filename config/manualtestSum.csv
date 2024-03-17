@@ -1,0 +1,7 @@
+statistic_id	unit	start	sum
+sensor:testsum1	°	17.03.2024 00:00	10
+sensor:testsum1	°	17.03.2024 02:00	100
+sensor:testsum1	°	17.03.2024 04:00	200
+sensor:testsum2	°	17.03.2024 00:00	10
+sensor:testsum2	°	17.03.2024 02:00	20
+sensor:testsum2	°	17.03.2024 04:00	21
