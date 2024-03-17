@@ -2,7 +2,7 @@
 
 - Create version 1.0, adapt also HACS to this
 
-- Distribute to more files
+- Distribute code to more files
 - Enhance readme with problems from forum
 
 ## Later
