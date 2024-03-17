@@ -1,10 +1,9 @@
 # ToDo
 
-- Create version 1.0, adapt also HACS to this
-
-- Distribute code to more files
-- Enhance readme with problems from forum
+- Check if HACS shows version 1.0
 
 ## Later
 
+- Distribute code to different files
 - Provide date string like %d.%m.%Y %H:%M as parameter
+- Check if entity with '.' exists
