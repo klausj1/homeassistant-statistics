@@ -7,8 +7,7 @@ from homeassistant.exceptions import HomeAssistantError
 import custom_components.import_statistics as impstat
 
 def test_handle_dataframe_mean():
-    """
-    Test the _handle_dataframe function with a DataFrame that contains 'mean' values.
+    """Test the _handle_dataframe function with a DataFrame that contains 'mean' values.
 
     This function creates a DataFrame with two rows of data, each representing a different date with 'mean', 'min', and 'max' values.
     It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
@@ -59,8 +58,7 @@ def test_handle_dataframe_mean():
 
 
 def test_handle_dataframe_sum_state():
-    """
-    Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
+    """Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
 
     This function creates a DataFrame with one row of data, representing a date with a 'sum' value and a 'state'.
     It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
@@ -98,8 +96,7 @@ def test_handle_dataframe_sum_state():
     assert stats == expected_stats
 
 def test_handle_dataframe_sum():
-    """
-    Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
+    """Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
 
     This function creates a DataFrame with one row of data, representing a date with a 'sum' value and a 'state'.
     It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
@@ -136,8 +133,7 @@ def test_handle_dataframe_sum():
     assert stats == expected_stats
 
 def test_handle_dataframe_multiple_mean():
-    """
-    Test the _handle_dataframe function with a DataFrame that contains 'mean' values.
+    """Test the _handle_dataframe function with a DataFrame that contains 'mean' values.
 
     This function creates a DataFrame with two rows of data, each representing a different date with 'mean', 'min', and 'max' values.
     It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
@@ -253,8 +249,7 @@ def test_handle_dataframe_multiple_mean():
     assert stats == expected_stats
 
 def test_handle_dataframe_mean_sum():
-    """
-    Test the _handle_dataframe function with a DataFrame that contains 'mean' and 'sum' values.
+    """Test the _handle_dataframe function with a DataFrame that contains 'mean' and 'sum' values.
 
     This function creates a DataFrame with two rows of data, each representing a different date with 'mean', 'min', and 'max' values.
     It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
