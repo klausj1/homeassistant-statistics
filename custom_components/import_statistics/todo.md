@@ -1,9 +1,10 @@
 # ToDo
 
-- OK Add counter support (sum and state are identical); include unit
-  - OK Check floats
-- OK Add unit to measured values
-- OK Meaningful logging
-- Move to real system
-- Web documentation
-- Publish (HACS?) and post (?)
+- Create version 1.0, adapt also HACS to this
+
+- Distribute code to more files
+- Enhance readme with problems from forum
+
+## Later
+
+- Provide date string like %d.%m.%Y %H:%M as parameter

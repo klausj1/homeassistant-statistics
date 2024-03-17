@@ -85,7 +85,7 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [commits]: https://github.com/klausj1/homeassistant-statistics/commits/main
 [exampleimg]: example.png
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg
-[forum]: https://community.home-assistant.io/
+[forum]: https://community.home-assistant.io/t/custom-integration-to-import-long-term-statistics-from-a-file-like-csv-or-tsv
 [license-shield]: https://img.shields.io/github/license/klausj1/homeassistant-statistics.svg
 [releases-shield]: https://img.shields.io/github/v/release/klausj1/homeassistant-statistics?include_prereleases
 [releases]: https://github.com/klausj1/homeassistant-statistics/releases

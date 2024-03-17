@@ -1,0 +1,4 @@
+pytest
+pytest-cov>=4.0.0
+pytest-homeassistant-custom-component
+#pytest-asyncio
