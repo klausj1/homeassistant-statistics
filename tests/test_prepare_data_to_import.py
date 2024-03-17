@@ -7,8 +7,7 @@ from custom_components.import_statistics import _prepare_data_to_import
 from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER
 
 def test_prepare_data_to_import_valid_file_dot():
-    """
-    Test _prepare_data_to_import function with a valid file.
+    """Test _prepare_data_to_import function with a valid file.
 
     This function calls the _prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
     """
@@ -46,15 +45,13 @@ def test_prepare_data_to_import_valid_file_dot():
     call = ServiceCall("domain_name", "service_name", data, False)
 
     # Call the function
-    print("test_prepare_data_to_import_valid_file")
     stats = _prepare_data_to_import(file_path, call)
 
     # Check the output
     assert stats == expected_stats
 
 def test_prepare_data_to_import_valid_file_comma():
-    """
-    Test _prepare_data_to_import function with a valid file.
+    """Test _prepare_data_to_import function with a valid file.
 
     This function calls the _prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
     """
@@ -92,15 +89,13 @@ def test_prepare_data_to_import_valid_file_comma():
     call = ServiceCall("domain_name", "service_name", data, False)
 
     # Call the function
-    print("test_prepare_data_to_import_valid_file")
     stats = _prepare_data_to_import(file_path, call)
 
     # Check the output
     assert stats == expected_stats
 
 def test_prepare_data_to_import_wrong_separator():
-    """
-    Test _prepare_data_to_import function with a valid file.
+    """Test _prepare_data_to_import function with a valid file.
 
     This function calls the _prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
     """
@@ -117,7 +112,6 @@ def test_prepare_data_to_import_wrong_separator():
 
     try:
         # Call the function
-        print("test_prepare_data_to_import_wrong_separator")
         _ = _prepare_data_to_import(file_path, call)
     except HomeAssistantError as e:
         assert str(e) == "Invalid float value: 1131,3. Check the decimal separator."
