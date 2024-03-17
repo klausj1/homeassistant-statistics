@@ -7,9 +7,7 @@ from custom_components.import_statistics import _handle_arguments
 from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER
 
 def test_handle_arguments_all_valid():
-    """
-    Test the _handle_arguments function with a valid timezone identifier and a valid file path.
-    """
+    """Test the _handle_arguments function with a valid timezone identifier and a valid file path."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
@@ -27,9 +25,7 @@ def test_handle_arguments_all_valid():
     assert delimiter == ","
 
 def test_handle_arguments_all_valid_other_parameters():
-    """
-    Test the _handle_arguments function with a valid timezone identifier and a valid file path, with some changed parameters
-    """
+    """Test the _handle_arguments function with a valid timezone identifier and a valid file path, with some changed parameters."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
@@ -47,9 +43,7 @@ def test_handle_arguments_all_valid_other_parameters():
     assert delimiter == "/t"
 
 def test_handle_arguments_invalid_timezone():
-    """
-    Test the _handle_arguments function with an invalid timezone identifier.
-    """
+    """Test the _handle_arguments function with an invalid timezone identifier."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
@@ -68,9 +62,7 @@ def test_handle_arguments_invalid_timezone():
 
 
 def test_handle_arguments_file_not_found():
-    """
-    Test the _handle_arguments function with a file that does not exist.
-    """
+    """Test the _handle_arguments function with a file that does not exist."""
     file_path = "/path/to/nonexistent_file.csv"
     data = {
         ATTR_DECIMAL: True,
