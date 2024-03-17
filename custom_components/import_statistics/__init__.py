@@ -96,6 +96,7 @@ def _handle_arguments(file_path: str, call: ServiceCall) -> tuple:
     Raises:
         ValueError: If the timezone identifier is invalid.
         FileNotFoundError: If the file path does not exist.
+
     """
 
     if call.data.get(ATTR_DECIMAL, True):
@@ -130,6 +131,7 @@ def _handle_dataframe(df: pd.DataFrame, timezone_identifier: str) -> dict:
 
     Raises:
         ImplementationError: If both 'mean' and 'sum' columns are present in the columns list.
+
     """
     columns = df.columns
     _LOGGER.debug("Columns:")
@@ -293,6 +295,7 @@ def _min_max_mean_are_valid(min_value: str, max_value: str, mean_value: str) -> 
 
     Returns:
         bool: True if the values are valid, False otherwise.
+
     """
     if min_value <= mean_value <= max_value:
         return True
@@ -306,6 +309,7 @@ def _are_columns_valid(columns: pd.DataFrame.columns) -> bool:
 
     Returns:
         bool: True if the columns meet the required criteria, False otherwise.
+
     """
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         _handle_error(
@@ -332,6 +336,7 @@ def _handle_error(error_string: str) -> None:
 
     Raises:
         HomeAssistantError: The raised exception containing the error message.
+
     """
     _LOGGER.warning(error_string)
     raise HomeAssistantError(error_string)
