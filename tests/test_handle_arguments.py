@@ -10,7 +10,7 @@ def test_handle_arguments_all_valid():
     """
     Test the _handle_arguments function with a valid timezone identifier and a valid file path.
     """
-    file_path = "tests/testfiles/correctcolumns.csv"
+    file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
         ATTR_DECIMAL: True,
@@ -30,7 +30,7 @@ def test_handle_arguments_all_valid_other_parameters():
     """
     Test the _handle_arguments function with a valid timezone identifier and a valid file path, with some changed parameters
     """
-    file_path = "tests/testfiles/correctcolumns.csv"
+    file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
         ATTR_DECIMAL: False,
@@ -50,7 +50,7 @@ def test_handle_arguments_invalid_timezone():
     """
     Test the _handle_arguments function with an invalid timezone identifier.
     """
-    file_path = "tests/testfiles/correctcolumns.csv"
+    file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
         ATTR_DECIMAL: True,

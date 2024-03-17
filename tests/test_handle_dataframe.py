@@ -58,7 +58,7 @@ def test_handle_dataframe_mean():
     assert stats == expected_stats
 
 
-def test_handle_dataframe_sum():
+def test_handle_dataframe_sum_state():
     """
     Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
 
@@ -86,6 +86,44 @@ def test_handle_dataframe_sum():
                     "start": datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
                     "sum": 100,
                     "state": 200,
+                }
+            ],
+        ),
+    }
+
+    # Call the function
+    stats = impstat._handle_dataframe(df, "UTC") # pylint: disable=protected-access
+
+    # Check the output
+    assert stats == expected_stats
+
+def test_handle_dataframe_sum():
+    """
+    Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
+
+    This function creates a DataFrame with one row of data, representing a date with a 'sum' value and a 'state'.
+    It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
+    """
+    # Create a sample dataframe with 'sum'
+    df = pd.DataFrame([
+        ["stat2.sum", "01.01.2022 00:00", "unit2", 100]
+    ], columns=["statistic_id", "start", "unit", "sum"])
+
+    # Define the expected output
+    expected_stats = {
+        "stat2.sum": (
+            {
+                "has_mean": False,
+                "has_sum": True,
+                "statistic_id": "stat2.sum",
+                "name": None,
+                "source": "recorder",
+                "unit_of_measurement": "unit2",
+            },
+            [
+                {
+                    "start": datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
+                    "sum": 100,
                 }
             ],
         ),

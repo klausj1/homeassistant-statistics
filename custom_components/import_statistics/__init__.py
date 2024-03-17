@@ -231,12 +231,20 @@ def _get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo) -> dict:
         dict: A dictionary containing the extracted sum statistics.
 
     """
-    if _is_full_hour(row["start"]) and _is_valid_float(row["sum"]) and _is_valid_float(row["state"]):
-        return {
+    if _is_full_hour(row["start"]) and _is_valid_float(row["sum"]):
+        if "state" in row.index:
+            if _is_valid_float(row["state"]):
+                return {
+                    "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
+                    "sum": row["sum"],
+                    "state": row["state"],
+                }
+        else:
+            return {
             "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
             "sum": row["sum"],
-            "state": row["state"],
         }
+
     return { }
 
 def _is_full_hour(timestamp_str: str) -> bool:
