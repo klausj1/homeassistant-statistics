@@ -58,7 +58,7 @@ The examples are hopefully self-explaining, just some additional information:
 - You can import:
     - Either statistics for existing sensors (internal statistics). These sensors have a '.' in its name, e.g. sensor.sun_solar_azimuth
         - If you try to import such a sensor which does not exist, you will see this sensor under developer tools / statistics, with an error. You can fix the error there, whereas fix means, remove it from database again
-    - Or statistics for not existing sensors (external statistics). These sensors have a ':' in its name, e.g. sensor.not_existing_sun_solar_azimuth
+    - Or statistics for not existing sensors (external statistics). These sensors have a ':' in its name, e.g. sensor:not_existing_sun_solar_azimuth
 - min/max/mean are pretty straight forward, whereas counters are more complex. To understand what `sum`and `state` means, you can e.g. check [this](https://developers.home-assistant.io/blog/2021/08/16/state_class_total/)
     - You can set sum to 0, if state is enough for you. Or use the same value for sum and state. Or only import sum.
     - You have to align the imported values with the first current value in your database, otherwise there will be a spike, as the difference between e.g. to energy values at 00:00 and 01:00 is the used energy for the hour starting at 00:00
