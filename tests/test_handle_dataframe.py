@@ -4,7 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import pandas as pd
 from homeassistant.exceptions import HomeAssistantError
-import custom_components.import_statistics as impstat
+import custom_components.import_statistics.prepare_data as prepare_data
 
 def test_handle_dataframe_mean():
     """Test the _handle_dataframe function with a DataFrame that contains 'mean' values.
@@ -51,7 +51,7 @@ def test_handle_dataframe_mean():
     }
 
     # Call the function
-    stats = impstat._handle_dataframe(df, "UTC") # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC") # pylint: disable=protected-access
 
     # Check the output
     assert stats == expected_stats
@@ -90,7 +90,7 @@ def test_handle_dataframe_sum_state():
     }
 
     # Call the function
-    stats = impstat._handle_dataframe(df, "UTC") # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC") # pylint: disable=protected-access
 
     # Check the output
     assert stats == expected_stats
@@ -127,7 +127,7 @@ def test_handle_dataframe_sum():
     }
 
     # Call the function
-    stats = impstat._handle_dataframe(df, "UTC") # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC") # pylint: disable=protected-access
 
     # Check the output
     assert stats == expected_stats
@@ -243,7 +243,7 @@ def test_handle_dataframe_multiple_mean():
 }
 
     # Call the function
-    stats = impstat._handle_dataframe(df, "Europe/Berlin") # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "Europe/Berlin") # pylint: disable=protected-access
 
     # Check the output
     assert stats == expected_stats
@@ -264,7 +264,7 @@ def test_handle_dataframe_mean_sum():
 
     try:
         # Call the function
-        _stats = impstat._handle_dataframe(df, "UTC") # pylint: disable=protected-access
+        _stats = prepare_data.handle_dataframe(df, "UTC") # pylint: disable=protected-access
     except HomeAssistantError as e:
         # Check that the raised exception has the same error string
         assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"
