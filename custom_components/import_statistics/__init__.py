@@ -1,11 +1,8 @@
 """The import_statistics integration."""
 
 from datetime import datetime
-import os
 import time
 import zoneinfo
-
-import pandas as pd
 
 from homeassistant.components.recorder.history import state_changes_during_period
 from homeassistant.components.recorder.statistics import (
