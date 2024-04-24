@@ -6,7 +6,7 @@ from custom_components.import_statistics.helpers import is_valid_float
 from custom_components.import_statistics.helpers import min_max_mean_are_valid
 
 def test_seconds_not_allowed():
-    """Test the is_full_hour function with seconds, what is not allowed"""
+    """Test the is_full_hour function with seconds, what is not allowed."""
     timestamp_str = "01.01.2022 12:00:00"
 
     try:
