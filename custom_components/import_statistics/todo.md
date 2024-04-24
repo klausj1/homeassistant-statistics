@@ -3,7 +3,7 @@
 - OK Distribute code to different files
 - OK Fix bug with seconds in timestamp (only support minutes, and add tests for some “crazy” timestamp)
 - Provide date string like %d.%m.%Y %H:%M as parameter (Allow different dateTime-formats)
-    - just work
+    - search for ToDo: Add dateTime Format; name of parameter: datetime_format
 - Check if entity with '.' exists
     - found out how to do this: use hass.states.get("sensor.sun_next_dawn"); this also returns the unit
 - Take the unit from existing entity

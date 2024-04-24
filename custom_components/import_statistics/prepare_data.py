@@ -26,10 +26,10 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
         ValueError: If there is an implementation error.
 
     """
-    decimal, timezone_identifier, delimiter = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter = handle_arguments(file_path, call) # ToDo: Add dateTime Format
 
     df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
-    stats = handle_dataframe(df, timezone_identifier)
+    stats = handle_dataframe(df, timezone_identifier) # ToDo: Add dateTime Format
     return stats
 
 def handle_arguments(file_path: str, call: ServiceCall) -> tuple:

@@ -57,6 +57,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
             time.sleep(0.001)
         _LOGGER.debug(f"History of {entity_id}: {z.result()}")
 
+# Here the correct code starts ...
         stats = prepare_data.prepare_data_to_import(file_path, call)
 
         for stat in stats.values():
