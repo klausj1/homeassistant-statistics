@@ -103,12 +103,9 @@ def is_full_hour(timestamp_str: str) -> bool:
 
     """
     try:
-        dt = datetime.strptime(timestamp_str, "%d.%m.%Y %H:%M:%S")
+        dt = datetime.strptime(timestamp_str, "%d.%m.%Y %H:%M")
     except ValueError as exc:
-        try:
-            dt = datetime.strptime(timestamp_str, "%d.%m.%Y %H:%M")
-        except ValueError:
-            raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M' or '%d.%m.%Y %H:%M:%S'.") from exc
+        raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M'.") from exc
 
     if dt.minute != 0 or dt.second != 0:
         raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be a full hour.")

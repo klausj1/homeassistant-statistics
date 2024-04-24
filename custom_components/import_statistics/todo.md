@@ -1,8 +1,7 @@
 # ToDo
 
-- Distribute code to different files
-    - just work
-- Fix bug with seconds in timestamp (only support minutes, and add tests for some “crazy” timestamp)
+- OK Distribute code to different files
+- OK Fix bug with seconds in timestamp (only support minutes, and add tests for some “crazy” timestamp)
 - Provide date string like %d.%m.%Y %H:%M as parameter (Allow different dateTime-formats)
     - just work
 - Check if entity with '.' exists

@@ -5,27 +5,28 @@ from custom_components.import_statistics.helpers import is_full_hour
 from custom_components.import_statistics.helpers import is_valid_float
 from custom_components.import_statistics.helpers import min_max_mean_are_valid
 
-def test_is_full_hour_valid():
-    """Test the is_full_hour function with a valid full hour timestamp."""
+def test_seconds_not_allowed():
+    """Test the is_full_hour function with seconds, what is not allowed"""
     timestamp_str = "01.01.2022 12:00:00"
-
-    result = is_full_hour(timestamp_str)
-    assert result is True
-
-
-def test_is_full_hour_invalid_minute():
-    """Test the is_full_hour function with an invalid timestamp due to non-zero minute."""
-    timestamp_str = "01.01.2022 12:30:00"
 
     try:
         is_full_hour(timestamp_str)
         assert False, "Expected an exception to be raised for invalid timestamp"
     except HomeAssistantError as e:
-        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be a full hour."
+        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M'."
 
-def test_is_full_hour_invalid_second():
-    """Test the is_full_hour function with an invalid timestamp due to non-zero second."""
-    timestamp_str = "01.01.2022 12:00:30"
+    timestamp_str = "01.01.2022 12:00:05"
+
+    try:
+        is_full_hour(timestamp_str)
+        assert False, "Expected an exception to be raised for invalid timestamp"
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M'."
+
+
+def test_is_full_hour_invalid_minute():
+    """Test the is_full_hour function with an invalid timestamp due to non-zero minute."""
+    timestamp_str = "01.01.2022 12:30"
 
     try:
         is_full_hour(timestamp_str)
@@ -48,17 +49,7 @@ def test_is_full_hour_no_minute():
         is_full_hour(timestamp_str)
         assert False, "Expected an exception to be raised for invalid timestamp"
     except HomeAssistantError as e:
-        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M' or '%d.%m.%Y %H:%M:%S'."
-
-def test_is_full_hour_invalid_minute_second():
-    """Test the is_full_hour function with an invalid timestamp due to non-zero second."""
-    timestamp_str = "01.01.2022 12:01:30"
-
-    try:
-        is_full_hour(timestamp_str)
-        assert False, "Expected an exception to be raised for invalid timestamp"
-    except HomeAssistantError as e:
-        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be a full hour."
+        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M'."
 
 def test_min_max_mean_are_valid_valid_values():
     """Test the min_max_mean_are_valid function with valid values."""

@@ -56,7 +56,6 @@ def test_handle_dataframe_mean():
     # Check the output
     assert stats == expected_stats
 
-
 def test_handle_dataframe_sum_state():
     """Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
 
