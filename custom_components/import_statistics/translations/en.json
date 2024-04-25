@@ -18,6 +18,10 @@
                 "timezone_identifier": {
                     "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)",
                     "name": "timezone_identifier"
+                },
+                "datetime_format": {
+                    "name": "datetime_format",
+                    "description": "The format of the datetime strings. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
                 }
             },
             "name": "import_from_file"
