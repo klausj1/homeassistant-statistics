@@ -4,25 +4,26 @@ from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.prepare_data import handle_arguments
-from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER
+from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT
 
 def test_handle_arguments_all_valid():
-    """Test the handle_arguments function with a valid timezone identifier and a valid file path."""
+    """Test the handle_arguments function with a valid timezone identifier and a valid file path, no optional parameters."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
         ATTR_DECIMAL: True,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: ","
+        ATTR_DELIMITER: ",",
     }
 
     call = ServiceCall("domain_name", "service_name", data, False)
 
-    decimal, timezone_identifier, delimiter = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(file_path, call)
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == ","
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
 
 def test_handle_arguments_all_valid_other_parameters():
     """Test the handle_arguments function with a valid timezone identifier and a valid file path, with some changed parameters."""
@@ -31,16 +32,18 @@ def test_handle_arguments_all_valid_other_parameters():
     data = {
         ATTR_DECIMAL: False,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "/t"
+        ATTR_DELIMITER: "/t",
+        ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M:%S"
     }
 
     call = ServiceCall("domain_name", "service_name", data, False)
 
-    decimal, timezone_identifier, delimiter = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(file_path, call)
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
     assert delimiter == "/t"
+    assert datetime_format == "%Y-%m-%d %H:%M:%S"
 
 def test_handle_arguments_invalid_timezone():
     """Test the handle_arguments function with an invalid timezone identifier."""

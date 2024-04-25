@@ -9,6 +9,7 @@ import pandas as pd
 from homeassistant.components.recorder.statistics import valid_statistic_id
 from homeassistant.core import valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
+from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,59 +42,62 @@ def get_source(statistic_id: str) -> str:
 
     return source
 
-def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo) -> dict:
+def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format = DATETIME_DEFAULT_FORMAT) -> dict: # ToDo: Add test for datetime_format on this level
     """Process a row and extract mean statistics based on the specified columns and timezone.
 
     Args:
         row (pandas.Series): The input row containing the statistics data.
         timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
+        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
 
     Returns:
         dict: A dictionary containing the extracted mean statistics.
 
     """
-    if is_full_hour(row["start"]) and is_valid_float(row["min"]) and is_valid_float(row["max"]) and is_valid_float(row["mean"]):
+    if is_full_hour(row["start"], datetime_format) and is_valid_float(row["min"]) and is_valid_float(row["max"]) and is_valid_float(row["mean"]):
         if min_max_mean_are_valid(row["min"], row["max"], row["mean"]):
             return {
-                "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
+                "start": datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
                 "min": row["min"],
                 "max": row["max"],
                 "mean": row["mean"],
             }
     return { }
 
-def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo) -> dict:
+def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format = DATETIME_DEFAULT_FORMAT) -> dict: # ToDo: Add test for datetime_format on this level
     """Process a row and extract sum statistics based on the specified columns and timezone.
 
     Args:
         row (pandas.Series): The input row containing the statistics data.
         timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
+        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
 
     Returns:
         dict: A dictionary containing the extracted sum statistics.
 
     """
-    if is_full_hour(row["start"]) and is_valid_float(row["sum"]):
+    if is_full_hour(row["start"], datetime_format) and is_valid_float(row["sum"]):
         if "state" in row.index:
             if is_valid_float(row["state"]):
                 return {
-                    "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
+                    "start": datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
                     "sum": row["sum"],
                     "state": row["state"],
                 }
         else:
             return {
-            "start": datetime.strptime(row["start"], "%d.%m.%Y %H:%M").replace(tzinfo=timezone),
+            "start": datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
             "sum": row["sum"],
         }
 
     return { }
 
-def is_full_hour(timestamp_str: str) -> bool:
+def is_full_hour(timestamp_str: str, datetime_format = DATETIME_DEFAULT_FORMAT) -> bool: # ToDo: Add test for datetime_format on this level
     """Check if the given timestamp is a full hour.
 
     Args:
-        timestamp_str (str): The timestamp string in the format "%d.%m.%Y %H:%M:%S" or "%d.%m.%Y %H:%M".
+        timestamp_str (str): The timestamp string
+        datetime_format (str): The format of the provided timestamp_str, e.g. "%d.%m.%Y %H:%M"
 
     Returns:
         bool: True if the timestamp is a full hour, False is never returned.
@@ -103,9 +107,9 @@ def is_full_hour(timestamp_str: str) -> bool:
 
     """
     try:
-        dt = datetime.strptime(timestamp_str, "%d.%m.%Y %H:%M")
+        dt = datetime.strptime(timestamp_str, datetime_format)
     except ValueError as exc:
-        raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M'.") from exc
+        raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '{datetime_format}'.") from exc
 
     if dt.minute != 0 or dt.second != 0:
         raise HomeAssistantError(f"Invalid timestamp: {timestamp_str}. The timestamp must be a full hour.")

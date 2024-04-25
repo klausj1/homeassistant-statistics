@@ -4,7 +4,7 @@ import pandas as pd
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from custom_components.import_statistics.prepare_data import prepare_data_to_import
-from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER
+from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, DATETIME_DEFAULT_FORMAT
 
 def test_prepare_data_to_import_valid_file_dot():
     """Test prepare_data_to_import function with a valid file.
@@ -25,7 +25,7 @@ def test_prepare_data_to_import_valid_file_dot():
             },
             [
                 {
-                    "start": pd.to_datetime("26.01.2024 00:00", format="%d.%m.%Y %H:%M").tz_localize("Europe/London"),
+                    "start": pd.to_datetime("26.01.2024 00:00", format=DATETIME_DEFAULT_FORMAT).tz_localize("Europe/London"),
                     "min": 1131.3,
                     "max": 1231.5,
                     "mean": 1181,
@@ -69,7 +69,7 @@ def test_prepare_data_to_import_valid_file_comma():
             },
             [
                 {
-                    "start": pd.to_datetime("26.01.2024 00:00", format="%d.%m.%Y %H:%M").tz_localize("Europe/London"),
+                    "start": pd.to_datetime("26.01.2024 00:00", format=DATETIME_DEFAULT_FORMAT).tz_localize("Europe/London"),
                     "min": 1131.3,
                     "max": 1231.5,
                     "mean": 1181,

@@ -9,7 +9,7 @@ from homeassistant.core import ServiceCall
 import pytz
 import custom_components.import_statistics.helpers as helpers
 from custom_components.import_statistics.helpers import _LOGGER
-from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER
+from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT
 
 def prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
     """Prepare data to import statistics from a file.
@@ -26,10 +26,10 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
         ValueError: If there is an implementation error.
 
     """
-    decimal, timezone_identifier, delimiter = handle_arguments(file_path, call) # ToDo: Add dateTime Format
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(file_path, call)
 
     df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
-    stats = handle_dataframe(df, timezone_identifier) # ToDo: Add dateTime Format
+    stats = handle_dataframe(df, timezone_identifier, datetime_format)
     return stats
 
 def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
@@ -52,6 +52,12 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
         decimal = ","
     else:
         decimal = "."
+
+    if call.data.get(ATTR_DATETIME_FORMAT):
+        datetime_format = call.data.get(ATTR_DATETIME_FORMAT)
+    else:
+        datetime_format = DATETIME_DEFAULT_FORMAT
+
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
 
     if timezone_identifier not in pytz.all_timezones:
@@ -62,18 +68,20 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
+    _LOGGER.debug("Datetime format: %s", datetime_format)
 
     if not os.path.exists(file_path):
         helpers.handle_error(f"path {file_path} does not exist.")
-    return decimal,timezone_identifier,delimiter
+    return decimal,timezone_identifier,delimiter,datetime_format
 
-def handle_dataframe(df: pd.DataFrame, timezone_identifier: str) -> dict:
+def handle_dataframe(df: pd.DataFrame, timezone_identifier: str, datetime_format: str) -> dict: # ToDo: Add test for datetime_format on this level
     """Process a dataframe and extract statistics based on the specified columns and timezone.
 
     Args:
         df (pandas.DataFrame): The input dataframe containing the statistics data.
         columns (list): The list of columns to extract from the dataframe.
         timezone_identifier (str): The timezone identifier to convert the timestamps.
+        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
 
     Returns:
         dict: A dictionary containing the extracted statistics, organized by statistic_id.
@@ -109,8 +117,8 @@ def handle_dataframe(df: pd.DataFrame, timezone_identifier: str) -> dict:
             stats[statistic_id] = (metadata, [])
 
         if has_mean:
-            new_stat = helpers.get_mean_stat(row, timezone)
+            new_stat = helpers.get_mean_stat(row, timezone, datetime_format)
         if has_sum:
-            new_stat = helpers.get_sum_stat(row, timezone)
+            new_stat = helpers.get_sum_stat(row, timezone, datetime_format)
         stats[statistic_id][1].append(new_stat)
     return stats
