@@ -1,4 +1,4 @@
-"""Unit tests for functions is_full_hour, _get_mean_stat and _get_sum_stat."""
+"""Unit tests for functions is_full_hour, get_mean_stat and get_sum_stat."""
 
 from homeassistant.exceptions import HomeAssistantError
 from custom_components.import_statistics.helpers import is_full_hour
@@ -50,6 +50,36 @@ def test_is_full_hour_no_minute():
         assert False, "Expected an exception to be raised for invalid timestamp"
     except HomeAssistantError as e:
         assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '%d.%m.%Y %H:%M'."
+
+def test_is_full_hour_other_datetime_format():
+    """Test the is_full_hour function with an invalid timestamp due to non-zero minute."""
+    timestamp_str = "2022-12-27 12:00"
+    datetime_format = "%Y-%m-%d %H:%M"
+
+    result = is_full_hour(timestamp_str, datetime_format)
+    assert result is True
+
+def test_is_full_hour_timestampstr_and_datetime_format_do_not_match():
+    """Test the is_full_hour function with an invalid timestamp due to non-zero minute."""
+    timestamp_str = "01.01.2022 12:00"
+    datetime_format = "%Y/%m.%d %H:%M"
+
+    try:
+        is_full_hour(timestamp_str, datetime_format)
+        assert False, "Expected an exception to be raised for invalid timestamp"
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '{datetime_format}'."
+
+def test_is_full_hour_invalid_datetime_format():
+    """Test the is_full_hour function with an invalid timestamp due to non-zero minute."""
+    timestamp_str = "01.01.2022 12:00"
+    datetime_format = "invalid format"
+
+    try:
+        is_full_hour(timestamp_str, datetime_format)
+        assert False, "Expected an exception to be raised for invalid timestamp"
+    except HomeAssistantError as e:
+        assert str(e) == f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '{datetime_format}'."
 
 def test_min_max_mean_are_valid_valid_values():
     """Test the min_max_mean_are_valid function with valid values."""

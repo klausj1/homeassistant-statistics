@@ -74,7 +74,7 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
         helpers.handle_error(f"path {file_path} does not exist.")
     return decimal,timezone_identifier,delimiter,datetime_format
 
-def handle_dataframe(df: pd.DataFrame, timezone_identifier: str, datetime_format: str) -> dict: # ToDo: Add test for datetime_format on this level
+def handle_dataframe(df: pd.DataFrame, timezone_identifier: str, datetime_format: str) -> dict:
     """Process a dataframe and extract statistics based on the specified columns and timezone.
 
     Args:

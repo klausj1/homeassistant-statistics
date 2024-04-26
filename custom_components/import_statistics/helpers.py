@@ -42,7 +42,7 @@ def get_source(statistic_id: str) -> str:
 
     return source
 
-def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format = DATETIME_DEFAULT_FORMAT) -> dict: # ToDo: Add test for datetime_format on this level
+def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format = DATETIME_DEFAULT_FORMAT) -> dict:
     """Process a row and extract mean statistics based on the specified columns and timezone.
 
     Args:
@@ -64,7 +64,7 @@ def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format 
             }
     return { }
 
-def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format = DATETIME_DEFAULT_FORMAT) -> dict: # ToDo: Add test for datetime_format on this level
+def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format = DATETIME_DEFAULT_FORMAT) -> dict:
     """Process a row and extract sum statistics based on the specified columns and timezone.
 
     Args:
@@ -92,7 +92,7 @@ def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo,  datetime_format =
 
     return { }
 
-def is_full_hour(timestamp_str: str, datetime_format = DATETIME_DEFAULT_FORMAT) -> bool: # ToDo: Add test for datetime_format on this level
+def is_full_hour(timestamp_str: str, datetime_format = DATETIME_DEFAULT_FORMAT) -> bool:
     """Check if the given timestamp is a full hour.
 
     Args:
