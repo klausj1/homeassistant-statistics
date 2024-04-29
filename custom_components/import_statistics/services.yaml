@@ -1,5 +1,4 @@
 # Describes the format for available statistic import services
-# ToDo: Add dateTime Format
 
 import_from_file:
   fields:

@@ -52,12 +52,10 @@ def test_handle_dataframe_mean():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT) # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
 
     # Check the output
     assert stats == expected_stats
-
-# ToDo: Add similar test as below for sum
 
 def test_handle_dataframe_mean_other_datetime_format():
     """Test the _handle_dataframe function with a DataFrame that contains 'mean' values with another datetime format.
@@ -72,10 +70,6 @@ def test_handle_dataframe_mean_other_datetime_format():
     ], columns= ["statistic_id", "start", "unit", "min", "max", "mean"])
 
     datetime_format = "%d-%m-%Y %H:%M"
-
-    # df.loc[0, "min"] = 3
-    # df.loc[0, "max"] = 30
-    # df.loc[0, "mean"] = 25
 
     # Define the expected output
     expected_stats = {
@@ -106,7 +100,7 @@ def test_handle_dataframe_mean_other_datetime_format():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format) # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format)
 
     # Check the output
     assert stats == expected_stats
@@ -144,7 +138,47 @@ def test_handle_dataframe_sum_state():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT) # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
+
+    # Check the output
+    assert stats == expected_stats
+
+def test_handle_dataframe_sum_state_other_format():
+    """Test the _handle_dataframe function with a DataFrame that contains 'sum' values.
+
+    This function creates a DataFrame with one row of data, representing a date with a 'sum' value and a 'state'.
+    It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
+    """
+    # Create a sample dataframe with 'sum'
+    df = pd.DataFrame([
+        ["stat2.sum", "01-01-2022 00:00", "unit2", 100, 200]
+    ], columns=["statistic_id", "start", "unit", "sum", "state"])
+
+    datetime_format = "%d-%m-%Y %H:%M"
+
+    # Define the expected output
+    expected_stats = {
+        "stat2.sum": (
+            {
+                "has_mean": False,
+                "has_sum": True,
+                "statistic_id": "stat2.sum",
+                "name": None,
+                "source": "recorder",
+                "unit_of_measurement": "unit2",
+            },
+            [
+                {
+                    "start": datetime(2022, 1, 1, 0, 0, tzinfo=ZoneInfo("UTC")),
+                    "sum": 100,
+                    "state": 200,
+                }
+            ],
+        ),
+    }
+
+    # Call the function
+    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format)
 
     # Check the output
     assert stats == expected_stats
@@ -181,7 +215,7 @@ def test_handle_dataframe_sum():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT) # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
 
     # Check the output
     assert stats == expected_stats
@@ -297,7 +331,7 @@ def test_handle_dataframe_multiple_mean():
 }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT) # pylint: disable=protected-access
+    stats = prepare_data.handle_dataframe(df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT)
 
     # Check the output
     assert stats == expected_stats
@@ -318,7 +352,7 @@ def test_handle_dataframe_mean_sum():
 
     try:
         # Call the function
-        _stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT) # pylint: disable=protected-access
+        _stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
     except HomeAssistantError as e:
         # Check that the raised exception has the same error string
         assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"
