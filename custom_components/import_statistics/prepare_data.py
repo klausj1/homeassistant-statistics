@@ -29,6 +29,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
     decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(file_path, call)
 
     df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
+
     stats = handle_dataframe(df, timezone_identifier, datetime_format)
     return stats
 
