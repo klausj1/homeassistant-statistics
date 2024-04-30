@@ -188,3 +188,24 @@ def handle_error(error_string: str) -> None:
     """
     _LOGGER.warning(error_string)
     raise HomeAssistantError(error_string)
+
+def add_unit_to_dataframe(source: str, unit_from_entity: bool, row: pd.Series) -> str:
+    """Add unit to dataframe, or leave it empty for now if unit_from_entity is true.
+
+    Args:
+        source: "recorder" for internal statistics
+        unit_from_entity: True if the unit is taken from the entity, false if taken from input file.
+        row: Contents of the row of the importfile
+
+    Returns:
+        str: unit, or empty if unit_from_entity is true
+
+    Raises:
+        HomeAssistantError: The raised exception containing the error message.
+
+    """
+
+    # if source != recorder or unit_from_entity == false: check if unit exists in row, and take this. If not, throw HomeAssistantError
+    # else: leave unit empty
+
+    return "unit"
