@@ -56,20 +56,18 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
     # Return boolean to indicate that initialization was successful.
     return True
 
-def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> bool:
-    """Process a dataframe and extract statistics based on the specified columns and timezone.
+def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
+    """Checks all entities in stats if they exist.
 
     Args:
         hass: home assistant
-        entity_id: id to check for existence
-        timezone_identifier (str): The timezone identifier to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
+        stats: dictionary with all statistic data
 
     Returns:
-        bool: True if entity exists, otherwise exception is thrown
+        n/a
 
     Raises:
-        HomeAssistantError: If entity does not exist
+        n/a
 
     """
 
