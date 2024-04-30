@@ -57,7 +57,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
     return True
 
 def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
-    """Checks all entities in stats if they exist.
+    """Check all entities in stats if they exist.
 
     Args:
         hass: home assistant
@@ -79,7 +79,7 @@ def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
 
 
 def check_entity_exists(hass: HomeAssistant, entity_id) -> bool:
-    """Process a dataframe and extract statistics based on the specified columns and timezone.
+    """Check if a specific entity exists.
 
     Args:
         hass: home assistant
