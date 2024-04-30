@@ -44,3 +44,9 @@ import_from_file:
             - "%Y-%m-%d %H:%M"
             - "%m/%d/%Y %H:%M"
             - "%d/%m/%Y %H:%M"
+    unit_from_entity:
+      required: false
+      example: true
+      default: true
+      selector:
+        boolean:

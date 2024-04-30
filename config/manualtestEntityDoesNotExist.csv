@@ -1,3 +1,3 @@
 statistic_id	unit	start	min	max	mean
-sensor.no_sun_solar_azimuth	°	17.03.2024 00:00	1,3	130	13
+sensor.sun_solar_azimuth	°	17.03.2024 00:00	1,3	130	13
 sensor.no_sun_solar_azimuth	°	17.03.2024 02:00	2,3	230	23

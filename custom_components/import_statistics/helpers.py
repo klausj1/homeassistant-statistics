@@ -148,7 +148,7 @@ def min_max_mean_are_valid(min_value: str, max_value: str, mean_value: str) -> b
         return True
     raise HomeAssistantError(f"Invalid values: min: {min_value}, max: {max_value}, mean: {mean_value}, mean must be between min and max.")
 
-def are_columns_valid(columns: pd.DataFrame.columns) -> bool:
+def are_columns_valid(columns: pd.DataFrame.columns, unit_from_entity) -> bool:
     """Check if the given DataFrame columns meet the required criteria.
 
     Args:
@@ -158,9 +158,9 @@ def are_columns_valid(columns: pd.DataFrame.columns) -> bool:
         bool: True if the columns meet the required criteria, False otherwise.
 
     """
-    if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
+    if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_entity)):
         handle_error(
-            "The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"
+            "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
         )
     if not (
         ("mean" in columns and "min" in columns and "max" in columns)

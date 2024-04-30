@@ -26,14 +26,18 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
         """
 
         # Get the filename from the call data; done here, because the root path needs the hass object
+        _LOGGER.info("Service handle_import_from_file called")
         file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
 
         hass.states.set("import_statistics.import_from_file", file_path)
 
+        _LOGGER.info("Peparing data for import")
         stats = prepare_data.prepare_data_to_import(file_path, call)
 
+        _LOGGER.info("Checking if all entities exist")
         check_all_entities_exists(hass, stats)
 
+        _LOGGER.info("Calling hass import methods")
         for stat in stats.values():
             metadata = stat[0]
             statistics = stat[1]
@@ -50,6 +54,8 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
                     async_import_statistics(hass, metadata, statistics)
             else:
                 async_add_external_statistics(hass, metadata, statistics)
+
+        _LOGGER.info("Finished importing data")
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
