@@ -88,6 +88,7 @@ def handle_dataframe(df: pd.DataFrame, timezone_identifier: str, datetime_format
         columns (list): The list of columns to extract from the dataframe.
         timezone_identifier (str): The timezone identifier to convert the timestamps.
         datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
+        unit_from_entity: True if the unit is taken from the entity, false if taken from input file.
 
     Returns:
         dict: A dictionary containing the extracted statistics, organized by statistic_id.

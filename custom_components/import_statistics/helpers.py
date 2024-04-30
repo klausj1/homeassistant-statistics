@@ -148,11 +148,12 @@ def min_max_mean_are_valid(min_value: str, max_value: str, mean_value: str) -> b
         return True
     raise HomeAssistantError(f"Invalid values: min: {min_value}, max: {max_value}, mean: {mean_value}, mean must be between min and max.")
 
-def are_columns_valid(columns: pd.DataFrame.columns, unit_from_entity) -> bool:
+def are_columns_valid(columns: pd.DataFrame.columns, unit_from_entity: bool) -> bool:
     """Check if the given DataFrame columns meet the required criteria.
 
     Args:
         columns (pd.DataFrame.columns): The columns of the DataFrame.
+        unit_from_entity: True if the unit is taken from the entity, false if taken from input file.
 
     Returns:
         bool: True if the columns meet the required criteria, False otherwise.
