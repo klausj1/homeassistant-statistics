@@ -4,7 +4,7 @@ from homeassistant.exceptions import HomeAssistantError
 from custom_components.import_statistics.helpers import add_unit_to_dataframe
 
 def test_internal_from_entity_with_unit():
-    """internal statistics, unit_from_entity is true, unit is contained in row."""
+    """Internal statistics, unit_from_entity is true, unit is contained in row."""
     source = "recorder"
     unit_from_entity = True
     statistic_id = "stat1.mean"
@@ -15,7 +15,7 @@ def test_internal_from_entity_with_unit():
     assert result == ""
 
 def test_internal_from_entity_without_unit():
-    """internal statistics, unit_from_entity is true, unit is not contained in row."""
+    """Internal statistics, unit_from_entity is true, unit is not contained in row."""
     source = "recorder"
     unit_from_entity = True
     statistic_id = "stat1.mean"
@@ -26,7 +26,7 @@ def test_internal_from_entity_without_unit():
     assert result == ""
 
 def test_internal_from_row_with_unit():
-    """internal statistics, unit_from_entity is false, unit is contained in row."""
+    """Internal statistics, unit_from_entity is false, unit is contained in row."""
     source = "recorder"
     unit_from_entity = False
     statistic_id = "stat1.mean"
@@ -37,7 +37,7 @@ def test_internal_from_row_with_unit():
     assert result == "unit1"
 
 def test_internal_from_row_without_unit():
-    """internal statistics, unit_from_entity is false, unit is not contained in row."""
+    """Internal statistics, unit_from_entity is false, unit is not contained in row."""
     source = "recorder"
     unit_from_entity = False
     statistic_id = "stat1.mean"
@@ -50,7 +50,7 @@ def test_internal_from_row_without_unit():
         assert str(e) == f"Unit does not exist. Statistic ID: {statistic_id}."
 
 def test_external_from_entity_with_unit():
-    """external statistics, unit_from_entity is true, unit is contained in row."""
+    """External statistics, unit_from_entity is true, unit is contained in row."""
     source = "sensor"
     unit_from_entity = True
     statistic_id = "stat1:mean"
@@ -63,7 +63,7 @@ def test_external_from_entity_with_unit():
         assert str(e) == f"Unit_from_entity set to TRUE is not allowed for external statistics (statistic_id with a ':'). Statistic ID: {statistic_id}."
 
 def test_external_from_entity_without_unit():
-    """external statistics, unit_from_entity is true, unit is not contained in row."""
+    """External statistics, unit_from_entity is true, unit is not contained in row."""
     source = "sensor"
     unit_from_entity = True
     statistic_id = "stat1:mean"
@@ -76,7 +76,7 @@ def test_external_from_entity_without_unit():
         assert str(e) == f"Unit_from_entity set to TRUE is not allowed for external statistics (statistic_id with a ':'). Statistic ID: {statistic_id}."
 
 def test_external_from_row_with_unit():
-    """external statistics, unit_from_entity is false, unit is contained in row."""
+    """External statistics, unit_from_entity is false, unit is contained in row."""
     source = "sensor"
     unit_from_entity = False
     statistic_id = "stat1:mean"
@@ -87,7 +87,7 @@ def test_external_from_row_with_unit():
     assert result == "unit1"
 
 def test_external_from_row_without_unit():
-    """external statistics, unit_from_entity is false, unit is not contained in row."""
+    """External statistics, unit_from_entity is false, unit is not contained in row."""
     source = "sensor"
     unit_from_entity = False
     statistic_id = "stat1:mean"

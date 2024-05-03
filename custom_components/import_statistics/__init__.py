@@ -32,10 +32,14 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool: # pylint: disable=un
         hass.states.set("import_statistics.import_from_file", file_path)
 
         _LOGGER.info("Peparing data for import")
-        stats = prepare_data.prepare_data_to_import(file_path, call)
+        stats, unit_from_entity = prepare_data.prepare_data_to_import(file_path, call)
 
         _LOGGER.info("Checking if all entities exist")
         check_all_entities_exists(hass, stats)
+
+        if unit_from_entity:
+            _LOGGER.info("Adding units from entities")
+            add_unit_for_all_entities(hass, stats)
 
         _LOGGER.info("Calling hass import methods")
         for stat in stats.values():
@@ -83,15 +87,12 @@ def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
         if metadata["source"] == "recorder":
             check_entity_exists(hass, metadata["statistic_id"])
 
-
 def check_entity_exists(hass: HomeAssistant, entity_id) -> bool:
     """Check if a specific entity exists.
 
     Args:
         hass: home assistant
         entity_id: id to check for existence
-        timezone_identifier (str): The timezone identifier to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
 
     Returns:
         bool: True if entity exists, otherwise exception is thrown
@@ -108,6 +109,60 @@ def check_entity_exists(hass: HomeAssistant, entity_id) -> bool:
         return False
 
     return True
+
+def add_unit_for_all_entities(hass: HomeAssistant, stats: dict) -> None:
+    """Add units for all rows to be imported.
+
+    Args:
+        hass: home assistant
+        stats: dictionary with all statistic data
+
+    Returns:
+        n/a
+
+    Raises:
+        n/a
+
+    """
+
+    for stat in stats.values():
+        metadata = stat[0]
+
+        # _LOGGER.debug("Metadata all start %s", metadata)
+        if metadata["source"] == "recorder":
+            add_unit_for_entity(hass, metadata)
+        # _LOGGER.debug("Metadata all end %s", metadata)
+
+def add_unit_for_entity(hass: HomeAssistant, metadata: dict) -> None:
+    """Add units for one rows to be imported.
+
+    Args:
+        hass: home assistant
+        entity_id: id to check for existence
+        metadata: metadata of row to be imported
+
+    Returns:
+        n/a
+
+    Raises:
+        HomeAssistantError: If entity does not exist
+
+    """
+
+    # _LOGGER.debug("Metadata one start %s", metadata)
+
+    entity_id = metadata["statistic_id"]
+    entity = hass.states.get(entity_id)
+
+    if entity is None:
+        helpers.handle_error(f"Entity does not exist: '{entity_id}'")
+
+    if metadata["unit_of_measurement"] == "":
+
+        metadata["unit_of_measurement"] = entity.attributes["unit_of_measurement"]
+        _LOGGER.debug("Adding unit '%s' for entity_id: %s", metadata["unit_of_measurement"], entity_id)
+
+    # _LOGGER.debug("Metadata one end %s", metadata)
 
 # This can be used to get the first value of an entity in the history
     # _LOGGER.debug("Start query")

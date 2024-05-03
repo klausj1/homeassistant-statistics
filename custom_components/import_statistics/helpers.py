@@ -132,7 +132,7 @@ def is_valid_float(value: str) -> bool:
     except ValueError as exc:
         raise HomeAssistantError(f"Invalid float value: {value}. Check the decimal separator.") from exc
 
-def min_max_mean_are_valid(min_value: str, max_value: str, mean_value: str) -> bool:
+def min_max_mean_are_valid(min_value: float, max_value: float, mean_value: float) -> bool:
     """Check if the given min, max, and mean values are valid.
 
     Args:
@@ -195,7 +195,8 @@ def add_unit_to_dataframe(source: str, unit_from_entity: bool, unit_from_row: st
     Args:
         source: "recorder" for internal statistics
         unit_from_entity: True if the unit is taken from the entity, false if taken from input file.
-        row: Contents of the row of the importfile
+        unit_from_row: The unit from the imported file
+        statistic_id: The statistic id from the imported file
 
     Returns:
         str: unit, or empty if unit_from_entity is true

@@ -11,7 +11,7 @@ import custom_components.import_statistics.helpers as helpers
 from custom_components.import_statistics.helpers import _LOGGER
 from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT, ATTR_UNIT_FROM_ENTITY
 
-def prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
+def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     """Prepare data to import statistics from a file.
 
     Args:
@@ -31,7 +31,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> dict:
     df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
 
     stats = handle_dataframe(df, timezone_identifier, datetime_format, unit_from_entity)
-    return stats
+    return stats, unit_from_entity
 
 def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
     """Handle the arguments for importing statistics from a file.
@@ -78,7 +78,7 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
 
     if not os.path.exists(file_path):
         helpers.handle_error(f"path {file_path} does not exist.")
-    return decimal,timezone_identifier,delimiter,datetime_format,unit_from_entity
+    return decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity
 
 def handle_dataframe(df: pd.DataFrame, timezone_identifier: str, datetime_format: str, unit_from_entity: bool) -> dict:
     """Process a dataframe and extract statistics based on the specified columns and timezone.
