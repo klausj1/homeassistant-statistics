@@ -1,4 +1,4 @@
-"""Unit tests for functions is_full_hour, get_mean_stat and get_sum_stat."""
+"""Unit tests for function add_unit_to_dataframe."""
 
 # ToDo: Add unit tests for add_unit_to_dataframe, remove other tests here
 
