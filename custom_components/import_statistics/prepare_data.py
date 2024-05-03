@@ -119,7 +119,7 @@ def handle_dataframe(df: pd.DataFrame, timezone_identifier: str, datetime_format
                 "source": source,
                 "statistic_id": statistic_id,
                 "name": None,
-                "unit_of_measurement": row["unit"], # ToDo: Check for unit_from_entity, but only if internal statistics -> own helper method
+                "unit_of_measurement": helpers.add_unit_to_dataframe(source, unit_from_entity, row["unit"] if "unit" in row else "", statistic_id)
             }
             stats[statistic_id] = (metadata, [])
 

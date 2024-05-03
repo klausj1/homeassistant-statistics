@@ -4,7 +4,7 @@ import pandas as pd
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from custom_components.import_statistics.prepare_data import prepare_data_to_import
-from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, DATETIME_DEFAULT_FORMAT
+from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER, ATTR_DELIMITER, DATETIME_DEFAULT_FORMAT, ATTR_UNIT_FROM_ENTITY
 
 def test_prepare_data_to_import_valid_file_dot():
     """Test prepare_data_to_import function with a valid file.
@@ -39,7 +39,8 @@ def test_prepare_data_to_import_valid_file_dot():
     data = {
         ATTR_DECIMAL: True, # True is ','
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "\t"
+        ATTR_DELIMITER: "\t",
+        ATTR_UNIT_FROM_ENTITY: False
     }
 
     call = ServiceCall("domain_name", "service_name", data, False)
@@ -83,7 +84,8 @@ def test_prepare_data_to_import_valid_file_comma():
     data = {
         ATTR_DECIMAL: False, # True is ','
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "\t"
+        ATTR_DELIMITER: "\t",
+        ATTR_UNIT_FROM_ENTITY: False
     }
 
     call = ServiceCall("domain_name", "service_name", data, False)
@@ -120,6 +122,7 @@ def test_prepare_data_to_import_wrong_separator():
         assert False, "Expected HomeAssistantError to be raised here!"
 
 
+# ToDo: Check why below is commented out
 # def test_prepare_data_to_import_invalid_file():
 #     """
 #     Test prepare_data_to_import function with an invalid file.
@@ -171,3 +174,5 @@ def test_prepare_data_to_import_wrong_separator():
 #     else:
 #         # If no exception is raised, fail the test
 #         assert False, "Expected HomeAssistantError to be raised"
+
+# ToDo: Add test with unit_from_entity is True

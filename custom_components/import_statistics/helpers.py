@@ -189,7 +189,7 @@ def handle_error(error_string: str) -> None:
     _LOGGER.warning(error_string)
     raise HomeAssistantError(error_string)
 
-def add_unit_to_dataframe(source: str, unit_from_entity: bool, row: pd.Series) -> str:
+def add_unit_to_dataframe(source: str, unit_from_entity: bool, unit_from_row: str, statistic_id: str) -> str:
     """Add unit to dataframe, or leave it empty for now if unit_from_entity is true.
 
     Args:
@@ -205,9 +205,17 @@ def add_unit_to_dataframe(source: str, unit_from_entity: bool, row: pd.Series) -
 
     """
 
-    if (source != "recorder" or not unit_from_entity):
-        if "unit" in row:
-            return row["unit"]
-        handle_error(f"Unit does not exist for external statistics value. Entity: {row['statistic_id']}.")
+    if source == "recorder":
+        if unit_from_entity:
+            return ""
+        if unit_from_row != "":
+            return unit_from_row
+        handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
     else:
-        return ""
+        if unit_from_entity:
+            handle_error(f"Unit_from_entity set to TRUE is not allowed for external statistics (statistic_id with a ':'). Statistic ID: {statistic_id}.")
+            return ""
+        if unit_from_row == "":
+            handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
+            return ""
+        return unit_from_row
