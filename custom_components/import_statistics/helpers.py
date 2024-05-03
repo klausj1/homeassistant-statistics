@@ -205,7 +205,9 @@ def add_unit_to_dataframe(source: str, unit_from_entity: bool, row: pd.Series) -
 
     """
 
-    # if source != recorder or unit_from_entity == false: check if unit exists in row, and take this. If not, throw HomeAssistantError
-    # else: leave unit empty
-
-    return "unit"
+    if (source != "recorder" or not unit_from_entity):
+        if "unit" in row:
+            return row["unit"]
+        handle_error(f"Unit does not exist for external statistics value. Entity: {row['statistic_id']}.")
+    else:
+        return ""

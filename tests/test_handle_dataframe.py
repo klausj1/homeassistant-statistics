@@ -52,7 +52,7 @@ def test_handle_dataframe_mean():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
+    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT, False)
 
     # Check the output
     assert stats == expected_stats
@@ -100,7 +100,7 @@ def test_handle_dataframe_mean_other_datetime_format():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format)
+    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format, False)
 
     # Check the output
     assert stats == expected_stats
@@ -138,7 +138,7 @@ def test_handle_dataframe_sum_state():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
+    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT, False)
 
     # Check the output
     assert stats == expected_stats
@@ -178,7 +178,7 @@ def test_handle_dataframe_sum_state_other_format():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format)
+    stats = prepare_data.handle_dataframe(df, "UTC", datetime_format, False)
 
     # Check the output
     assert stats == expected_stats
@@ -215,7 +215,7 @@ def test_handle_dataframe_sum():
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
+    stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT, False)
 
     # Check the output
     assert stats == expected_stats
@@ -331,7 +331,7 @@ def test_handle_dataframe_multiple_mean():
 }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT)
+    stats = prepare_data.handle_dataframe(df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT, False)
 
     # Check the output
     assert stats == expected_stats
@@ -352,10 +352,12 @@ def test_handle_dataframe_mean_sum():
 
     try:
         # Call the function
-        _stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT)
+        _stats = prepare_data.handle_dataframe(df, "UTC", DATETIME_DEFAULT_FORMAT, False)
     except HomeAssistantError as e:
         # Check that the raised exception has the same error string
         assert str(e) == "The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"
     else:
         # If no exception is raised, fail the test
         assert False, "Expected HomeAssistantError to be raised"
+
+# ToDo: Test with unit_from_entity is True

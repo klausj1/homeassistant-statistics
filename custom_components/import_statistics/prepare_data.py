@@ -54,12 +54,12 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
     else:
         decimal = "."
 
-    if call.data.get(ATTR_DATETIME_FORMAT):
+    if ATTR_DATETIME_FORMAT in call.data:
         datetime_format = call.data.get(ATTR_DATETIME_FORMAT)
     else:
         datetime_format = DATETIME_DEFAULT_FORMAT
 
-    if call.data.get(ATTR_UNIT_FROM_ENTITY):
+    if ATTR_UNIT_FROM_ENTITY in call.data:
         unit_from_entity = call.data.get(ATTR_UNIT_FROM_ENTITY)
     else:
         unit_from_entity = True
