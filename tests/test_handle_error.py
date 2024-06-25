@@ -1,7 +1,7 @@
 """Unit tests for _handle_error function."""
 
 from homeassistant.exceptions import HomeAssistantError
-from custom_components.import_statistics import _handle_error
+from custom_components.import_statistics.helpers import handle_error
 
 def test_handle_error():
     """Test the _handle_error function.
@@ -13,7 +13,7 @@ def test_handle_error():
 
     try:
         # Call the function
-        _handle_error(error_string)
+        handle_error(error_string)
     except HomeAssistantError as e:
         # Check that the raised exception has the same error string
         assert str(e) == error_string

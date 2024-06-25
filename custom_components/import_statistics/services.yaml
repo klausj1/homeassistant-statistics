@@ -31,3 +31,22 @@ import_from_file:
       default: false
       selector:
         boolean:
+    datetime_format:
+      required: false
+      example: "%d.%m.%Y %H:%M"
+      default: "%d.%m.%Y %H:%M"
+      selector:
+        select:
+          custom_value: true
+          options:
+            - "%d.%m.%Y %H:%M"
+            - "%Y.%m.%d %H:%M"
+            - "%Y-%m-%d %H:%M"
+            - "%m/%d/%Y %H:%M"
+            - "%d/%m/%Y %H:%M"
+    unit_from_entity:
+      required: false
+      example: true
+      default: true
+      selector:
+        boolean:

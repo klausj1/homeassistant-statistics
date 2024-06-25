@@ -18,6 +18,14 @@
                 "timezone_identifier": {
                     "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)",
                     "name": "timezone_identifier"
+                },
+                "datetime_format": {
+                    "name": "datetime_format",
+                    "description": "The format of the datetime strings. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
+                },
+                "unit_from_entity": {
+                    "name": "unit_from_entity",
+                    "description": "True: Take unit from existing entity (only valid for internal statistics, e.g. sensor.sun_solar_azimuth); False: Take unit from own column in imported data"
                 }
             },
             "name": "import_from_file"

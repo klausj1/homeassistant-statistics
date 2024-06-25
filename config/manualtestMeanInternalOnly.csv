@@ -1,0 +1,8 @@
+statistic_id	start	min	max	mean
+sensor.sun_solar_azimuth	17.03.2024 00:00	1,3	130	13
+sensor.sun_solar_azimuth	17.03.2024 02:00	2,3	230	23
+sensor.sun_solar_azimuth	17.03.2024 04:00	3,3	330	33
+sensor.sensor_justavalue	17.03.2024 01:00	0,3	13	3
+sensor.sun_solar_azimuth	17.03.2024 01:00	1,3	130	13
+sensor.sun_solar_azimuth	17.03.2024 01:00	1,3	130	13
+sensor.sensor_justavalue	17.03.2024 02:00	10,3	113	13
