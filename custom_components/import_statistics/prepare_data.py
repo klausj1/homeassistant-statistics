@@ -69,7 +69,7 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT) if ATTR_DATETIME_FORMAT in call.data else DATETIME_DEFAULT_FORMAT
 
-    unit_from_entity = call.data.get(ATTR_UNIT_FROM_ENTITY) if ATTR_UNIT_FROM_ENTITY in call.data else True
+    unit_from_entity = UnitFrom.ENTITY if call.data.get(ATTR_UNIT_FROM_ENTITY) is True else UnitFrom.TABLE
 
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
 
@@ -82,6 +82,7 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
     _LOGGER.debug("Datetime format: %s", datetime_format)
+    _LOGGER.debug("Unit from entity: %s", unit_from_entity)
 
     if not os.path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
         helpers.handle_error(f"path {file_path} does not exist.")

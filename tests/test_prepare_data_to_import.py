@@ -1,6 +1,8 @@
 """Unit tests for prepare_data_to_import function."""
 
+import datetime
 import re
+import zoneinfo
 
 import pandas as pd
 import pytest
@@ -62,7 +64,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
 
     # Check the output
     assert stats == expected_stats
-    assert unit_from_entity is False
+    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_prepare_data_to_import_valid_file_comma() -> None:
@@ -109,7 +111,7 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
 
     # Check the output
     assert stats == expected_stats
-    assert unit_from_entity is False
+    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_prepare_data_to_import_wrong_separator() -> None:
@@ -128,14 +130,11 @@ def test_prepare_data_to_import_wrong_separator() -> None:
 
     call = ServiceCall("domain_name", "service_name", data, None)
 
-    try:
-        # Call the function
-        _ = prepare_data_to_import(file_path, call)
-    except HomeAssistantError as e:
-        assert str(e) == "Invalid float value: 1131,3. Check the decimal separator."
-    else:
-        # If no exception is raised, fail the test
-        assert False, "Expected HomeAssistantError to be raised here!"
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Invalid float value: 1131,3. Check the decimal separator."),
+    ):
+        prepare_data_to_import(file_path, call)
 
 
 def test_prepare_data_to_import_invalid_file() -> None:
@@ -155,21 +154,19 @@ def test_prepare_data_to_import_invalid_file() -> None:
 
     call = ServiceCall("domain_name", "service_name", data, None)
 
-    try:
-        # Call the function
-        _ = prepare_data_to_import(file_path, call)
-    except HomeAssistantError as e:
-        assert str(e) == f"path {file_path} does not exist."
-    else:
-        # If no exception is raised, fail the test
-        assert False, "Expected HomeAssistantError to be raised"
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape(f"path {file_path} does not exist."),
+    ):
+        prepare_data_to_import(file_path, call)
 
 
-def test_prepare_data_to_import_invalid_data():
+def test_prepare_data_to_import_invalid_data() -> None:
     """
     Test prepare_data_to_import function with invalid data in the file.
 
-    This function creates a temporary CSV file with invalid data, calls the prepare_data_to_import function with the file path, and checks that a HomeAssistantError is raised.
+    This function creates a temporary CSV file with invalid data,
+        calls the prepare_data_to_import function with the file path, and checks that a HomeAssistantError is raised.
     """
     file_path = "tests/testfiles/wrongcolumns.csv"
 
@@ -210,7 +207,7 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
             },
             [
                 {
-                    "start": pd.to_datetime("26.01.2024 00:00", format=DATETIME_DEFAULT_FORMAT).tz_localize("Europe/London"),
+                    "start": datetime.datetime.strptime("26.01.2024 00:00", DATETIME_DEFAULT_FORMAT).replace(tzinfo=zoneinfo.ZoneInfo("Europe/London")),
                     "min": 1131.3,
                     "max": 1231.5,
                     "mean": 1181,
