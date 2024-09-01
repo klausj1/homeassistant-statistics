@@ -1,6 +1,6 @@
 {
     "name": "Import statistics",
     "hide_default_branch": true,
-    "homeassistant": "2023.8.0",
+    "homeassistant": "2024.6.0",
     "render_readme": true
 }
