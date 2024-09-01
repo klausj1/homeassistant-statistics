@@ -16,15 +16,6 @@ jobs:
     steps:
       - name: "Checkout the repository"
         uses: "actions/checkout@v4.1.7"
-<<<<<<< HEAD
-
-      - name: "Adjust version number"
-        shell: "bash"
-        run: |
-          yq -i -o json '.version="${{ github.event.release.tag_name }}"' \
-            "${{ github.workspace }}/custom_components/import_statistics/manifest.json"
-=======
->>>>>>> aa11f9b... chore: upgrade to new blueprint
 
       - name: "ZIP the integration directory"
         shell: "bash"
@@ -33,10 +24,6 @@ jobs:
           zip import_statistics.zip -r ./
 
       - name: "Upload the ZIP file to the release"
-<<<<<<< HEAD
-        uses: softprops/action-gh-release@v2.0.8
-=======
         uses: "softprops/action-gh-release@v2.0.8"
->>>>>>> aa11f9b... chore: upgrade to new blueprint
         with:
           files: ${{ github.workspace }}/custom_components/import_statistics/import_statistics.zip
