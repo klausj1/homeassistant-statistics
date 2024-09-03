@@ -23,6 +23,7 @@
 - Zeitliche Differenz zwischen jüngstem Wert in der Tabelle und dem ersten Wert checken. Der jüngste Wert in der Tabelle muss älter sein als der erste Wert. Maximale Differenz checken
 - state und sum zur Tabelle hinzufügen, und von oben nach unten ausrechnen. Das sollte eigentlich kein Problem sein, schon gar nicht mit python
 - Aufpassen, dass nur die wenigsten Methoden das hass-Objekt brauchen, wegen Unit-Tests
+- # TODO(Klaus): Test with UnitFrom.ENTITY in tests/test_are_columns_valid.py
 
 - Import at least one real value before releasing a new version
 

@@ -42,6 +42,3 @@ def test_are_columns_valid_invalid_columns_combination() -> None:
         match=re.escape("The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
-
-
-# TODO(Klaus): Test with UnitFrom.ENTITY
