@@ -2,6 +2,8 @@
 
 target-version = "py312"
 
+line-length = 160
+
 [lint]
 select = [
     "ALL",
@@ -14,16 +16,17 @@ ignore = [
     "D212", # multi-line-summary-first-line (incompatible with formatter)
     "COM812", # incompatible with formatter
     "ISC001", # incompatible with formatter
+    "EXE002", # Added by Klaus
 ]
 
-[lint.flake8-pytest-style]
 [lint.flake8-pytest-style]
 fixture-parentheses = false
 
 [lint.pyupgrade]
-[lint.pyupgrade]
 keep-runtime-typing = true
 
 [lint.mccabe]
-[lint.mccabe]
 max-complexity = 25
+
+[lint.per-file-ignores]
+"tests/*.py" = ["S101"]
