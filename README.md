@@ -65,7 +65,7 @@ The examples are hopefully self-explaining, just some additional information:
 
 Then, copy your file to your HA configuration (where you find `configuration.yaml`).
 
-Then, go to `Developer tools / Services`, and select the service `import_statistics: import_from_file`.
+Then, go to `Developer tools / Actions` (called Services in former HA versions), and select the service `import_statistics: import_from_file`.
 
 Fill out the settings in the UI:
 
