@@ -26,8 +26,8 @@ The preferred way is to use HACS:
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
 1. If you do not have a `custom_components` directory (folder) there, you need to create it.
-1. In the `custom_components` directory (folder) create a new folder called `homeassistant-statistics`.
-1. Download _all_ the files from the `custom_components/homeassistant-statistics/` directory (folder) in this repository.
+1. In the `custom_components` directory (folder) create a new folder called `import_statistics`.
+1. Download _all_ the files from the `custom_components/import_statistics/` directory (folder) in this repository.
 1. Place the files you downloaded in the new directory (folder) you created.
 1. Add `import_statistics:` to your configuration .yaml (if it is possible to do this in the UI in some way without directly editing the yaml file, please let me know)
 1. Restart Home Assistant
