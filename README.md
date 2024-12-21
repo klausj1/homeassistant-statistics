@@ -18,7 +18,7 @@ This HA integration allows to import long term statistics from a file like csv o
 
 The preferred way is to use HACS:
 
-1. Add this repository as custom repository under HACS
+1. Add this integration to your HA installation via HACS (it is part of HACS, so no custom repository should be needed anymore)
 1. Add `import_statistics:` to your configuration .yaml (if it is possible to do this in the UI in some way without directly editing the yaml file, please let me know)
 1. Restart home assistant
 
