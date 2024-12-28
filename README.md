@@ -53,8 +53,10 @@ The examples are hopefully self-explaining, just some additional information:
 - For floats, the decimal separator can be '.' or ','
 - You should be able to find your timezone [here](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), or check the python documentation (pytz). Keep in mind that the times are local times of the HA server.
 - The timestamp (column `start`) must be of the format "%d.%m.%Y %H:%M" (e.g. "17.03.2024 02:00")
+  - Always use 2 digits for all parts except the year, which needs 4 digits - just like the example above
 - If you do not import values for every hour, you will get gaps in the graphs (depending on the used card and its settings)
 - The minutes of the timestamp must be zero. This is due to the [long-term statistics](https://data.home-assistant.io/docs/statistics/#:~:text=Home%20Assistant%20has%20support%20for,of%20the%20short%2Dterm%20statistics.), which only store hourly values.
+- If you use non-ASCII-characters (like m³) the codepage of your file must be UTF-8
 - You can import:
     - Either statistics for existing sensors (internal statistics). These sensors have a '.' in its name, e.g. sensor.sun_solar_azimuth
         - If you try to import such a sensor which does not exist, you will see this sensor under developer tools / statistics, with an error. You can fix the error there, whereas fix means, remove it from database again
