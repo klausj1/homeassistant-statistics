@@ -1,0 +1,34 @@
+{
+    "services": {
+        "import_from_file": {
+            "description": "Importuje dlhodobé štatistické hodnoty (1h) zo súboru tsv/csv",
+            "fields": {
+                "decimal": {
+                    "description": "Oddeľovač desatinných miest. Predvolená hodnota je '.'; nastavte na true, aby ste použili ','",
+                    "name": "desatinný"
+                },
+                "delimiter": {
+                    "description": "Oddeľovač medzi poliami. Predvolená hodnota je prázdna (skúša sa automatická detekcia)",
+                    "name": "oddeľovač"
+                },
+                "filename": {
+                    "description": "Súbor obsahujúci štatistické údaje, ktorý sa má vložiť do konfiguračného priečinka",
+                    "name": "názov_súboru"
+                },
+                "timezone_identifier": {
+                    "description": "Identifikátor časového pásma (skontrolujte časové pásma pytz alebo https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)",
+                    "name": "identifikátor_časovej_zóny"
+                },
+                "datetime_format": {
+                    "name": "formát_dátumčas",
+                    "description": "Formát reťazcov dátumu a času. Predvolená hodnota je '%d.%m.%Y %H:%M'. d .. deň, m .. mesiac, r .. rok, H .. hodina, M .. minúta"
+                },
+                "unit_from_entity": {
+                    "name": "jednotka_z_entity",
+                    "description": "True: Prevezmite jednotku z existujúcej entity (platí len pre interné štatistiky, napr. sensor.sun_solar_azimuth); False: Vezmite jednotku z vlastného stĺpca v importovaných údajoch"
+                }
+            },
+            "name": "import_from_file"
+        }
+    }
+}
