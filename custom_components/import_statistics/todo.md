@@ -28,6 +28,8 @@
 =======
 >>>>>>> main
 
+- Test mit mehreren entities fehlt?
+- Besseres readme für Zähler
 - Import at least one real value before releasing a new version
 
 # Later
