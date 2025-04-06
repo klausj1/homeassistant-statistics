@@ -6,7 +6,11 @@
 - OK Check if entity with '.' exists
 - OK Take the unit from existing entity
 
-- Calculate sum automatically, based on the oldest existing value
+- Test mit mehreren entities fehlt?
+- Besseres readme für Zähler
+- Import at least one real value before releasing a new version
+
+- Calculate sum (or rather state) automatically, based on the oldest existing value
 - Requirement: [FR: Supply only the sum value, state automatically calculated · Issue #62 · klausj1/homeassistant-statistics · GitHub](https://github.com/klausj1/homeassistant-statistics/issues/62)
 - Setting: Calculate state automatically (only sum or delta are provided); Default true, attention: overwriting is not possible afterwards with this setting
 - Setting: Max Delta between oldest value in database and newset value in table (hours)
@@ -23,14 +27,9 @@
 - Zeitliche Differenz zwischen jüngstem Wert in der Tabelle und dem ersten Wert checken. Der jüngste Wert in der Tabelle muss älter sein als der erste Wert. Maximale Differenz checken
 - state und sum zur Tabelle hinzufügen, und von oben nach unten ausrechnen. Das sollte eigentlich kein Problem sein, schon gar nicht mit python
 - Aufpassen, dass nur die wenigsten Methoden das hass-Objekt brauchen, wegen Unit-Tests
-<<<<<<< HEAD
-- # TODO(Klaus): Test with UnitFrom.ENTITY in tests/test_are_columns_valid.py
-=======
->>>>>>> main
+- TODO(Klaus): Test with UnitFrom.ENTITY in tests/test_are_columns_valid.py
 
-- Test mit mehreren entities fehlt?
-- Besseres readme für Zähler
-- Import at least one real value before releasing a new version
+
 
 # Later
 
