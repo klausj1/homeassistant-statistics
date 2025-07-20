@@ -10,7 +10,7 @@ This HA integration allows to import long term statistics from a file like csv o
 
 [![Community Forum][forum-shield]][forum]
 
-**This integration just offers a service**
+**This integration just offers an action (previously known as service)**
 
 ## Installation
 
@@ -18,9 +18,15 @@ This HA integration allows to import long term statistics from a file like csv o
 
 The preferred way is to use HACS:
 
-1. Add this integration to your HA installation via HACS (it is part of HACS, so no custom repository should be needed anymore)
-1. Add `import_statistics:` to your configuration .yaml (if it is possible to do this in the UI in some way without directly editing the yaml file, please let me know)
+1. Search and download this integration to your HA installation via HACS, or click:
+
+   [![Open HACS Repository][hacs-repo-badge]][hacs-repo]
+
 1. Restart home assistant
+
+1. Add this integration to Home Assistant, or click:
+
+   [![Add Integration][config-flow-badge]][config-flow]
 
 ### Manual installation
 
@@ -105,4 +111,7 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [license-shield]: https://img.shields.io/github/license/klausj1/homeassistant-statistics.svg
 [releases-shield]: https://img.shields.io/github/v/release/klausj1/homeassistant-statistics?include_prereleases
 [releases]: https://github.com/klausj1/homeassistant-statistics/releases
-
+[hacs-repo-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[hacs-repo]: https://my.home-assistant.io/redirect/hacs_repository/?owner=klausj1&repository=homeassistant-statistics&category=integration
+[config-flow-badge]: https://my.home-assistant.io/badges/config_flow_start.svg
+[config-flow]: https://my.home-assistant.io/redirect/config_flow_start?domain=import_statistics
