@@ -28,7 +28,14 @@
                     "description": "True: Take unit from existing entity (only valid for internal statistics, e.g. sensor.sun_solar_azimuth); False: Take unit from own column in imported data"
                 }
             },
-            "name": "import_from_file"
+            "name": "Import statistics from file"
+        }
+    },
+    "config": {
+        "step": {
+            "user": {
+                "description": "Do you want to add the Import Statistics integration to Home Assistant?"
+            }
         }
     }
 }

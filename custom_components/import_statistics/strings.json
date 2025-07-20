@@ -30,5 +30,12 @@
                 }
             }
         }
+    },
+    "config": {
+        "step": {
+            "user": {
+                "description": "[%key:common::config_flow::description::confirm_setup%]"
+            }
+        }
     }
 }
