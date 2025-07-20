@@ -9,6 +9,7 @@ from homeassistant.components.recorder.statistics import (
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.config_entries import ConfigEntry
 
 from custom_components.import_statistics import helpers, prepare_data
 from custom_components.import_statistics.const import ATTR_FILENAME, DOMAIN
@@ -64,6 +65,10 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
     # Return boolean to indicate that initialization was successful.
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
     return True
 
 
