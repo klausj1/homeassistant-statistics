@@ -1,10 +1,10 @@
 {
     "domain": "import_statistics",
-    "name": "import_statistics",
+    "name": "Import Statistics",
     "codeowners": [
         "@klausj1"
     ],
-    "config_flow": false,
+    "config_flow": true,
     "dependencies": [
         "recorder"
     ],
@@ -17,6 +17,6 @@
         "pandas>=2.0.0"
     ],
     "ssdp": [],
-    "version": "1.0.1",
+    "version": "1.0.2",
     "zeroconf": []
 }
