@@ -6,10 +6,10 @@ from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     async_import_statistics,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.config_entries import ConfigEntry
 
 from custom_components.import_statistics import helpers, prepare_data
 from custom_components.import_statistics.const import ATTR_FILENAME, DOMAIN
@@ -69,6 +69,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
+    """Set up the device based on a config entry."""
     return True
 
 
