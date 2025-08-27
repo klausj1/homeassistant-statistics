@@ -45,6 +45,33 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
     return stats, unit_from_entity
 
+def prepare_json_entities(call: ServiceCall) -> tuple[zoneinfo.ZoneInfo,list[tuple[str, list[any]]]]:
+    input_entities = call.data.get('entities', [])
+    input_timezone = call.data.get('timezone', 'America/Los_Angeles')
+    timezone = zoneinfo.ZoneInfo(input_timezone)
+    entities = [
+        (entity['id'], entity['values'])
+        for entity in input_entities
+    ]
+
+    return timezone, entities
+
+def prepare_json_data_entity(statistic_id: str, unit_of_measurement: any, values: list[any], timezone: any) -> tuple:
+    metadata = {
+        "has_mean": False,
+        "has_sum": True,
+        "source": helpers.get_source(statistic_id),
+        "statistic_id": statistic_id,
+        "name": None,
+        "unit_of_measurement": unit_of_measurement,
+    }
+
+    statistics = [
+        helpers.get_value_as_sum_stat(value["value"], value["datetime"], timezone)
+        for value in values
+    ]
+
+    return metadata, statistics
 
 def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
     """

@@ -64,6 +64,29 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
+    def handle_import_from_json(call: ServiceCall) -> None:
+        """
+        Handle the json service call.
+        """
+        _LOGGER.info("Service handle_import_from_json called")
+        timezone, entities = prepare_data.prepare_json_entities(call)
+        _LOGGER.info(f"got {len(entities)} entities and timezone {timezone}")
+
+        for entity in entities:
+            statistic_id, values = entity
+            _LOGGER.info(f"Processing entity with id: {statistic_id} with {len(values)} values")
+
+            if not check_entity_exists(hass, statistic_id):
+                _LOGGER.warning(f"Entity does not exist: '{statistic_id}'")
+                continue
+
+            hass_entity = hass.states.get(statistic_id)
+            unit_of_measurement = hass_entity.attributes["unit_of_measurement"]
+            metadata, statistics = prepare_data.prepare_json_data_entity(statistic_id, unit_of_measurement, values, timezone)
+            async_import_statistics(hass, metadata, statistics)
+
+    hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
+
     # Return boolean to indicate that initialization was successful.
     return True
 
