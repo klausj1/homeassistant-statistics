@@ -54,9 +54,11 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
     # Return boolean to indicate that initialization was successful.
     return True
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
     """Set up the device based on a config entry."""
     return True
+
 
 def import_stats(hass, stats, unit_from_entity):
     _LOGGER.info("Checking if all entities exist")
@@ -83,6 +85,7 @@ def import_stats(hass, stats, unit_from_entity):
             async_add_external_statistics(hass, metadata, statistics)
 
     _LOGGER.info("Finished importing data")
+
 
 def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
     """
