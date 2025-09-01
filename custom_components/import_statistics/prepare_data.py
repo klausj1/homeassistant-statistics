@@ -38,42 +38,48 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
         ValueError: If there is an implementation error.
 
     """
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
+
+    _LOGGER.info("Importing statistics from file: %s", file_path)
+    if not os.path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
+        helpers.handle_error(f"path {file_path} does not exist.")
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
 
     stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
     return stats, unit_from_entity
 
-def prepare_json_entities(call: ServiceCall) -> tuple[zoneinfo.ZoneInfo,list[tuple[str, list[any]]]]:
+def prepare_json_data_to_import(call: ServiceCall) -> tuple:
+    _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call)
+    
+    valid_columns = ['state', 'sum', 'min', 'max', 'mean']
+    columns = ['statistic_id', 'unit', 'start']
+    data = []
+
     input_entities = call.data.get('entities', [])
-    input_timezone = call.data.get('timezone', 'America/Los_Angeles')
-    timezone = zoneinfo.ZoneInfo(input_timezone)
-    entities = [
-        (entity['id'], entity['values'])
-        for entity in input_entities
-    ]
 
-    return timezone, entities
+    for entity in input_entities:
+        statistic_id, values, unit = (entity['id'], entity['values'], entity['unit'])
+        _LOGGER.info(f"Parsing entity with id: {statistic_id} with {len(values)} values")
+        for value in values:
+            value_dict = {
+                'statistic_id': statistic_id,
+                'unit': unit,
+                'start': value['datetime'],
+            }
+            for valid_column in valid_columns:
+                if valid_column in value:
+                    if valid_column not in columns:
+                        columns.append(valid_column)
+                    value_dict[valid_column] = value[valid_column]
 
-def prepare_json_data_entity(statistic_id: str, unit_of_measurement: any, values: list[any], timezone: any) -> tuple:
-    metadata = {
-        "has_mean": False,
-        "has_sum": True,
-        "source": helpers.get_source(statistic_id),
-        "statistic_id": statistic_id,
-        "name": None,
-        "unit_of_measurement": unit_of_measurement,
-    }
+            data.append(tuple([value_dict[column] for column in columns]))
 
-    statistics = [
-        helpers.get_value_as_sum_stat(value["value"], value["datetime"], timezone)
-        for value in values
-    ]
+    my_df = pd.DataFrame(data, columns=columns)
+    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
+    return stats, unit_from_entity
 
-    return metadata, statistics
-
-def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
+def handle_arguments(call: ServiceCall) -> tuple:
     """
     Handle the arguments for importing statistics from a file.
 
@@ -104,15 +110,13 @@ def handle_arguments(file_path: str, call: ServiceCall) -> tuple:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
     delimiter = call.data.get(ATTR_DELIMITER)
-    _LOGGER.info("Importing statistics from file: %s", file_path)
+    
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
     _LOGGER.debug("Datetime format: %s", datetime_format)
     _LOGGER.debug("Unit from entity: %s", unit_from_entity)
 
-    if not os.path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
-        helpers.handle_error(f"path {file_path} does not exist.")
     return decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity
 
 

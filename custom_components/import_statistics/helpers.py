@@ -149,13 +149,6 @@ def is_full_hour(timestamp_str: str, datetime_format: str = DATETIME_DEFAULT_FOR
 
     return True
 
-def get_value_as_sum_stat(value: any, datetime_string: str, timezone: zoneinfo.ZoneInfo) -> dict:
-    return {
-        "start": dt.strptime(datetime_string, "%Y-%m-%d %H:%M").replace(tzinfo=timezone),
-        "sum": value,
-        "state": value
-    }
-
 def is_valid_float(value: str) -> bool:
     """
     Check if the given value is a valid float.

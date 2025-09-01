@@ -6,21 +6,25 @@ from custom_components.import_statistics import prepare_data
 
 test_timezone = "America/Los_Angeles"
 test_data = {
-    "timezone": test_timezone,
+    "timezone_identifier": test_timezone,
     "entities": [
         {
             "id": "sensor.finance_test",
+            "unit": "$",
             "values": [
                 {
-                    "value": 10.0,
+                    "state": 10.0,
+                    "sum": 10.0,
                     "datetime": "2024-09-13 00:00"
                 },
                 {
-                    "value": 20.0,
+                    "state": 20.0,
+                    "sum": 20.0,
                     "datetime": "2024-09-14 00:00"
                 },
                 {
-                    "value": 10.0,
+                    "state": 10.0,
+                    "sum": 10.0,
                     "datetime": "2024-09-15 00:00"
                 }
             ]

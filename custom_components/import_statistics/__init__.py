@@ -37,30 +37,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Peparing data for import")
         stats, unit_from_entity = prepare_data.prepare_data_to_import(file_path, call)
 
-        _LOGGER.info("Checking if all entities exist")
-        check_all_entities_exists(hass, stats)
-
-        if unit_from_entity:
-            _LOGGER.info("Adding units from entities")
-            add_unit_for_all_entities(hass, stats)
-
-        _LOGGER.info("Calling hass import methods")
-        for stat in stats.values():
-            metadata = stat[0]
-            statistics = stat[1]
-            _LOGGER.debug("Calling async_import_statistics / async_add_external_statistics with:")
-            _LOGGER.debug("Metadata:")
-            _LOGGER.debug(metadata)
-            _LOGGER.debug("Statistics:")
-            _LOGGER.debug(statistics)
-
-            if metadata["source"] == "recorder":
-                if check_entity_exists(hass, metadata["statistic_id"]):
-                    async_import_statistics(hass, metadata, statistics)
-            else:
-                async_add_external_statistics(hass, metadata, statistics)
-
-        _LOGGER.info("Finished importing data")
+        import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
@@ -69,32 +46,43 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         Handle the json service call.
         """
         _LOGGER.info("Service handle_import_from_json called")
-        timezone, entities = prepare_data.prepare_json_entities(call)
-        _LOGGER.info(f"got {len(entities)} entities and timezone {timezone}")
-
-        for entity in entities:
-            statistic_id, values = entity
-            _LOGGER.info(f"Processing entity with id: {statistic_id} with {len(values)} values")
-
-            if not check_entity_exists(hass, statistic_id):
-                _LOGGER.warning(f"Entity does not exist: '{statistic_id}'")
-                continue
-
-            hass_entity = hass.states.get(statistic_id)
-            unit_of_measurement = hass_entity.attributes["unit_of_measurement"]
-            metadata, statistics = prepare_data.prepare_json_data_entity(statistic_id, unit_of_measurement, values, timezone)
-            async_import_statistics(hass, metadata, statistics)
+        stats, unit_from_entity = prepare_data.prepare_json_data_to_import(call)
+        import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
 
     # Return boolean to indicate that initialization was successful.
     return True
 
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
     """Set up the device based on a config entry."""
     return True
 
+def import_stats(hass, stats, unit_from_entity):
+    _LOGGER.info("Checking if all entities exist")
+    check_all_entities_exists(hass, stats)
+
+    if unit_from_entity:
+        _LOGGER.info("Adding units from entities")
+        add_unit_for_all_entities(hass, stats)
+
+    _LOGGER.info("Calling hass import methods")
+    for stat in stats.values():
+        metadata = stat[0]
+        statistics = stat[1]
+        _LOGGER.debug("Calling async_import_statistics / async_add_external_statistics with:")
+        _LOGGER.debug("Metadata:")
+        _LOGGER.debug(metadata)
+        _LOGGER.debug("Statistics:")
+        _LOGGER.debug(statistics)
+
+        if metadata["source"] == "recorder":
+            if check_entity_exists(hass, metadata["statistic_id"]):
+                async_import_statistics(hass, metadata, statistics)
+        else:
+            async_add_external_statistics(hass, metadata, statistics)
+
+    _LOGGER.info("Finished importing data")
 
 def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
     """
