@@ -149,6 +149,7 @@ def is_full_hour(timestamp_str: str, datetime_format: str = DATETIME_DEFAULT_FOR
 
     return True
 
+
 def is_valid_float(value: str) -> bool:
     """
     Check if the given value is a valid float.

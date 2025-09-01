@@ -110,7 +110,6 @@ def handle_arguments(call: ServiceCall) -> tuple:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
     delimiter = call.data.get(ATTR_DELIMITER)
-    
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
