@@ -41,13 +41,25 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
     _LOGGER.info("Importing statistics from file: %s", file_path)
-    if not Path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
+    if not Path(file_path).exists():  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
         helpers.handle_error(f"path {file_path} does not exist.")
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
 
     stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
     return stats, unit_from_entity
+
+def prepare_json_entities(call: ServiceCall) -> tuple:
+    """Prepare json entities for import."""
+    timezone_identifier = call.data.get("timezone_identifier")
+    
+    if timezone_identifier not in pytz.all_timezones:
+        helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
+    
+    timezone = zoneinfo.ZoneInfo(timezone_identifier)
+    entities = call.data.get("entities", [])
+    
+    return timezone, entities
 
 def prepare_json_data_to_import(call: ServiceCall) -> tuple:
     """Parse json data to import statistics from."""
@@ -86,7 +98,6 @@ def handle_arguments(call: ServiceCall) -> tuple:
 
     Args:
     ----
-        file_path (str): The path of the file to import statistics from.
         call (ServiceCall): The service call object containing additional data.
 
     Returns:
@@ -96,7 +107,6 @@ def handle_arguments(call: ServiceCall) -> tuple:
     Raises:
     ------
         ValueError: If the timezone identifier is invalid.
-        FileNotFoundError: If the file path does not exist.
 
     """
     decimal = "," if call.data.get(ATTR_DECIMAL, True) else "."
