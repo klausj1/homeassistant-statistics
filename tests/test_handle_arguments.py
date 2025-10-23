@@ -30,7 +30,7 @@ def test_handle_arguments_all_valid() -> None:
 
     call = ServiceCall("domain_name", "service_name", data, None)
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
@@ -51,9 +51,9 @@ def test_handle_arguments_all_valid_other_parameters() -> None:
         ATTR_UNIT_FROM_ENTITY: True,
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
@@ -72,13 +72,13 @@ def test_handle_arguments_invalid_timezone() -> None:
         ATTR_DELIMITER: ",",
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     with pytest.raises(
         HomeAssistantError,
         match=re.escape("Invalid timezone_identifier: Invalid/Timezone"),
     ):
-        handle_arguments(file_path, call)
+        handle_arguments(call)
 
 
 def test_handle_arguments_file_not_found() -> None:
@@ -90,13 +90,17 @@ def test_handle_arguments_file_not_found() -> None:
         ATTR_DELIMITER: ",",
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape(f"path {file_path} does not exist."),
-    ):
-        handle_arguments(file_path, call)
+    # This test should not raise an error for file existence
+    # File existence checking is done in prepare_data_to_import, not handle_arguments
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
+    
+    assert decimal == ","
+    assert timezone_identifier == "Europe/London"
+    assert delimiter == ","
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
+    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_attr_from_entity_false() -> None:
@@ -111,9 +115,9 @@ def test_handle_arguments_attr_from_entity_false() -> None:
         ATTR_UNIT_FROM_ENTITY: False,
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(file_path, call)
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
