@@ -6,8 +6,9 @@ from typing import Any, Dict, List
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo, async_get as async_get_device_registry
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
 from custom_components.import_statistics.const import DOMAIN
 from custom_components.import_statistics.helpers import _LOGGER, handle_error
@@ -138,6 +139,9 @@ async def create_fitness_component_entities(hass: HomeAssistant, call: ServiceCa
         entry_type=DeviceEntryType.SERVICE,
     )
 
+    # Get entity registry to properly register entities with our integration
+    entity_registry = async_get_entity_registry(hass)
+
     # Create sensor entities
     created_entities = []
     for entity_config in entities:
@@ -147,6 +151,17 @@ async def create_fitness_component_entities(hass: HomeAssistant, call: ServiceCa
             # Register the entity with Home Assistant
             entity_id = sensor.entity_id
             _LOGGER.info(f"Creating entity: {entity_id}")
+            
+            # Register the entity in the entity registry with our integration
+            # Note: We're not using device_id for now to avoid the config entry requirement
+            entity_registry.async_get_or_create(
+                domain="sensor",
+                unique_id=sensor.unique_id,
+                platform=DOMAIN,  # This associates the entity with our integration
+                suggested_object_id=f"{component_name}_{entity_config['name']}",
+                original_name=sensor.name,
+                original_device_class=sensor.device_class,
+            )
             
             # Set the initial state
             attributes = {
