@@ -54,12 +54,12 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
 
-    def handle_create_fitness_component(call: ServiceCall) -> None:
+    async def handle_create_fitness_component(call: ServiceCall) -> None:
         """Handle the fitness component creation service call."""
         _LOGGER.info("Service handle_create_fitness_component called")
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
-    hass.services.register(DOMAIN, SERVICE_CREATE_FITNESS_COMPONENT, handle_create_fitness_component)
+    hass.services.async_register(DOMAIN, SERVICE_CREATE_FITNESS_COMPONENT, handle_create_fitness_component)
 
     # Return boolean to indicate that initialization was successful.
     return True

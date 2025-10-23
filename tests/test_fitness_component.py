@@ -7,7 +7,8 @@ from homeassistant.exceptions import HomeAssistantError
 from custom_components.import_statistics import fitness_component
 
 
-def test_create_fitness_component_entities_success(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_success(hass) -> None:
     """Test successful creation of fitness component entities."""
     test_data = {
         "component_name": "my_fitness_tracker",
@@ -37,7 +38,7 @@ def test_create_fitness_component_entities_success(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     # This should not raise an exception
-    fitness_component.create_fitness_component_entities(hass, call)
+    await fitness_component.create_fitness_component_entities(hass, call)
     
     # Check that the component creation state is set
     state = hass.states.get("import_statistics.my_fitness_tracker_component_created")
@@ -49,7 +50,8 @@ def test_create_fitness_component_entities_success(hass) -> None:
     assert state.attributes["entity_count"] == 2
 
 
-def test_create_fitness_component_entities_missing_component_name(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_missing_component_name(hass) -> None:
     """Test error when component_name is missing."""
     test_data = {
         "vendor": "Generic Fitness Tracker",
@@ -64,10 +66,11 @@ def test_create_fitness_component_entities_missing_component_name(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="component_name is required"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_missing_vendor(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_missing_vendor(hass) -> None:
     """Test error when vendor is missing."""
     test_data = {
         "component_name": "my_fitness_tracker",
@@ -82,10 +85,11 @@ def test_create_fitness_component_entities_missing_vendor(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="vendor is required"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_missing_entities(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_missing_entities(hass) -> None:
     """Test error when entities list is empty."""
     test_data = {
         "component_name": "my_fitness_tracker",
@@ -96,10 +100,11 @@ def test_create_fitness_component_entities_missing_entities(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="at least one entity must be specified"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_invalid_component_name(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_invalid_component_name(hass) -> None:
     """Test error when component_name contains invalid characters."""
     test_data = {
         "component_name": "my-fitness-tracker",  # Contains hyphen which is invalid
@@ -115,10 +120,11 @@ def test_create_fitness_component_entities_invalid_component_name(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="Invalid component_name"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_missing_entity_name(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_missing_entity_name(hass) -> None:
     """Test error when entity name is missing."""
     test_data = {
         "component_name": "my_fitness_tracker",
@@ -133,10 +139,11 @@ def test_create_fitness_component_entities_missing_entity_name(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="entity name is required"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_missing_entity_friendly_name(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_missing_entity_friendly_name(hass) -> None:
     """Test error when entity friendly_name is missing."""
     test_data = {
         "component_name": "my_fitness_tracker",
@@ -151,10 +158,11 @@ def test_create_fitness_component_entities_missing_entity_friendly_name(hass) ->
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="entity friendly_name is required"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_invalid_entity_name(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_invalid_entity_name(hass) -> None:
     """Test error when entity name contains invalid characters."""
     test_data = {
         "component_name": "my_fitness_tracker",
@@ -170,10 +178,11 @@ def test_create_fitness_component_entities_invalid_entity_name(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     with pytest.raises(HomeAssistantError, match="Invalid entity name"):
-        fitness_component.create_fitness_component_entities(hass, call)
+        await fitness_component.create_fitness_component_entities(hass, call)
 
 
-def test_create_fitness_component_entities_minimal_config(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_minimal_config(hass) -> None:
     """Test creation with minimal configuration."""
     test_data = {
         "component_name": "minimal_tracker",
@@ -189,7 +198,7 @@ def test_create_fitness_component_entities_minimal_config(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     # This should not raise an exception
-    fitness_component.create_fitness_component_entities(hass, call)
+    await fitness_component.create_fitness_component_entities(hass, call)
     
     # Check that the component creation state is set
     state = hass.states.get("import_statistics.minimal_tracker_component_created")
@@ -201,7 +210,8 @@ def test_create_fitness_component_entities_minimal_config(hass) -> None:
     assert state.attributes["entity_count"] == 1
 
 
-def test_create_fitness_component_entities_with_device_info(hass) -> None:
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_with_device_info(hass) -> None:
     """Test creation with device info."""
     test_data = {
         "component_name": "device_tracker",
@@ -227,7 +237,7 @@ def test_create_fitness_component_entities_with_device_info(hass) -> None:
     call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
     
     # This should not raise an exception
-    fitness_component.create_fitness_component_entities(hass, call)
+    await fitness_component.create_fitness_component_entities(hass, call)
     
     # Check that the component creation state is set
     state = hass.states.get("import_statistics.device_tracker_component_created")

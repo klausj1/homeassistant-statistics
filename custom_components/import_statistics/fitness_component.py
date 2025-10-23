@@ -85,7 +85,7 @@ class FitnessSensorEntity(SensorEntity):
         return f"sensor.{self._component_name}_{self._entity_name}"
 
 
-def create_fitness_component_entities(hass: HomeAssistant, call: ServiceCall) -> None:
+async def create_fitness_component_entities(hass: HomeAssistant, call: ServiceCall) -> None:
     """
     Create a fitness component with its entities.
 
