@@ -13,7 +13,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from custom_components.import_statistics import helpers, prepare_data
 from custom_components.import_statistics.const import ATTR_FILENAME, DOMAIN
-from custom_components.import_statistics.helpers import _LOGGER
+from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 
 # Use empty_config_schema because the component does not have any config options
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
@@ -42,9 +42,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
     def handle_import_from_json(call: ServiceCall) -> None:
-        """
-        Handle the json service call.
-        """
+        """Handle the json service call."""
         _LOGGER.info("Service handle_import_from_json called")
         stats, unit_from_entity = prepare_data.prepare_json_data_to_import(call)
         import_stats(hass, stats, unit_from_entity)
@@ -60,7 +58,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
     return True
 
 
-def import_stats(hass, stats, unit_from_entity):
+def import_stats(hass: HomeAssistant, stats: dict, unit_from_entity: UnitFrom) -> None:
+    """Import statistics into Home Assistant."""
     _LOGGER.info("Checking if all entities exist")
     check_all_entities_exists(hass, stats)
 

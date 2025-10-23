@@ -33,6 +33,7 @@ test_data = {
 }
 
 def test_prepare_json_entities() -> None:
+    """Test prepare_json_entities function."""
     call = ServiceCall("domain_name", "service_name", test_data, None)
     timezone, entities = prepare_data.prepare_json_entities(call)
     assert timezone.tzname == test_timezone

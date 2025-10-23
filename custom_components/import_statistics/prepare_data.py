@@ -1,7 +1,7 @@
 """Main methods for the import_statistics integration."""
 
-import os
 import zoneinfo
+from pathlib import Path
 
 import pandas as pd
 import pytz
@@ -41,7 +41,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
     _LOGGER.info("Importing statistics from file: %s", file_path)
-    if not os.path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
+    if not Path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
         helpers.handle_error(f"path {file_path} does not exist.")
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
@@ -50,22 +50,23 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     return stats, unit_from_entity
 
 def prepare_json_data_to_import(call: ServiceCall) -> tuple:
+    """Parse json data to import statistics from."""
     _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call)
-    
-    valid_columns = ['state', 'sum', 'min', 'max', 'mean']
-    columns = ['statistic_id', 'unit', 'start']
+
+    valid_columns = ["state", "sum", "min", "max", "mean"]
+    columns = ["statistic_id", "unit", "start"]
     data = []
 
-    input_entities = call.data.get('entities', [])
+    input_entities = call.data.get("entities", [])
 
     for entity in input_entities:
-        statistic_id, values, unit = (entity['id'], entity['values'], entity['unit'])
+        statistic_id, values, unit = (entity["id"], entity["values"], entity["unit"])
         _LOGGER.info(f"Parsing entity with id: {statistic_id} with {len(values)} values")
         for value in values:
             value_dict = {
-                'statistic_id': statistic_id,
-                'unit': unit,
-                'start': value['datetime'],
+                "statistic_id": statistic_id,
+                "unit": unit,
+                "start": value["datetime"],
             }
             for valid_column in valid_columns:
                 if valid_column in value:
