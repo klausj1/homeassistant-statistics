@@ -15,17 +15,17 @@ test_data = {
                 {
                     "state": 10.0,
                     "sum": 10.0,
-                    "datetime": "2024-09-13 00:00"
+                    "datetime": "13.09.2024 00:00"
                 },
                 {
                     "state": 20.0,
                     "sum": 20.0,
-                    "datetime": "2024-09-14 00:00"
+                    "datetime": "14.09.2024 00:00"
                 },
                 {
                     "state": 10.0,
                     "sum": 10.0,
-                    "datetime": "2024-09-15 00:00"
+                    "datetime": "15.09.2024 00:00"
                 }
             ]
         }
@@ -33,8 +33,8 @@ test_data = {
 }
 
 def test_prepare_json_entities() -> None:
-    """Test prepare_json_entities function."""
-    call = ServiceCall("domain_name", "service_name", test_data, None)
-    timezone, entities = prepare_data.prepare_json_entities(call)
-    assert timezone.tzname == test_timezone
-    assert len(entities) == 1
+    """Test prepare_json_data_to_import function."""
+    call = ServiceCall("domain_name", "service_name", test_data, test_data)
+    stats, unit_from_entity = prepare_data.prepare_json_data_to_import(call)
+    assert unit_from_entity is not None
+    assert len(stats) == 1

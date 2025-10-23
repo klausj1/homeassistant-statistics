@@ -11,8 +11,13 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from custom_components.import_statistics import helpers, prepare_data
-from custom_components.import_statistics.const import ATTR_FILENAME, DOMAIN
+from custom_components.import_statistics import fitness_component, helpers, prepare_data
+from custom_components.import_statistics.const import (
+    ATTR_FILENAME,
+    ATTR_COMPONENT_NAME,
+    DOMAIN,
+    SERVICE_CREATE_FITNESS_COMPONENT,
+)
 from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 
 # Use empty_config_schema because the component does not have any config options
@@ -48,6 +53,13 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
+
+    def handle_create_fitness_component(call: ServiceCall) -> None:
+        """Handle the fitness component creation service call."""
+        _LOGGER.info("Service handle_create_fitness_component called")
+        fitness_component.create_fitness_component_entities(hass, call)
+
+    hass.services.register(DOMAIN, SERVICE_CREATE_FITNESS_COMPONENT, handle_create_fitness_component)
 
     # Return boolean to indicate that initialization was successful.
     return True

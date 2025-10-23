@@ -41,7 +41,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
     _LOGGER.info("Importing statistics from file: %s", file_path)
-    if not Path.exists(file_path):  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
+    if not Path(file_path).exists():  # noqa: PTH110; for some strange reason Path("notexistingfile").exists returns True ...
         helpers.handle_error(f"path {file_path} does not exist.")
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")

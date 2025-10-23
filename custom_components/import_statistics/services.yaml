@@ -31,6 +31,49 @@ import_from_file:
       default: false
       selector:
         boolean:
+
+create_fitness_component:
+  fields:
+    component_name:
+      required: true
+      example: "my_fitness_tracker"
+      selector:
+        text:
+    vendor:
+      required: true
+      example: "Generic Fitness Tracker"
+      selector:
+        text:
+    device_info:
+      required: false
+      example: |
+        {
+          "model": "FT-1000",
+          "manufacturer": "Fitness Corp",
+          "sw_version": "1.0.0",
+          "hw_version": "2.0"
+        }
+      selector:
+        object:
+    entities:
+      required: true
+      example: |
+        [
+          {
+            "name": "daily_steps",
+            "friendly_name": "Daily Steps",
+            "state_class": "total_increasing",
+            "icon": "mdi:foot-print"
+          },
+          {
+            "name": "heart_rate",
+            "friendly_name": "Heart Rate",
+            "state_class": "measurement",
+            "icon": "mdi:heart-pulse"
+          }
+        ]
+      selector:
+        object:
     datetime_format:
       required: false
       example: "%d.%m.%Y %H:%M"
