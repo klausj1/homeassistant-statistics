@@ -152,11 +152,17 @@ async def create_fitness_component_entities(hass: HomeAssistant, call: ServiceCa
             attributes = {
                 "friendly_name": sensor.name,
                 "unique_id": sensor.unique_id,
-                "device_class": sensor.device_class,
-                "state_class": sensor.state_class,
-                "unit_of_measurement": sensor.native_unit_of_measurement,
-                "icon": sensor.icon,
             }
+            
+            # Only add optional attributes if they have values
+            if sensor.device_class is not None:
+                attributes["device_class"] = sensor.device_class
+            if sensor.state_class is not None:
+                attributes["state_class"] = sensor.state_class
+            if sensor.native_unit_of_measurement is not None:
+                attributes["unit_of_measurement"] = sensor.native_unit_of_measurement
+            if sensor.icon is not None:
+                attributes["icon"] = sensor.icon
             
             # Add device info to attributes for reference
             if sensor.device_info:

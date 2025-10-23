@@ -278,6 +278,93 @@ def test_fitness_sensor_entity_properties(hass) -> None:
     assert sensor.device_info == device_info
 
 
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_optional_attributes_not_set(hass) -> None:
+    """Test that optional attributes are not set when they are None."""
+    test_data = {
+        "component_name": "optional_tracker",
+        "vendor": "Optional Tracker",
+        "entities": [
+            {
+                "name": "steps",
+                "friendly_name": "Steps",
+                # Note: unit_of_measurement and device_class are intentionally omitted
+            },
+        ],
+    }
+    
+    call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
+    
+    # This should not raise an exception
+    await fitness_component.create_fitness_component_entities(hass, call)
+    
+    # Check that the entity was created
+    state = hass.states.get("sensor.optional_tracker_steps")
+    assert state is not None
+    
+    # Verify that optional attributes are not present in the state attributes
+    assert "unit_of_measurement" not in state.attributes
+    assert "device_class" not in state.attributes
+    assert "state_class" not in state.attributes
+    assert "icon" not in state.attributes
+    
+    # Verify required attributes are still present
+    assert "friendly_name" in state.attributes
+    assert "unique_id" in state.attributes
+
+
+@pytest.mark.asyncio
+async def test_create_fitness_component_entities_mixed_attributes(hass) -> None:
+    """Test entities with mixed optional attributes."""
+    test_data = {
+        "component_name": "mixed_tracker",
+        "vendor": "Mixed Tracker",
+        "entities": [
+            {
+                "name": "steps",
+                "friendly_name": "Steps",
+                "unit_of_measurement": "steps",
+                # device_class omitted
+                "state_class": "total_increasing",
+                # icon omitted
+            },
+            {
+                "name": "heart_rate",
+                "friendly_name": "Heart Rate",
+                # unit_of_measurement omitted
+                "device_class": "heart_rate",
+                # state_class omitted
+                "icon": "mdi:heart-pulse",
+            },
+        ],
+    }
+    
+    call = ServiceCall("import_statistics", "create_fitness_component", test_data, test_data)
+    
+    # This should not raise an exception
+    await fitness_component.create_fitness_component_entities(hass, call)
+    
+    # Check first entity
+    steps_state = hass.states.get("sensor.mixed_tracker_steps")
+    assert steps_state is not None
+    assert "unit_of_measurement" in steps_state.attributes
+    assert steps_state.attributes["unit_of_measurement"] == "steps"
+    assert "device_class" not in steps_state.attributes
+    assert "state_class" in steps_state.attributes
+    assert steps_state.attributes["state_class"] == "total_increasing"
+    assert "icon" not in steps_state.attributes
+    
+    # Check second entity
+    heart_state = hass.states.get("sensor.mixed_tracker_heart_rate")
+    assert heart_state is not None
+    assert "unit_of_measurement" not in heart_state.attributes
+    assert "device_class" in heart_state.attributes
+    assert heart_state.attributes["device_class"] == "heart_rate"
+    assert "state_class" not in heart_state.attributes
+    assert "icon" in heart_state.attributes
+    assert heart_state.attributes["icon"] == "mdi:heart-pulse"
+
+
 def test_fitness_sensor_entity_minimal_config(hass) -> None:
     """Test FitnessSensorEntity with minimal configuration."""
     component_name = "minimal_tracker"
