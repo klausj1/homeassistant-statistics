@@ -20,8 +20,6 @@ from custom_components.import_statistics.prepare_data import handle_arguments
 
 def test_handle_arguments_all_valid() -> None:
     """Test the handle_arguments function with a valid timezone identifier and a valid file path, no optional parameters."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
-
     data = {
         ATTR_DECIMAL: True,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
@@ -41,8 +39,6 @@ def test_handle_arguments_all_valid() -> None:
 
 def test_handle_arguments_all_valid_other_parameters() -> None:
     """Test the handle_arguments function with a valid timezone identifier and a valid file path, with some changed parameters."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
-
     data = {
         ATTR_DECIMAL: False,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
@@ -64,8 +60,6 @@ def test_handle_arguments_all_valid_other_parameters() -> None:
 
 def test_handle_arguments_invalid_timezone() -> None:
     """Test the handle_arguments function with an invalid timezone identifier."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
-
     data = {
         ATTR_DECIMAL: True,
         ATTR_TIMEZONE_IDENTIFIER: "Invalid/Timezone",
@@ -83,7 +77,6 @@ def test_handle_arguments_invalid_timezone() -> None:
 
 def test_handle_arguments_file_not_found() -> None:
     """Test the handle_arguments function with a file that does not exist."""
-    file_path = "/path/to/nonexistent_file.csv"
     data = {
         ATTR_DECIMAL: True,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
@@ -95,7 +88,7 @@ def test_handle_arguments_file_not_found() -> None:
     # This test should not raise an error for file existence
     # File existence checking is done in prepare_data_to_import, not handle_arguments
     decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
-    
+
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == ","
@@ -105,8 +98,6 @@ def test_handle_arguments_file_not_found() -> None:
 
 def test_handle_arguments_attr_from_entity_false() -> None:
     """Test the handle_arguments function with a valid timezone identifier and a valid file path, with some changed parameters."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
-
     data = {
         ATTR_DECIMAL: False,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",

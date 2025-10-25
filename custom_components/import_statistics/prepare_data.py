@@ -52,13 +52,13 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
 def prepare_json_entities(call: ServiceCall) -> tuple:
     """Prepare json entities for import."""
     timezone_identifier = call.data.get("timezone_identifier")
-    
+
     if timezone_identifier not in pytz.all_timezones:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
-    
+
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
     entities = call.data.get("entities", [])
-    
+
     return timezone, entities
 
 def prepare_json_data_to_import(call: ServiceCall) -> tuple:
