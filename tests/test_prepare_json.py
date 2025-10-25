@@ -12,25 +12,14 @@ test_data = {
             "id": "sensor.finance_test",
             "unit": "$",
             "values": [
-                {
-                    "state": 10.0,
-                    "sum": 10.0,
-                    "datetime": "13.09.2024 00:00"
-                },
-                {
-                    "state": 20.0,
-                    "sum": 20.0,
-                    "datetime": "14.09.2024 00:00"
-                },
-                {
-                    "state": 10.0,
-                    "sum": 10.0,
-                    "datetime": "15.09.2024 00:00"
-                }
-            ]
+                {"state": 10.0, "sum": 10.0, "datetime": "13.09.2024 00:00"},
+                {"state": 20.0, "sum": 20.0, "datetime": "14.09.2024 00:00"},
+                {"state": 10.0, "sum": 10.0, "datetime": "15.09.2024 00:00"},
+            ],
         }
-    ]
+    ],
 }
+
 
 def test_prepare_json_entities() -> None:
     """Test prepare_json_entities function."""

@@ -49,6 +49,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
     return stats, unit_from_entity
 
+
 def prepare_json_entities(call: ServiceCall) -> tuple:
     """Prepare json entities for import."""
     timezone_identifier = call.data.get("timezone_identifier")
@@ -60,6 +61,7 @@ def prepare_json_entities(call: ServiceCall) -> tuple:
     entities = call.data.get("entities", [])
 
     return timezone, entities
+
 
 def prepare_json_data_to_import(call: ServiceCall) -> tuple:
     """Parse json data to import statistics from."""
@@ -91,6 +93,7 @@ def prepare_json_data_to_import(call: ServiceCall) -> tuple:
     my_df = pd.DataFrame(data, columns=columns)
     stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
     return stats, unit_from_entity
+
 
 def handle_arguments(call: ServiceCall) -> tuple:
     """
