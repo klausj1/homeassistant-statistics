@@ -1,0 +1,133 @@
+# Automatically approve Dependabot PRs and squash-merge them once tests pass.
+# Triggers on pull_request events. Only runs for dependabot PRs in this repo.
+# Configurable wait timeout via MAX_WAIT_MINUTES (default 30).
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'klausj1/homeassistant-statistics'
+    env:
+      # Maximum minutes to wait for checks to become green (default 30)
+      MAX_WAIT_MINUTES: 30
+      # Poll interval in seconds
+      POLL_INTERVAL_SECONDS: 15
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v1
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Approve the PR
+        run: |
+          echo "Approving PR $PR_URL"
+          gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for checks to pass (poll check runs)
+        id: wait_checks
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = context.payload.pull_request.head.sha;
+            const maxMinutes = parseInt(process.env.MAX_WAIT_MINUTES || "30", 10);
+            const pollInterval = parseInt(process.env.POLL_INTERVAL_SECONDS || "15", 10) * 1000;
+            const deadline = Date.now() + maxMinutes * 60 * 1000;
+
+            core.info(`Waiting for check-runs on commit ${headSha} to complete successfully (timeout ${maxMinutes}m)`);
+
+            async function allChecksSuccessful() {
+              // List check runs for the commit
+              const resp = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: headSha,
+                per_page: 100
+              });
+              const runs = resp.data.check_runs || [];
+              core.info(`Found ${runs.length} check run(s).`);
+              if (runs.length === 0) {
+                // No check runs — treat as "no checks" and proceed
+                core.info("No check runs found for commit; proceeding.");
+                return { ready: true, success: true, reason: "no-checks" };
+              }
+
+              // If any completed with a non-success conclusion -> fail
+              for (const r of runs) {
+                core.info(`check: ${r.name} status=${r.status} conclusion=${r.conclusion}`);
+                if (r.status === "completed" && r.conclusion && r.conclusion !== "success") {
+                  return { ready: true, success: false, reason: `check "${r.name}" concluded ${r.conclusion}` };
+                }
+              }
+
+              // If all runs completed and all conclusions are success -> success
+              const allCompleted = runs.every(r => r.status === "completed");
+              const allSuccess = allCompleted && runs.every(r => r.conclusion === "success");
+              if (allSuccess) return { ready: true, success: true, reason: "all-success" };
+
+              // Otherwise not ready yet
+              return { ready: false };
+            }
+
+            // Poll loop
+            while (Date.now() < deadline) {
+              const status = await allChecksSuccessful();
+              if (status.ready) {
+                if (status.success) {
+                  core.info("All checks passed (or no checks). Continuing to merge step.");
+                  core.setOutput("checks_ok", "true");
+                  core.setOutput("reason", status.reason || "");
+                  return;
+                } else {
+                  core.setFailed(`Checks failed: ${status.reason}`);
+                  core.setOutput("checks_ok", "false");
+                  core.setOutput("reason", status.reason || "");
+                  return;
+                }
+              }
+              core.info(`Not ready yet; sleeping ${pollInterval/1000}s before next poll...`);
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+            }
+
+            // Timeout
+            core.setFailed(`Timed out waiting for checks to pass after ${maxMinutes} minutes.`);
+            core.setOutput("checks_ok", "false");
+            core.setOutput("reason", "timeout");
+
+      - name: Squash-merge the PR
+        if: steps.wait_checks.outputs.checks_ok == 'true'
+        run: |
+          echo "Attempting squash merge of $PR_URL"
+          # try merge, retry once on transient failure
+          set -e
+          if gh pr merge "$PR_URL" --squash --delete-branch --body "Automated merge of Dependabot PR by workflow"; then
+            echo "Merged $PR_URL"
+          else
+            echo "First merge attempt failed, retrying after 5s"
+            sleep 5
+            gh pr merge "$PR_URL" --squash --delete-branch --body "Automated merge of Dependabot PR by workflow" || {
+              echo "Merge failed"
+              exit 1
+            }
+          fi
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log outcome if merge was skipped/failed
+        if: steps.wait_checks.outputs.checks_ok != 'true'
+        run: |
+          echo "Merge not attempted: $REASON"
+        env:
+          REASON: ${{ steps.wait_checks.outputs.reason }}
