@@ -57,7 +57,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
         ATTR_UNIT_FROM_ENTITY: False,
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     # Call the function
     stats, unit_from_entity = prepare_data_to_import(file_path, call)
@@ -104,7 +104,7 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
         ATTR_UNIT_FROM_ENTITY: False,
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     # Call the function
     stats, unit_from_entity = prepare_data_to_import(file_path, call)
@@ -128,7 +128,7 @@ def test_prepare_data_to_import_wrong_separator() -> None:
         ATTR_DELIMITER: "\t",
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     with pytest.raises(
         HomeAssistantError,
@@ -152,7 +152,7 @@ def test_prepare_data_to_import_invalid_file() -> None:
         ATTR_DELIMITER: "\t",
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     with pytest.raises(
         HomeAssistantError,
@@ -176,7 +176,7 @@ def test_prepare_data_to_import_invalid_data() -> None:
         ATTR_DELIMITER: "\t",
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     with pytest.raises(
         HomeAssistantError,
@@ -225,7 +225,7 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
         ATTR_UNIT_FROM_ENTITY: True,
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("domain_name", "service_name", data, data)
 
     # Call the function
     stats, unit_from_entity = prepare_data_to_import(file_path, call)
