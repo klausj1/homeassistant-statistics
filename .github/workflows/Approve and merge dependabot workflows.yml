@@ -1,6 +1,7 @@
 # Automatically approve Dependabot PRs and squash-merge them once tests pass.
 # Triggers on pull_request events. Only runs for dependabot PRs in this repo.
 # Configurable wait timeout via MAX_WAIT_MINUTES (default 30).
+name: Dependabot auto-approve and merge
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
