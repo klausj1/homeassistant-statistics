@@ -96,6 +96,10 @@ Last, call the service. You will get feedback directly in the GUI.
 
 > If importing does not work, and you do not get an error directly in the GUI, but there is an error in the home assistant logs, then this is a bug (this happens if the integration misses some checks, which lead to import errors later). Please create an issue.
 
+## Miscanelous
+
+A guide to migrate from Jeedom statistics data is available [here](./misc/jeedom.md).
+
 ## Contributions are welcome!
 
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
