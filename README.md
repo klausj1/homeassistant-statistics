@@ -40,9 +40,11 @@ The preferred way is to use HACS:
 
 ## Usage
 
-This integration offers the service `import_from_file` to import statistics from a file.
+This integration offers the service `import_from_file` to import statistics from a file and `import_from_json` to import from an uploaded JSON.
 
 > As this integration uses database-independent methods of the recorder to do the import, it does not depend on the used database - it should work for all databases supported by HA.
+
+### import_from_file
 
 First, create your file. The structure is different for statistics with min/max/mean and counter statistics with state/sum.
 
@@ -95,6 +97,16 @@ Last, call the service. You will get feedback directly in the GUI.
 > The importing is an async operation. Depending on the size of the import, it can take some time until the import is finished, even though you already get an OK as feedback in the GUI
 
 > If importing does not work, and you do not get an error directly in the GUI, but there is an error in the home assistant logs, then this is a bug (this happens if the integration misses some checks, which lead to import errors later). Please create an issue.
+
+### import_from_json
+
+This works similarly to the csv file but can _also_ be called via the homeassitant api.
+
+The JSON format is shown here:
+
+- [state_sum.json](./assets/state_sum.json)
+
+You can upload the json via the api at: `https://<homeassistant.url>/api/services/import_statistics/import_from_json` with the JSON file as the request body.
 
 ## Miscanelous
 
