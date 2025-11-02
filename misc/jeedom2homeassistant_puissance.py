@@ -8,7 +8,6 @@ so only full-hour timestamps remain. The output CSV contains the header
 Usage: python3 jeedom2homeassistant-puissance.py <input_file> <output_file> <prefix>
 """
 
-import contextlib
 import csv
 import datetime
 import sys
