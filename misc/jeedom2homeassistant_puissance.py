@@ -13,7 +13,7 @@ import datetime
 import sys
 from pathlib import Path
 
-MIN_ROW_COLS = 2
+MIN_ROW_COLS = 1
 REQUIRED_ARGS = 4
 
 
