@@ -31,9 +31,9 @@ We see that the time is not full hours which is needed by HA for import and date
 
 Use the python scripts which do the job to build a new CSV which can be imported.
 
-One script [jeedom2homeassistant-puissance.py](jeedom2homeassistant-puissance.py) has been build for power which provides min/max/mean (with same time the same values as the jeedom export provides only means. It build a good date/time and merge data if more than one is present for one hour). yes mathematically speaking this is ugly to perform a mean but this is enough for basic needs.
+One script [jeedom2homeassistant_puissance.py](jeedom2homeassistant_puissance.py) has been build for power which provides min/max/mean (with same time the same values as the jeedom export provides only means. It build a good date/time and merge data if more than one is present for one hour). yes mathematically speaking this is ugly to perform a mean but this is enough for basic needs.
 
-And a second one [jeedom2homeassistant-counters.py](jeedom2homeassistant-counters.py) which compute a state, sum file for TOTAL_INCREASING for Total consumption in kWh.
+And a second one [jeedom2homeassistant_counters.py](jeedom2homeassistant_counters.py) which compute a state, sum file for TOTAL_INCREASING for Total consumption in kWh.
 
 This scripts can be adapted for temperature or other statistics if needed.
 ```bash

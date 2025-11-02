@@ -1,63 +1,80 @@
 """
-This script converts data exported from Jeedom statistics into a format suitable for importing as a counter in Home Assistant. 
-It processes the data by adding a prefix, formatting the date, and adjusting the data to include only full-hour timestamps.
-The script performs the following steps:
-1. Reads the input file and adds a specified prefix to each line.
-2. Formats the date from the format "YYYY-MM-DD HH:MM:SS" to "DD.MM.YYYY HH:MM".
-3. Replaces commas in numeric values with dots for consistency.
-4. Adjusts the data to include only full-hour timestamps by interpolating values for non-full-hour timestamps based on the nearest previous full-hour data point.
-5. Outputs the processed data to a new file in the required format with a header line: "statistic_id;start;state;sum".
-Functions:
-- add_prefix_and_format_date(input_file, temp_file, prefix): 
-    Adds a prefix to each line, formats the date, and replaces commas in numeric values with dots.
-- interpolate_value(prev_time, prev_value, current_time, current_value, target_time): 
-    Linearly interpolates a value for a target time based on the previous full-hour data point.
-- adjust_to_full_hours(temp_file, output_file): 
-    Adjusts the data to include only full-hour timestamps by interpolating values for non-full-hour timestamps.
-Usage:
-Run the script with the following command:
-        python3 process_file.py <input_file> <output_file> <prefix>
-Arguments:
-- <input_file>: Path to the input CSV file exported from Jeedom.
-- <output_file>: Path to the output CSV file formatted for Home Assistant.
-- <prefix>: A prefix to add to each line in the output file.
-The script creates a temporary file during processing, which is deleted after the script completes.
-"""
-import csv
-from datetime import datetime, timedelta
-import sys
+Convert Jeedom-exported CSV to Home Assistant counter format.
 
-def add_prefix_and_format_date(input_file, temp_file, prefix):
-    """Add a prefix to each line and format the date."""
-    with open(input_file, "r", encoding="utf-8") as infile, open(temp_file, "w", encoding="utf-8", newline="") as outfile:
+The script reads an input CSV, adds a prefix to sensor ids, reformats
+dates and adjusts the data so only full-hour timestamps remain
+(interpolating where necessary). The output CSV contains the header
+"statistic_id;start;state;sum".
+
+Usage: python3 process_file.py <input_file> <output_file> <prefix>
+"""
+
+import contextlib
+import csv
+import datetime
+import sys
+from pathlib import Path
+
+# typing imports intentionally omitted; use built-in generics (list/tuple) for annotations
+
+MIN_ROW_COLS = 3
+
+
+def add_prefix_and_format_date(input_file: str, temp_file: str, prefix: str) -> None:
+    """
+    Add a prefix to each line and format the date.
+
+    Writes intermediate results to ``temp_file``.
+    """
+    infile_path = Path(input_file)
+    outfile_path = Path(temp_file)
+
+    with infile_path.open(encoding="utf-8") as infile, outfile_path.open("w", encoding="utf-8", newline="") as outfile:
         reader = csv.reader(infile, delimiter=";")
         writer = csv.writer(outfile, delimiter=";")
-        
+
         for row in reader:
             if len(row) > 1:
-                # Add prefix and format the date
                 old_date = row[0]
-                new_date = datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S").strftime("%d.%m.%Y %H:%M")
+                # parse as UTC-aware datetime
+                new_date = datetime.datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.UTC).strftime("%d.%m.%Y %H:%M")
                 writer.writerow([prefix, new_date, row[1].replace(",", ".")])
 
-def interpolate_value(prev_time, prev_value, current_time, current_value, target_time):
-    """Linearly interpolate the value for the target time based on the previous full hour."""
+
+def interpolate_value(
+    prev_time: datetime.datetime,
+    prev_value: float,
+    current_time: datetime.datetime,
+    current_value: float,
+    target_time: datetime.datetime,
+) -> float:
+    """
+    Linearly interpolate the value for the target time.
+
+    Returns a float rounded to 2 decimals. If the interval is zero
+    seconds, returns the previous value.
+    """
     total_seconds = (current_time - prev_time).total_seconds()
+    if total_seconds == 0:
+        return round(prev_value, 2)
+
     elapsed_seconds = (target_time - prev_time).total_seconds()
     value_diff = current_value - prev_value
     interpolated_value = prev_value + (value_diff * (elapsed_seconds / total_seconds))
-    return round(interpolated_value, 2)  # Round to 2 decimal places for consistency
+    return round(interpolated_value, 2)
 
-def adjust_to_full_hours(temp_file, output_file):
+
+def adjust_to_full_hours(temp_file: str, output_file: str) -> None:
     """Adjust the data to only include full hours."""
-    data = []
+    data: list[tuple[datetime.datetime, str, float]] = []
 
     # Read the temporary file
-    with open(temp_file, "r", encoding="utf-8") as infile:
+    infile_path = Path(temp_file)
+    with infile_path.open(encoding="utf-8") as infile:
         reader = csv.reader(infile, delimiter=";")
         for row in reader:
-            if len(row) >= 3:
-                timestamp = datetime.strptime(row[1], "%d.%m.%Y %H:%M")
+            if len(row) >= MIN_ROW_COLS:
+                timestamp = datetime.datetime.strptime(row[1], "%d.%m.%Y %H:%M").replace(tzinfo=datetime.UTC)
                 value = float(row[2])
                 data.append((timestamp, row[0], value))
 
@@ -82,29 +99,36 @@ def adjust_to_full_hours(temp_file, output_file):
                     break
 
             # Interpolate the value if a previous full-hour point exists
-            if prev_time:
+            if prev_time is not None and prev_value is not None:
                 interpolated_value = interpolate_value(prev_time, prev_value, current_time, current_value, current_time.replace(minute=0))
                 adjusted_data.append((current_time.replace(minute=0), sensor_name, interpolated_value))
 
     # Write the adjusted data to the output file
-    with open(output_file, "w", encoding="utf-8", newline="") as outfile:
+    outfile_path = Path(output_file)
+    with outfile_path.open("w", encoding="utf-8", newline="") as outfile:
         writer = csv.writer(outfile, delimiter=";")
 
         # Write the header line
         writer.writerow(["statistic_id", "start", "state", "sum"])
-    
-        for row in adjusted_data:
-            writer.writerow([
-                row[1],  # statistic_id
-                row[0].strftime("%d.%m.%Y %H:%M"),  # start
-                str(row[2]).replace(".", ","),  # state
-                str(row[2]).replace(".", ",")   # sum (same as state)
-            ])
 
-if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python3 process_file.py <input_file> <output_file> <prefix>")
-        sys.exit(1)
+        for row in adjusted_data:
+            writer.writerow(
+                [
+                    row[1],  # statistic_id
+                    row[0].strftime("%d.%m.%Y %H:%M"),  # start
+                    str(row[2]).replace(".", ","),  # state
+                    str(row[2]).replace(".", ","),  # sum (same as state)
+                ]
+            )
+
+
+REQUIRED_ARGS = 4
+
+
+def _main() -> int:
+    if len(sys.argv) != REQUIRED_ARGS:
+        sys.stderr.write("Usage: python3 process_file.py <input_file> <output_file> <prefix>\n")
+        return 1
 
     input_file = sys.argv[1]
     output_file = sys.argv[2]
@@ -118,5 +142,11 @@ if __name__ == "__main__":
     adjust_to_full_hours(temp_file, output_file)
 
     # Clean up temporary file
-    import os
-    os.remove(temp_file)
+    with contextlib.suppress(FileNotFoundError):
+        Path(temp_file).unlink()
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())
