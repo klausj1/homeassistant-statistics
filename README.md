@@ -108,7 +108,7 @@ The JSON format is shown here:
 
 You can upload the json via the api at: `https://<homeassistant.url>/api/services/import_statistics/import_from_json` with the JSON file as the request body.
 
-## Miscanelous
+## Miscellaneous
 
 A guide to migrate from Jeedom statistics data is available [here](./misc/jeedom.md).
 

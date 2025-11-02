@@ -1,6 +1,6 @@
 # Jeedom
 
-If you want to import long term statistics from a Jeedom instance. This guideline purpose is to prepare your data to a format that the plugin is able to import into Home Assistant.
+If you want to import long term statistics from a Jeedom instance, this guidelines purpose is to prepare your data to a format that the plugin is able to import them into Home Assistant.
 
 # 1 - Export from jeedom
 
@@ -23,22 +23,22 @@ Format looks like (... is not in the file, just to show you different values)
 2025-02-16 04:06:01;374,750000000
 ```
 
-We see that the time is not full hours which is needed by HA for import and date is not the good format.
+You can see that the timestamps are not full hours (which is needed by HA for import) and the format of the data does not fit.
 
 # 2 - Prepare data
 
-We see that the time is not full hours which is needed by HA for import and date is not the good format.
-
 Use the python scripts which do the job to build a new CSV which can be imported.
 
-One script [jeedom2homeassistant_puissance.py](jeedom2homeassistant_puissance.py) has been build for power which provides min/max/mean (with same time the same values as the jeedom export provides only means. It build a good date/time and merge data if more than one is present for one hour). yes mathematically speaking this is ugly to perform a mean but this is enough for basic needs.
+One script [jeedom2homeassistant_puissance.py](jeedom2homeassistant_puissance.py) has been built for power which provides min/max/mean (with same time the same values as the jeedom export provides only means. It build a good date/time and merge data if more than one is present for one hour). yes mathematically speaking this is ugly to perform a mean but this is enough for basic needs.
 
 And a second one [jeedom2homeassistant_counters.py](jeedom2homeassistant_counters.py) which compute a state, sum file for TOTAL_INCREASING for Total consumption in kWh.
 
 This scripts can be adapted for temperature or other statistics if needed.
+
 ```bash
 python3 script.py <input_file> <output_file> <prefix>
 ```
+
 with prefix the name of the entity you want to import into.
 
 # 3 - Import with homeassistant-statistics
@@ -47,9 +47,8 @@ Use the plugin to import your new generated csv
 
 # 4 - Checks
 
-Goes into HA statistics page and verify the imported data.
+Go to the HA statistics page and verify the imported data.
 
 # 5 - Alternative
 
-https://github.com/patrickvorgers/Home-Assistant-Import-Energy-Data could have been a good alternative to evaluate.
-
+https://github.com/patrickvorgers/Home-Assistant-Import-Energy-Data could be a good alternative to evaluate.
