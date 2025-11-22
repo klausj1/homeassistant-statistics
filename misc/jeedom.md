@@ -20,7 +20,7 @@ Format looks like (... is not in the file, just to show you different values)
 ...
 2025-02-16 02:00:02;336,750000000
 2025-02-16 03:03:02;388,550000000
-2025-02-16 04:06:01;374,750000000
+2025-02-16 04:06:01;374,750000000git pzll
 ```
 
 You can see that the timestamps are not full hours (which is needed by HA for import) and the format of the data does not fit.
