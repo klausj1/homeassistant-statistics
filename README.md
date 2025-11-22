@@ -110,7 +110,7 @@ You can upload the json via the api at: `https://<homeassistant.url>/api/service
 
 ## Concrete examples
 
-[Loading, Manipulating, Recovering and Moving Long Term Statistics in Home Assistant](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802/12) describes concrete examples to enhance/repair your historical data, esp. explaining the complex topic with state and sum. If you have troubles with state/sum, make sure you read this. Thx to Geoffrey!
+[Loading, Manipulating, Recovering and Moving Long Term Statistics in Home Assistant](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802) describes concrete examples to enhance/repair your historical data, esp. explaining the complex topic with state and sum. If you have troubles with state/sum, make sure you read this. Thx to Geoffrey!
 
 A guide to migrate from Jeedom statistics data is available [here](./misc/jeedom.md).
 
