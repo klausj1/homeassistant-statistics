@@ -187,10 +187,14 @@ def add_unit_for_entity(hass: HomeAssistant, metadata: dict) -> None:
 
     if entity is None:
         helpers.handle_error(f"Entity does not exist: '{entity_id}'")
-    elif metadata["unit_of_measurement"] == "":
-        metadata["unit_of_measurement"] = entity.attributes["unit_of_measurement"]
-        _LOGGER.debug(
-            "Adding unit '%s' for entity_id: %s",
-            metadata["unit_of_measurement"],
-            entity_id,
-        )
+    elif metadata.get("unit_of_measurement", "") == "":
+        uom = None
+        if hasattr(entity, "attributes") and isinstance(entity.attributes, dict):
+            uom = entity.attributes.get("unit_of_measurement")
+        if uom:
+            metadata["unit_of_measurement"] = uom
+            _LOGGER.debug(
+                "Adding unit '%s' for entity_id: %s",
+                metadata["unit_of_measurement"],
+                entity_id,
+            )
