@@ -55,23 +55,25 @@ Here you can find example files for both.
 
 The examples are hopefully self-explaining, just some additional information:
 
-- You can either import min/max/mean or counters, but you cannot mix them in one file
-- You can import the same or changed data as often as you like, there will not be duplicate data (as existing values will just be overwritten). So, you can use this integration to add values or to correct existing values
-- You can use different settings for the delimiter (default is tab (tsv))
-- For floats, the decimal separator can be '.' or ','
-- You should be able to find your timezone [here](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), or check the python documentation (pytz). Keep in mind that the times are local times of the HA server.
-- The timestamp (column `start`) must be of the format "%d.%m.%Y %H:%M" (e.g. "17.03.2024 02:00")
+- You can either import **min/max/mean or counters**, but you cannot mix them in one file
+- You can import the same or changed data as often as you like, there will not be duplicate data (as **existing values will be overwritten**). So, you can use this integration to add values or to correct existing values
+- You can use different **settings** for the **delimiter** (default is tab (tsv))
+- For floats, the **decimal separator** can be **'.' or ','**
+- You should be able to find your **timezone** [here](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), or check the python documentation (pytz). Keep in mind that the times are local times of the HA server.
+- The timestamp (column `start`) **must** be of the **format "%d.%m.%Y %H:%M" (e.g. "17.03.2024 02:00")**
   - Always use 2 digits for all parts except the year, which needs 4 digits - just like the example above
-- If you do not import values for every hour, you will get gaps in the graphs (depending on the used card and its settings)
-- The minutes of the timestamp must be zero. This is due to the [long-term statistics](https://data.home-assistant.io/docs/statistics/#:~:text=Home%20Assistant%20has%20support%20for,of%20the%20short%2Dterm%20statistics.), which only store hourly values.
-- If you use non-ASCII-characters (like m³) the codepage of your file must be UTF-8
+- If you do not import values for every hour, you will get **gaps in the graphs** (depending on the used card and its settings)
+- The **minutes of the timestamp must be zero**. This is due to the [long-term statistics](https://data.home-assistant.io/docs/statistics/#:~:text=Home%20Assistant%20has%20support%20for,of%20the%20short%2Dterm%20statistics.), which only store hourly values.
+- If you use non-ASCII-characters (like m³) the codepage of your file must be **UTF-8**
 - You can import:
-    - Either statistics for existing sensors (internal statistics). These sensors have a '.' in its name, e.g. sensor.sun_solar_azimuth
+    - Either statistics for **existing sensors** (internal statistics). These sensors have a '.' in its name, e.g. sensor.sun_solar_azimuth
         - If you try to import such a sensor which does not exist, you will see this sensor under developer tools / statistics, with an error. You can fix the error there, whereas fix means, remove it from database again
-    - Or statistics for not existing sensors (external statistics). These sensors have a ':' in its name, e.g. sensor:not_existing_sun_solar_azimuth
+    - Or statistics for **not existing sensors** (external statistics). These sensors have a ':' in its name, e.g. sensor:not_existing_sun_solar_azimuth
 - min/max/mean are pretty straight forward, whereas counters are more complex. To understand what `sum`and `state` means, you can e.g. check [this](https://developers.home-assistant.io/blog/2021/08/16/state_class_total/)
-    - You can set sum to 0, if state is enough for you. Or use the same value for sum and state. Or only import sum.
+    - To be sure that the energy board and your graphs show correct values, import state and sum. You can use the same value for sum and state.
     - You have to align the imported values with the first current value in your database, otherwise there will be a spike, as the difference between e.g. to energy values at 00:00 and 01:00 is the used energy for the hour starting at 00:00
+- **Unknown columns are rejected**: Any columns in your file that are not recognized (e.g. typos in column names or extra data columns) will cause an import error. Only the following columns are allowed: `statistic_id`, `start`, `unit` (only allowed if unit comes from the file), `min`, `max`, `mean`, `sum`, `state`
+- **Mean always uses average**: The mean value is calculated as a simple arithmetic average. This means that for circular/angular values (like wind direction, compass bearings), the average will give incorrect results.
 
 Then, copy your file to your HA configuration (where you find `configuration.yaml`).
 
@@ -100,7 +102,7 @@ Last, call the service. You will get feedback directly in the GUI.
 
 ### import_from_json
 
-This works similarly to the csv file but can _also_ be called via the homeassitant api.
+This works similarly to the file import, but can _also_ be called via the homeassistant api.
 
 The JSON format is shown here:
 
