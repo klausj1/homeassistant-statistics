@@ -45,7 +45,8 @@ def test_are_columns_valid_invalid_columns_combination() -> None:
 
 
 def test_are_columns_valid_unknown_columns_rejected() -> None:
-    """Test the are_columns_valid function with unknown column headers.
+    """
+    Test the are_columns_valid function with unknown column headers.
 
     This test verifies that unknown columns are rejected and an error is raised.
     Only the allowed columns are permitted in the input file.
@@ -61,15 +62,14 @@ def test_are_columns_valid_unknown_columns_rejected() -> None:
 
 
 def test_are_columns_valid_multiple_unknown_columns_rejected() -> None:
-    """Test the are_columns_valid function with multiple unknown column headers.
+    """
+    Test the are_columns_valid function with multiple unknown column headers.
 
     This test verifies that multiple unknown columns are rejected with an error message
     listing all the unknown columns.
     """
     # Valid columns with multiple additional unknown columns
-    my_df = pd.DataFrame(
-        columns=["statistic_id", "start", "unit", "mean", "min", "max", "extra_field_1", "extra_field_2", "notes"]
-    )
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "mean", "min", "max", "extra_field_1", "extra_field_2", "notes"])
 
     with pytest.raises(
         HomeAssistantError,

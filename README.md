@@ -14,6 +14,8 @@ This HA integration allows to import long term statistics from a file like csv o
 
 ## Installation
 
+> This integration requires HA 2025.12.0 or newer
+
 ### HACS
 
 The preferred way is to use HACS:

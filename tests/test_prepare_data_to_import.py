@@ -2,7 +2,9 @@
 
 import datetime
 import re
+import tempfile
 import zoneinfo
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -257,11 +259,8 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
     )
 
     # Save to a temporary CSV file
-    import tempfile
-    import os
-
     with tempfile.TemporaryDirectory() as temp_dir:
-        file_path = os.path.join(temp_dir, "test_unknown_columns.csv")
+        file_path = str(Path(temp_dir) / "test_unknown_columns.csv")
         my_df.to_csv(file_path, sep="\t", index=False, decimal=",")
 
         data = {

@@ -1,8 +1,5 @@
 """Unit tests to verify unit_class field in metadata."""
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 

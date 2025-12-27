@@ -1,6 +1,5 @@
 """Unit tests for add_unit_for_entity function."""
 
-import contextlib
 from unittest.mock import MagicMock, patch
 
 from homeassistant.core import State
