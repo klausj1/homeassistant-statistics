@@ -1,0 +1,4 @@
+statistic_id	start	min	max	mean
+sensor.importtest	09.12.2025 09:00	100	200	100
+sensor.importtest	09.12.2025 10:00	200	200	200
+sensor.importtest	09.12.2025 11:00	300	300	300

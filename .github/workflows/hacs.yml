@@ -9,6 +9,8 @@ on:
 jobs:
   hacs:
     name: HACS Action
+    permissions:
+      contents: read
     runs-on: "ubuntu-latest"
     steps:
       - name: HACS Action

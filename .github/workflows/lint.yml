@@ -11,6 +11,8 @@ on:
 jobs:
   ruff:
     name: "Ruff"
+    permissions:
+      contents: read
     runs-on: "ubuntu-latest"
     steps:
         - name: "Checkout the repository"
