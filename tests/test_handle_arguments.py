@@ -26,7 +26,7 @@ def test_handle_arguments_all_valid() -> None:
         ATTR_DELIMITER: ",",
     }
 
-    call = ServiceCall("domain_name", "service_name", data, None)
+    call = ServiceCall("hass", "domain_name", "service_name", data)
 
     decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
 
