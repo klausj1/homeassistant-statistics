@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
+from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import prepare_data
@@ -33,7 +34,7 @@ def test_handle_dataframe_mean() -> None:
     expected_stats = {
         "stat1.mean": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "stat1.mean",
                 "name": None,
@@ -86,7 +87,7 @@ def test_handle_dataframe_mean_other_datetime_format() -> None:
     expected_stats = {
         "stat1.mean": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "stat1.mean",
                 "name": None,
@@ -134,7 +135,7 @@ def test_handle_dataframe_sum_state() -> None:
     expected_stats = {
         "stat2.sum": (
             {
-                "has_mean": False,
+                "mean_type": StatisticMeanType.NONE,
                 "has_sum": True,
                 "statistic_id": "stat2.sum",
                 "name": None,
@@ -177,7 +178,7 @@ def test_handle_dataframe_sum_state_other_format() -> None:
     expected_stats = {
         "stat2.sum": (
             {
-                "has_mean": False,
+                "mean_type": StatisticMeanType.NONE,
                 "has_sum": True,
                 "statistic_id": "stat2.sum",
                 "name": None,
@@ -218,7 +219,7 @@ def test_handle_dataframe_sum() -> None:
     expected_stats = {
         "stat2.sum": (
             {
-                "has_mean": False,
+                "mean_type": StatisticMeanType.NONE,
                 "has_sum": True,
                 "statistic_id": "stat2.sum",
                 "name": None,
@@ -267,7 +268,7 @@ def test_handle_dataframe_multiple_mean() -> None:
     expected_stats = {
         "stat1.temp": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "stat1.temp",
                 "name": None,
@@ -297,7 +298,7 @@ def test_handle_dataframe_multiple_mean() -> None:
         ),
         "stat2.temp": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "stat2.temp",
                 "name": None,
@@ -321,7 +322,7 @@ def test_handle_dataframe_multiple_mean() -> None:
         ),
         "stat1.value": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "stat1.value",
                 "name": None,
@@ -401,7 +402,7 @@ def test_handle_dataframe_mean_unit_from_entity() -> None:
     expected_stats = {
         "stat1.mean": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "stat1.mean",
                 "name": None,

@@ -6,6 +6,7 @@ import zoneinfo
 
 import pandas as pd
 import pytest
+from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
@@ -30,7 +31,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
     expected_stats = {
         "sensor.esp32_soundroom_bathroomtempsensor": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
                 "name": None,
@@ -77,7 +78,7 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
     expected_stats = {
         "sensor.esp32_soundroom_bathroomtempsensor": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
                 "name": None,
@@ -198,7 +199,7 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
     expected_stats = {
         "sensor.esp32_soundroom_bathroomtempsensor": (
             {
-                "has_mean": True,
+                "mean_type": StatisticMeanType.ARITHMETIC,
                 "has_sum": False,
                 "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
                 "name": None,

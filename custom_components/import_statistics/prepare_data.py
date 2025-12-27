@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytz
+from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 
 from custom_components.import_statistics import helpers
@@ -175,7 +176,7 @@ def handle_dataframe(
         if statistic_id not in stats:  # New statistic id found
             source = helpers.get_source(statistic_id)
             metadata = {
-                "has_mean": has_mean,
+                "mean_type": StatisticMeanType.ARITHMETIC if has_mean else StatisticMeanType.NONE,
                 "has_sum": has_sum,
                 "source": source,
                 "statistic_id": statistic_id,
