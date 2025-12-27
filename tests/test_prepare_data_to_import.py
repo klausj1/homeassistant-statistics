@@ -302,6 +302,6 @@ def test_prepare_data_to_import_unit_from_entity_with_unit_column() -> None:
     # Call the function - should raise an error because unit column is not allowed when unit_from_entity=True
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Unknown columns in file: unit."),
+        match=re.escape("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file."),
     ):
         prepare_data_to_import(file_path, call)

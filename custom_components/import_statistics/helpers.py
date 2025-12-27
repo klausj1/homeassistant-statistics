@@ -225,6 +225,10 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     # Check for unknown columns
     unknown_columns = set(columns) - allowed_columns
     if unknown_columns:
+        # Special case: unit column is present but unit is supposed to come from entity
+        if unknown_columns == {"unit"} and unit_from_where == UnitFrom.ENTITY:
+            handle_error("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file.")
+
         unknown_cols_str = ", ".join(sorted(unknown_columns))
         allowed_cols_str = ", ".join(sorted(allowed_columns))
         handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
