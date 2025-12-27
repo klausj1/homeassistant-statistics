@@ -237,3 +237,55 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
     # Check the output
     assert stats == expected_stats
     assert unit_from_entity is UnitFrom.ENTITY
+
+
+def test_prepare_data_to_import_with_unknown_columns() -> None:
+    """
+    Test prepare_data_to_import function with unknown column headers.
+
+    This test verifies that the function silently ignores unknown columns
+    that are not used for statistics import, as long as all required columns
+    are present.
+    """
+    # Create a DataFrame with valid columns plus unknown columns
+    my_df = pd.DataFrame(
+        [
+            ["sensor.temperature", "26.01.2024 00:00", "°C", 20.1, 25.5, 22.8, "extra_data_1", "notes"],
+        ],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean", "unknown_field", "comments"],
+    )
+
+    # Save to a temporary CSV file
+    import tempfile
+    import os
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = os.path.join(temp_dir, "test_unknown_columns.csv")
+        my_df.to_csv(file_path, sep="\t", index=False, decimal=",")
+
+        data = {
+            ATTR_DECIMAL: True,
+            ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+            ATTR_DELIMITER: "\t",
+            ATTR_UNIT_FROM_ENTITY: False,
+        }
+
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        # Call the function
+        stats, unit_from_entity = prepare_data_to_import(file_path, call)
+
+        # Verify that import was successful despite unknown columns
+        assert "sensor.temperature" in stats
+        metadata = stats["sensor.temperature"][0]
+        assert metadata["statistic_id"] == "sensor.temperature"
+        assert metadata["mean_type"] == StatisticMeanType.ARITHMETIC
+        assert metadata["has_sum"] is False
+        assert metadata["unit_of_measurement"] == "°C"
+
+        # Verify the statistics data
+        statistics = stats["sensor.temperature"][1]
+        assert len(statistics) == 1
+        assert statistics[0]["min"] == 20.1
+        assert statistics[0]["max"] == 25.5
+        assert statistics[0]["mean"] == 22.8
