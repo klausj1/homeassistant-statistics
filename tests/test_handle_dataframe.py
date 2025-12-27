@@ -39,6 +39,7 @@ def test_handle_dataframe_mean() -> None:
                 "statistic_id": "stat1.mean",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "unit1",
             },
             [
@@ -92,6 +93,7 @@ def test_handle_dataframe_mean_other_datetime_format() -> None:
                 "statistic_id": "stat1.mean",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "unit1",
             },
             [
@@ -140,6 +142,7 @@ def test_handle_dataframe_sum_state() -> None:
                 "statistic_id": "stat2.sum",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "unit2",
             },
             [
@@ -183,6 +186,7 @@ def test_handle_dataframe_sum_state_other_format() -> None:
                 "statistic_id": "stat2.sum",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "unit2",
             },
             [
@@ -224,6 +228,7 @@ def test_handle_dataframe_sum() -> None:
                 "statistic_id": "stat2.sum",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "unit2",
             },
             [
@@ -273,6 +278,7 @@ def test_handle_dataframe_multiple_mean() -> None:
                 "statistic_id": "stat1.temp",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "C",
             },
             [
@@ -303,6 +309,7 @@ def test_handle_dataframe_multiple_mean() -> None:
                 "statistic_id": "stat2.temp",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "C",
             },
             [
@@ -327,6 +334,7 @@ def test_handle_dataframe_multiple_mean() -> None:
                 "statistic_id": "stat1.value",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "m",
             },
             [
@@ -407,6 +415,7 @@ def test_handle_dataframe_mean_unit_from_entity() -> None:
                 "statistic_id": "stat1.mean",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "",
             },
             [

@@ -36,6 +36,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
                 "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "°C",
             },
             [
@@ -83,6 +84,7 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
                 "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "°C",
             },
             [
@@ -204,6 +206,7 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
                 "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
                 "name": None,
                 "source": "recorder",
+                "unit_class": None,
                 "unit_of_measurement": "",
             },
             [

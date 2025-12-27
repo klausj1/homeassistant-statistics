@@ -181,6 +181,7 @@ def handle_dataframe(
                 "source": source,
                 "statistic_id": statistic_id,
                 "name": None,
+                "unit_class": None,
                 "unit_of_measurement": helpers.add_unit_to_dataframe(source, unit_from_where, row.get("unit", ""), statistic_id),
             }
             stats[statistic_id] = (metadata, [])
