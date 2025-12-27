@@ -193,9 +193,10 @@ def test_prepare_data_to_import_invalid_data() -> None:
 
 def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
     """
-    Test prepare_data_to_import function with a valid file.
+    Test prepare_data_to_import function with a valid file where unit comes from entity.
 
-    This function calls the prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
+    This function calls the prepare_data_to_import function with a file that doesn't contain
+    a unit column (unit_from_entity=True), and checks that the returned statistics match the expected result.
     """
     # Define the expected output
     expected_stats = {
@@ -220,7 +221,8 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
         ),
     }
 
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
+    # Use a file without unit column since unit comes from entity
+    file_path = "tests/testfiles/correctcolumns_no_unit.csv"
 
     data = {
         ATTR_DECIMAL: True,  # True is ','
@@ -243,9 +245,8 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
     """
     Test prepare_data_to_import function with unknown column headers.
 
-    This test verifies that the function silently ignores unknown columns
-    that are not used for statistics import, as long as all required columns
-    are present.
+    This test verifies that the function rejects files with unknown columns
+    and returns an error to the user.
     """
     # Create a DataFrame with valid columns plus unknown columns
     my_df = pd.DataFrame(
@@ -272,20 +273,35 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
 
         call = ServiceCall("domain_name", "service_name", data, data)
 
-        # Call the function
-        stats, unit_from_entity = prepare_data_to_import(file_path, call)
+        # Call the function - should raise an error due to unknown columns
+        with pytest.raises(
+            HomeAssistantError,
+            match=re.escape("Unknown columns in file: comments, unknown_field."),
+        ):
+            prepare_data_to_import(file_path, call)
 
-        # Verify that import was successful despite unknown columns
-        assert "sensor.temperature" in stats
-        metadata = stats["sensor.temperature"][0]
-        assert metadata["statistic_id"] == "sensor.temperature"
-        assert metadata["mean_type"] == StatisticMeanType.ARITHMETIC
-        assert metadata["has_sum"] is False
-        assert metadata["unit_of_measurement"] == "°C"
 
-        # Verify the statistics data
-        statistics = stats["sensor.temperature"][1]
-        assert len(statistics) == 1
-        assert statistics[0]["min"] == 20.1
-        assert statistics[0]["max"] == 25.5
-        assert statistics[0]["mean"] == 22.8
+def test_prepare_data_to_import_unit_from_entity_with_unit_column() -> None:
+    """
+    Test prepare_data_to_import function with unit_from_entity=True and a unit column.
+
+    This test verifies that the function rejects files that contain a unit column
+    when unit_from_entity is True, since unit should come from the entity in that case.
+    """
+    file_path = "tests/testfiles/correctcolumnsdot.csv"
+
+    data = {
+        ATTR_DECIMAL: True,  # True is ','
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+        ATTR_DELIMITER: "\t",
+        ATTR_UNIT_FROM_ENTITY: True,  # Unit should come from entity, not from file
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+
+    # Call the function - should raise an error because unit column is not allowed when unit_from_entity=True
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Unknown columns in file: unit."),
+    ):
+        prepare_data_to_import(file_path, call)

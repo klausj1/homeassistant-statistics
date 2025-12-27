@@ -385,7 +385,7 @@ def test_handle_dataframe_mean_sum() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)"),
+        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)"),
     ):
         _stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
@@ -397,13 +397,13 @@ def test_handle_dataframe_mean_unit_from_entity() -> None:
     This function creates a DataFrame with two rows of data, each representing a different date with 'mean', 'min', and 'max' values.
     It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
     """
-    # Create a sample dataframe with 'mean'
+    # Create a sample dataframe with 'mean' without unit column (unit comes from entity)
     my_df = pd.DataFrame(
         [
-            ["stat1.mean", "01.01.2022 00:00", "unit1", 1, 10, 5],
-            ["stat1.mean", "02.01.2022 00:00", "unit1", 2, 20, 15],
+            ["stat1.mean", "01.01.2022 00:00", 1, 10, 5],
+            ["stat1.mean", "02.01.2022 00:00", 2, 20, 15],
         ],
-        columns=["statistic_id", "start", "unit", "min", "max", "mean"],
+        columns=["statistic_id", "start", "min", "max", "mean"],
     )
 
     # Define the expected output

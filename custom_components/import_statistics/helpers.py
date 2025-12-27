@@ -214,8 +214,21 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
         )
     if not (("mean" in columns and "min" in columns and "max" in columns) or ("sum" in columns)):
         handle_error("The file must contain either the columns 'mean', 'min' and 'max' or the column 'sum' (check delimiter)")
-    if ("mean" in columns or "min" in columns or "max" in columns) and "sum" in columns:
-        handle_error("The file must not contain the columns 'sum' and 'mean'/'min'/'max' (check delimiter)")
+    if ("mean" in columns or "min" in columns or "max" in columns) and ("sum" in columns or "state" in columns):
+        handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
+
+    # Define allowed columns based on whether unit is from entity or table
+    allowed_columns = {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
+    if unit_from_where == UnitFrom.TABLE:
+        allowed_columns.add("unit")
+
+    # Check for unknown columns
+    unknown_columns = set(columns) - allowed_columns
+    if unknown_columns:
+        unknown_cols_str = ", ".join(sorted(unknown_columns))
+        allowed_cols_str = ", ".join(sorted(allowed_columns))
+        handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
+
     return True
 
 
