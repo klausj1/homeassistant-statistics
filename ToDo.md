@@ -1,7 +1,6 @@
 # ToDos for Export
 
 - Review integration tests and changes
-- Review unit
 - Are the JSON integration tests working?
 - Export from real database (times should match when older than 10 days), and import into dev database; check if OK
 - Or rather copy the source to the real HA, and use that for testing export. The exported files can then be imported into the dev DB, and exported again, to see if everything is OK.

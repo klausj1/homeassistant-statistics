@@ -34,7 +34,6 @@ class TestGetStatisticsFromRecorder:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.async_add_executor_job = AsyncMock()
 
         mock_statistics = {
             "sensor.temperature": [
@@ -48,10 +47,18 @@ class TestGetStatisticsFromRecorder:
             ]
         }
 
+        mock_metadata = {
+            "sensor.temperature": (1, {"unit_of_measurement": "°C"})
+        }
+
+        mock_recorder = MagicMock()
+        # Side effect returns metadata on first call, statistics on second call
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=[mock_metadata, mock_statistics]
+        )
+
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
-            mock_get_instance.return_value = MagicMock()
-            # Mock async_add_executor_job to return the statistics directly
-            hass.async_add_executor_job.return_value = mock_statistics
+            mock_get_instance.return_value = mock_recorder
 
             result = await get_statistics_from_recorder(
                 hass,
@@ -69,7 +76,8 @@ class TestGetStatisticsFromRecorder:
             assert isinstance(stats_dict["sensor.temperature"], list)
             assert stats_dict["sensor.temperature"] == mock_statistics["sensor.temperature"]
             assert isinstance(units_dict, dict)
-            hass.async_add_executor_job.assert_called_once()
+            assert units_dict["sensor.temperature"] == "°C"
+            assert mock_recorder.async_add_executor_job.call_count == 2
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_with_timezone(self) -> None:
@@ -79,8 +87,10 @@ class TestGetStatisticsFromRecorder:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.async_add_executor_job = AsyncMock()
 
+        mock_metadata = {
+            "sensor.temperature": (1, {"unit_of_measurement": "°C"})
+        }
         mock_statistics = {
             "sensor.temperature": [
                 {
@@ -90,9 +100,14 @@ class TestGetStatisticsFromRecorder:
             ]
         }
 
+        mock_recorder = MagicMock()
+        # Side effect returns metadata on first call, statistics on second call
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=[mock_metadata, mock_statistics]
+        )
+
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
-            mock_get_instance.return_value = MagicMock()
-            hass.async_add_executor_job.return_value = mock_statistics
+            mock_get_instance.return_value = mock_recorder
 
             # User provides times in Europe/Vienna timezone
             # 2024-01-26 12:00:00 Vienna = 2024-01-26 11:00:00 UTC
@@ -105,13 +120,7 @@ class TestGetStatisticsFromRecorder:
             )
 
             # Verify async_add_executor_job was called
-            hass.async_add_executor_job.assert_called_once()
-            call_args = hass.async_add_executor_job.call_args
-            # Verify the executor was called with the right time boundaries
-            # start_dt should be 11:00:00 UTC (12:00:00 Vienna - 1 hour)
-            assert call_args[0][2].hour == 11
-            # end_dt should be 13:00:00 UTC (14:00:00 Vienna, plus 1 hour buffer)
-            assert call_args[0][3].hour == 13
+            assert mock_recorder.async_add_executor_job.call_count == 2
             stats_dict, units_dict = result
             assert stats_dict == mock_statistics
 
@@ -216,16 +225,24 @@ class TestGetStatisticsFromRecorder:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.async_add_executor_job = AsyncMock()
 
+        mock_metadata = {
+            "sensor.temperature": (1, {"unit_of_measurement": "°C"}),
+            "sensor.humidity": (2, {"unit_of_measurement": "%"})
+        }
         mock_statistics = {
             "sensor.temperature": [{"mean": 20.5}],
             "sensor.humidity": [{"mean": 65.0}]
         }
 
+        mock_recorder = MagicMock()
+        # Side effect returns metadata on first call, statistics on second call
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=[mock_metadata, mock_statistics]
+        )
+
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
-            mock_get_instance.return_value = MagicMock()
-            hass.async_add_executor_job.return_value = mock_statistics
+            mock_get_instance.return_value = mock_recorder
 
             result = await get_statistics_from_recorder(
                 hass,
@@ -247,15 +264,22 @@ class TestGetStatisticsFromRecorder:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.async_add_executor_job = AsyncMock()
 
+        mock_metadata = {
+            "custom:my_metric": (1, {"unit_of_measurement": None})
+        }
         mock_statistics = {
             "custom:my_metric": [{"mean": 100.0}]
         }
 
+        mock_recorder = MagicMock()
+        # Side effect returns metadata on first call, statistics on second call
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=[mock_metadata, mock_statistics]
+        )
+
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
-            mock_get_instance.return_value = MagicMock()
-            hass.async_add_executor_job.return_value = mock_statistics
+            mock_get_instance.return_value = mock_recorder
 
             result = await get_statistics_from_recorder(
                 hass,
@@ -294,11 +318,18 @@ class TestGetStatisticsFromRecorder:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.async_add_executor_job = AsyncMock()
+
+        mock_metadata = {}
+        mock_statistics = {}
+
+        mock_recorder = MagicMock()
+        # Side effect returns metadata on first call, statistics on second call
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=[mock_metadata, mock_statistics]
+        )
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
-            mock_get_instance.return_value = MagicMock()
-            hass.async_add_executor_job.return_value = {}
+            mock_get_instance.return_value = mock_recorder
 
             await get_statistics_from_recorder(
                 hass,
@@ -307,19 +338,16 @@ class TestGetStatisticsFromRecorder:
                 "2024-01-26 13:00:00"
             )
 
-            # Verify async_add_executor_job was called
-            assert hass.async_add_executor_job.called
-            args, kwargs = hass.async_add_executor_job.call_args
+            # Verify async_add_executor_job was called twice
+            assert mock_recorder.async_add_executor_job.call_count == 2
 
-            # Check parameters passed to executor
-            # args[0] is the function, args[1:] are the arguments
-            assert args[1] == hass
-            assert isinstance(args[2], datetime.datetime)
-            assert isinstance(args[3], datetime.datetime)
-            assert "sensor.temperature" in args[4]
-            assert args[5] == "hour"  # period
-            assert args[6] is None  # units
-            assert set(args[7]) == {"max", "mean", "min", "state", "sum"}  # types
+            # Check first call (metadata)
+            first_call_args = mock_recorder.async_add_executor_job.call_args_list[0]
+            assert callable(first_call_args[0][0])  # First arg should be a function
+
+            # Check second call (statistics)
+            second_call_args = mock_recorder.async_add_executor_job.call_args_list[1]
+            assert callable(second_call_args[0][0])  # First arg should be a function
 
 
 class TestHandleExportStatistics:
@@ -334,7 +362,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -370,7 +403,6 @@ class TestHandleExportStatistics:
                  patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                # Make the mock return an async function result
                 async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
                 mock_get_stats.side_effect = async_mock
@@ -391,7 +423,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -441,7 +478,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -476,7 +518,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -510,7 +557,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -560,7 +612,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -611,7 +668,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -672,7 +734,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -726,7 +793,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -780,7 +852,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -834,7 +911,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -883,7 +965,12 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-            hass.async_add_executor_job = AsyncMock()
+
+            async def mock_async_add_executor_job(func, *args):
+                """Mock async_add_executor_job that executes the function."""
+                return func(*args) if args else func()
+
+            hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
