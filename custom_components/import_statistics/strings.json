@@ -29,6 +29,44 @@
                     "description": "True: Take unit from existing entity (only valid for internal statistics, e.g. sensor.sun_solar_azimuth); False: Take unit from own column in imported data"
                 }
             }
+        },
+        "export_statistics": {
+            "name": "export_statistics",
+            "description": "Exports long term statistic values (1h) to a tsv/csv file",
+            "fields": {
+                "filename": {
+                    "name": "filename",
+                    "description": "The file to write the statistic data to, to be put into the config folder"
+                },
+                "entities": {
+                    "name": "entities",
+                    "description": "List of entity IDs or statistic IDs to export statistics for (supports both internal and external)"
+                },
+                "start_time": {
+                    "name": "start_time",
+                    "description": "The start time for statistics export in format YYYY-MM-DD HH:MM:SS (must be a full hour)"
+                },
+                "end_time": {
+                    "name": "end_time",
+                    "description": "The end time for statistics export in format YYYY-MM-DD HH:MM:SS (must be a full hour)"
+                },
+                "timezone_identifier": {
+                    "name": "timezone_identifier",
+                    "description": "Timezone identifier for timestamp output formatting (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)"
+                },
+                "delimiter": {
+                    "name": "delimiter",
+                    "description": "The delimiter between fields. Default is tab; options are tab, semicolon, comma, or pipe"
+                },
+                "decimal": {
+                    "name": "decimal",
+                    "description": "The decimal separator. Default is '.'; set to true to use ','"
+                },
+                "datetime_format": {
+                    "name": "datetime_format",
+                    "description": "The format of the datetime strings in the exported file. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
+                }
+            }
         }
     },
     "config": {

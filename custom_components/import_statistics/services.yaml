@@ -48,5 +48,79 @@ import_from_file:
       required: false
       example: true
       default: true
+
+export_statistics:
+  description: "Export statistics to a file or JSON format"
+  fields:
+    filename:
+      required: true
+      example: "exported_statistics.tsv"
+      description: "Filename relative to config directory (e.g., 'exported.tsv')"
+      selector:
+        text:
+
+    entities:
+      required: true
+      example: ["sensor.temperature", "sensor.energy_consumption"]
+      description: "List of statistic IDs or entity IDs to export (supports both internal and external)"
+      selector:
+        object:
+
+    start_time:
+      required: true
+      example: "2025-12-22 12:00:00"
+      description: "Datetime string in the format %Y-%m-%d %H:%M:%s (must be full hour, e.g. 2025-12-22 12:00:00)"
+      selector:
+        datetime:
+
+    end_time:
+      required: true
+      example: "2025-12-25 12:00:00"
+      description: "Datetime string in the format %Y-%m-%d %H:%M:%s (must be full hour, e.g. 2025-12-25 12:00:00)"
+      selector:
+        datetime:
+
+    timezone_identifier:
+      required: false
+      default: "UTC"
+      example: "Europe/Vienna"
+      description: "Timezone for timestamp output formatting"
+      selector:
+        text:
+
+    delimiter:
+      required: false
+      default: "\t"
+      example: "\t"
+      description: "Column delimiter for export file"
+      selector:
+        select:
+          custom_value: true
+          options:
+            - '\t'
+            - ";"
+            - ","
+            - "|"
+
+    decimal:
+      required: false
+      default: false
+      example: false
+      description: "Use comma (true) or dot (false) as decimal separator"
       selector:
         boolean:
+
+    datetime_format:
+      required: false
+      default: "%d.%m.%Y %H:%M"
+      example: "%d.%m.%Y %H:%M"
+      description: "Output datetime format string"
+      selector:
+        select:
+          custom_value: true
+          options:
+            - "%d.%m.%Y %H:%M"
+            - "%Y.%m.%d %H:%M"
+            - "%Y-%m-%d %H:%M"
+            - "%m/%d/%Y %H:%M"
+            - "%d/%m/%Y %H:%M"

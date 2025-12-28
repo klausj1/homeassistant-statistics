@@ -1,10 +1,15 @@
 """The import_statistics integration."""
 
+import csv
+import datetime as dt
+import json
 from typing import Any
 
+from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     async_import_statistics,
+    statistics_during_period,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -12,11 +17,84 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from custom_components.import_statistics import helpers, prepare_data
-from custom_components.import_statistics.const import ATTR_FILENAME, DOMAIN
+from custom_components.import_statistics.const import (
+    ATTR_DATETIME_FORMAT,
+    ATTR_DECIMAL,
+    ATTR_DELIMITER,
+    ATTR_END_TIME,
+    ATTR_ENTITIES,
+    ATTR_FILENAME,
+    ATTR_START_TIME,
+    ATTR_TIMEZONE_IDENTIFIER,
+    DATETIME_DEFAULT_FORMAT,
+    DATETIME_INPUT_FORMAT,
+    DOMAIN,
+)
 from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 
 # Use empty_config_schema because the component does not have any config options
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
+
+
+def get_statistics_from_recorder(
+    hass: HomeAssistant,
+    entities_input: list[str],
+    start_time_str: str,
+    end_time_str: str
+) -> dict:
+    """
+    Fetch statistics from Home Assistant recorder API.
+
+    Uses the recorder API to avoid direct database access.
+
+    Returns:
+        dict: {"statistic_id": {"metadata": {...}, "statistics": [...]}, ...}
+
+    Raises:
+        HomeAssistantError: If time formats are invalid or no data found
+    """
+    _LOGGER.info("Fetching statistics from recorder API")
+
+    # Parse datetime strings (format: "2025-12-01 12:00:00")
+    try:
+        start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT)
+        end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT)
+    except ValueError as e:
+        helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
+
+    # Normalize to full hours
+    if start_dt.minute != 0 or start_dt.second != 0:
+        helpers.handle_error("start_time must be a full hour (minutes and seconds must be 0)")
+    if end_dt.minute != 0 or end_dt.second != 0:
+        helpers.handle_error("end_time must be a full hour (minutes and seconds must be 0)")
+
+    # Convert string entity/statistic IDs to statistic_ids for recorder API
+    statistic_ids = []
+    for entity in entities_input:
+        # Both "sensor.temperature" and "sensor:external_temp" formats supported
+        # The get_source() helper validates the format
+        helpers.get_source(entity)  # Validate
+        statistic_ids.append(entity)
+
+    # Use recorder API to get statistics
+    recorder_instance = get_instance(hass)
+    if recorder_instance is None:
+        helpers.handle_error("Recorder component is not running")
+
+    # statistics_during_period returns data as:
+    # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
+    statistics_dict = statistics_during_period(
+        hass,
+        start_dt,
+        end_dt,
+        statistic_ids,
+        "hour",  # period
+        None,    # units
+        "not_missing"  # types
+    )
+
+    _LOGGER.debug("Statistics fetched: %s", statistics_dict)
+    return statistics_dict
 
 
 def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
@@ -48,6 +126,45 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
+
+    def handle_export_statistics(call: ServiceCall) -> None:
+        """Handle the export statistics service call."""
+        filename = call.data.get(ATTR_FILENAME)
+        entities_input = call.data.get(ATTR_ENTITIES)
+        start_time_str = call.data.get(ATTR_START_TIME)
+        end_time_str = call.data.get(ATTR_END_TIME)
+
+        # Extract other parameters (with defaults matching services.yaml)
+        timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "UTC")
+        delimiter = call.data.get(ATTR_DELIMITER, "\t")
+        decimal = call.data.get(ATTR_DECIMAL, False)
+        datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
+
+        _LOGGER.info("Service handle_export_statistics called")
+        _LOGGER.info("Exporting entities: %s", entities_input)
+        _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
+        _LOGGER.info("Output file: %s", filename)
+
+        # Get statistics from recorder API
+        statistics_dict = get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str)
+
+        # Prepare data for export (HA-independent)
+        columns, rows = prepare_data.prepare_export_data(
+            statistics_dict,
+            timezone_identifier,
+            datetime_format,
+            delimiter,
+            decimal
+        )
+
+        # Write to file (HA-independent)
+        file_path = f"{hass.config.config_dir}/{filename}"
+        prepare_data.write_export_file(file_path, columns, rows, delimiter)
+
+        hass.states.set("import_statistics.export_statistics", "OK")
+        _LOGGER.info("Export completed successfully")
+
+    hass.services.register(DOMAIN, "export_statistics", handle_export_statistics)
 
     # Return boolean to indicate that initialization was successful.
     return True
