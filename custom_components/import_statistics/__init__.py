@@ -10,6 +10,7 @@ from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import (
     async_add_external_statistics,
     async_import_statistics,
+    get_metadata,
     statistics_during_period,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -43,7 +44,7 @@ def get_statistics_from_recorder(
     start_time_str: str,
     end_time_str: str,
     timezone_identifier: str = "UTC"
-) -> dict:
+) -> tuple[dict, dict]:
     """
     Fetch statistics from Home Assistant recorder API.
 
@@ -57,8 +58,10 @@ def get_statistics_from_recorder(
         timezone_identifier: Timezone for interpreting the start/end times (default: "UTC")
 
     Returns:
-        dict: {"statistic_id": [{"start": float, "end": float, "mean": ..., ...}], ...}
-        Times in returned data are Unix timestamps (float) in UTC
+        tuple: (statistics_dict, units_dict)
+        - statistics_dict: {"statistic_id": [{"start": float, "end": float, "mean": ..., ...}], ...}
+          Times in returned data are Unix timestamps (float) in UTC
+        - units_dict: {"statistic_id": "unit_of_measurement", ...}
 
     Raises:
         HomeAssistantError: If time formats are invalid or recorder is not running
@@ -101,6 +104,14 @@ def get_statistics_from_recorder(
     if recorder_instance is None:
         helpers.handle_error("Recorder component is not running")
 
+    # Fetch metadata to get units (single call for all entities)
+    metadata = get_metadata(hass, statistic_ids=set(statistic_ids))
+
+    # Extract units from metadata
+    units_dict = {}
+    for statistic_id, (meta_id, meta_data) in metadata.items():
+        units_dict[statistic_id] = meta_data.get("unit_of_measurement", "")
+
     # statistics_during_period returns data as:
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
     # debug start_dt and end_dt
@@ -116,7 +127,7 @@ def get_statistics_from_recorder(
     )
 
     _LOGGER.debug("Statistics fetched: %s", statistics_dict)
-    return statistics_dict
+    return statistics_dict, units_dict
 
 
 def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
@@ -168,7 +179,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Output file: %s", filename)
 
         # Get statistics from recorder API (using user's timezone for start/end times)
-        statistics_dict = get_statistics_from_recorder(
+        statistics_dict, units_dict = get_statistics_from_recorder(
             hass, entities_input, start_time_str, end_time_str, timezone_identifier
         )
 
@@ -180,7 +191,8 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
             json_data = prepare_data.prepare_export_json(
                 statistics_dict,
                 timezone_identifier,
-                datetime_format
+                datetime_format,
+                units_dict
             )
             prepare_data.write_export_json(file_path, json_data)
         else:
@@ -190,7 +202,8 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
                 timezone_identifier,
                 datetime_format,
                 delimiter,
-                decimal
+                decimal,
+                units_dict
             )
             prepare_data.write_export_file(file_path, columns, rows, delimiter)
 

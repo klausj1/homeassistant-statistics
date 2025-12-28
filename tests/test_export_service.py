@@ -57,11 +57,15 @@ class TestGetStatisticsFromRecorder:
                 "2024-01-26 13:00:00"
             )
 
-            # Result should be raw format from recorder API
-            assert result == mock_statistics
-            assert "sensor.temperature" in result
-            assert isinstance(result["sensor.temperature"], list)
-            assert result["sensor.temperature"] == mock_statistics["sensor.temperature"]
+            # Result should be tuple: (statistics_dict, units_dict)
+            assert isinstance(result, tuple)
+            assert len(result) == 2
+            stats_dict, units_dict = result
+            assert stats_dict == mock_statistics
+            assert "sensor.temperature" in stats_dict
+            assert isinstance(stats_dict["sensor.temperature"], list)
+            assert stats_dict["sensor.temperature"] == mock_statistics["sensor.temperature"]
+            assert isinstance(units_dict, dict)
             mock_stats_during.assert_called_once()
 
     def test_get_statistics_from_recorder_with_timezone(self) -> None:
@@ -103,7 +107,8 @@ class TestGetStatisticsFromRecorder:
             assert call_args[0][1].hour == 11
             # end_dt should be 12:00:00 UTC (13:00:00 Vienna - 1 hour), plus one hour to contain the last hour as well
             assert call_args[0][2].hour == 13
-            assert result == mock_statistics
+            stats_dict, units_dict = result
+            assert stats_dict == mock_statistics
 
     def test_get_statistics_from_recorder_invalid_start_time_format(self) -> None:
         """Test error handling with invalid start time format."""
@@ -214,8 +219,9 @@ class TestGetStatisticsFromRecorder:
             )
 
             assert len(result) == 2
-            assert "sensor.temperature" in result
-            assert "sensor.humidity" in result
+            stats_dict, units_dict = result
+            assert "sensor.temperature" in stats_dict
+            assert "sensor.humidity" in stats_dict
 
     def test_get_statistics_from_recorder_external_statistic_id(self) -> None:
         """Test fetching statistics with external statistic ID (colon format)."""
@@ -241,7 +247,8 @@ class TestGetStatisticsFromRecorder:
                 "2024-01-26 13:00:00"
             )
 
-            assert "custom:my_metric" in result
+            stats_dict, units_dict = result
+            assert "custom:my_metric" in stats_dict
 
     def test_get_statistics_from_recorder_invalid_entity_id(self) -> None:
         """Test error with invalid entity ID format."""
@@ -336,8 +343,9 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
-
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             service_handler(call)
 
             # Verify write was called
@@ -382,8 +390,9 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
-
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             service_handler(call)
 
             # Verify defaults were used
@@ -485,8 +494,9 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
-
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             service_handler(call)
 
             # Verify file path was constructed correctly
@@ -530,8 +540,9 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
-
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             service_handler(call)
 
             # Verify delimiter was passed correctly
@@ -582,8 +593,12 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
-
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {
+                "sensor.temperature": "°C",
+                "sensor.humidity": "%"
+            }
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             service_handler(call)
 
             # Verify both entities were processed
@@ -628,7 +643,9 @@ class TestHandleExportStatistics:
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
              patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
-            mock_get_stats.return_value = mock_statistics
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             mock_prepare.return_value = (["col1"], [("row1",)])
 
             service_handler(call)
@@ -675,7 +692,9 @@ class TestHandleExportStatistics:
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
              patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
-            mock_get_stats.return_value = mock_statistics
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             mock_prepare.return_value = (["col1"], [("row1",)])
 
             service_handler(call)
@@ -722,7 +741,9 @@ class TestHandleExportStatistics:
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
              patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
-            mock_get_stats.return_value = mock_statistics
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             mock_prepare.return_value = (["col1"], [("row1",)])
 
             service_handler(call)
@@ -767,8 +788,9 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
-
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             service_handler(call)
 
             # Verify state was set to OK
@@ -810,7 +832,9 @@ class TestHandleExportStatistics:
 
         with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
              patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            mock_get_stats.return_value = mock_statistics
+            # Return tuple: (statistics_dict, units_dict)
+            mock_units = {"sensor.temperature": "°C"}
+            mock_get_stats.return_value = (mock_statistics, mock_units)
             mock_write.side_effect = HomeAssistantError("Permission denied")
 
             with pytest.raises(HomeAssistantError, match="Permission denied"):

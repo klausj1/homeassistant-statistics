@@ -227,7 +227,8 @@ def prepare_export_data(
     timezone_identifier: str,
     datetime_format: str,
     delimiter: str,
-    decimal_comma: bool
+    decimal_comma: bool,
+    units_dict: dict = None
 ) -> tuple:
     """
     Prepare statistics data for export (TSV/CSV format).
@@ -238,6 +239,7 @@ def prepare_export_data(
         datetime_format: Format string for timestamps
         delimiter: Column separator
         decimal_comma: Use comma (True) or dot (False) for decimals
+        units_dict: Mapping of statistic_id to unit_of_measurement
 
     Returns:
         tuple: (columns list, data rows list)
@@ -249,6 +251,10 @@ def prepare_export_data(
 
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
+    # Default to empty dict if not provided (for backwards compatibility)
+    if units_dict is None:
+        units_dict = {}
+
     # Analyze what types of statistics we have (sensors vs counters)
     has_sensors = False  # mean/min/max
     has_counters = False  # sum/state
@@ -259,7 +265,7 @@ def prepare_export_data(
     for statistic_id, data in statistics_dict.items():
         # Data format from recorder API: {"statistic_id": [...]}
         statistics_list = data
-        unit = ""  # Unit not available from recorder API
+        unit = units_dict.get(statistic_id, "")  # Get unit from metadata
 
         if not statistics_list:
             _LOGGER.warning("Empty statistics list for %s", statistic_id)
@@ -398,10 +404,17 @@ def _format_decimal(value: float | int | None, use_comma: bool) -> str:
 def prepare_export_json(
     statistics_dict: dict,
     timezone_identifier: str,
-    datetime_format: str
+    datetime_format: str,
+    units_dict: dict = None
 ) -> list:
     """
     Prepare statistics data for JSON export.
+
+    Args:
+        statistics_dict: Raw data from recorder API
+        timezone_identifier: Timezone for timestamp output
+        datetime_format: Format string for timestamps
+        units_dict: Mapping of statistic_id to unit_of_measurement
 
     Returns:
         list: List of entity objects in JSON format
@@ -413,12 +426,16 @@ def prepare_export_json(
 
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
+    # Default to empty dict if not provided (for backwards compatibility)
+    if units_dict is None:
+        units_dict = {}
+
     export_entities = []
 
     for statistic_id, data in statistics_dict.items():
         # Data format from recorder API: {"statistic_id": [...]}
         statistics_list = data
-        unit = ""  # Unit not available from recorder API
+        unit = units_dict.get(statistic_id, "")  # Get unit from metadata
 
         if not statistics_list:
             continue
