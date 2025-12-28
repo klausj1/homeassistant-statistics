@@ -14,4 +14,5 @@ ATTR_ENTITIES = "entities"
 
 TESTFILEPATHS = "tests/testfiles/"
 
-DATETIME_DEFAULT_FORMAT = "%d.%m.%Y %H:%M"DATETIME_INPUT_FORMAT = "%Y-%m-%d %H:%M:%S"
+DATETIME_DEFAULT_FORMAT = "%d.%m.%Y %H:%M"
+DATETIME_INPUT_FORMAT = "%Y-%m-%d %H:%M:%S"
