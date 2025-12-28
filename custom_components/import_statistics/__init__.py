@@ -90,7 +90,7 @@ def get_statistics_from_recorder(
         statistic_ids,
         "hour",  # period
         None,    # units
-        "not_missing"  # types
+        ["max", "mean", "min", "state", "sum"]  # types
     )
 
     _LOGGER.debug("Statistics fetched: %s", statistics_dict)

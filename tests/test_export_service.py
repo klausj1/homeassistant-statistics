@@ -57,7 +57,11 @@ class TestGetStatisticsFromRecorder:
                 "2024-01-26 13:00:00"
             )
 
+            # Result should be raw format from recorder API
             assert result == mock_statistics
+            assert "sensor.temperature" in result
+            assert isinstance(result["sensor.temperature"], list)
+            assert result["sensor.temperature"] == mock_statistics["sensor.temperature"]
             mock_stats_during.assert_called_once()
 
     def test_get_statistics_from_recorder_invalid_start_time_format(self) -> None:
@@ -245,7 +249,7 @@ class TestGetStatisticsFromRecorder:
             assert "sensor.temperature" in args[3]
             assert args[4] == "hour"  # period
             assert args[5] is None  # units
-            assert args[6] == "not_missing"  # types
+            assert set(args[6]) == {"max", "mean", "min", "state", "sum"}  # types
 
 
 class TestHandleExportStatistics:
@@ -259,28 +263,22 @@ class TestHandleExportStatistics:
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
 
-        # Setup the service
         setup(hass, {})
-
-        # Get the registered service handler
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -314,27 +312,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -342,7 +336,6 @@ class TestHandleExportStatistics:
                 ATTR_ENTITIES: ["sensor.temperature"],
                 ATTR_START_TIME: "2024-01-26 12:00:00",
                 ATTR_END_TIME: "2024-01-26 13:00:00",
-                # Only required parameters, no optional ones
             }
         )
 
@@ -363,13 +356,12 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -394,13 +386,12 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -424,27 +415,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -472,27 +459,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -521,38 +504,31 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            },
-            "sensor.humidity": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 65.0,
-                        "min": 60.0,
-                        "max": 70.0,
-                    }
-                ],
-                "unit_of_measurement": "%",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ],
+            "sensor.humidity": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 65.0,
+                    "min": 60.0,
+                    "max": 70.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -580,27 +556,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -631,27 +603,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -682,27 +650,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -733,27 +697,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {
@@ -780,27 +740,23 @@ class TestHandleExportStatistics:
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
-        hass.config.config_dir = "/config"
 
         setup(hass, {})
         service_handler = hass.services.register.call_args_list[-1][0][2]
 
         mock_statistics = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         call = ServiceCall(
-        hass,
+            hass,
             "import_statistics",
             "export_statistics",
             {

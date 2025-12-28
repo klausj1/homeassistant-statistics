@@ -257,11 +257,10 @@ def prepare_export_data(
     rows = []
 
     for statistic_id, data in statistics_dict.items():
-        if not data or "statistics" not in data:
-            _LOGGER.warning("No statistics data for %s", statistic_id)
-            continue
+        # Data format from recorder API: {"statistic_id": [...]}
+        statistics_list = data
+        unit = ""  # Unit not available from recorder API
 
-        statistics_list = data["statistics"]
         if not statistics_list:
             _LOGGER.warning("Empty statistics list for %s", statistic_id)
             continue
@@ -274,9 +273,6 @@ def prepare_export_data(
         elif stat_type == "counter":
             has_counters = True
 
-        # Get unit
-        unit = data.get("unit_of_measurement", "")
-
         for stat_record in statistics_list:
             row_dict = {
                 "statistic_id": statistic_id,
@@ -286,6 +282,8 @@ def prepare_export_data(
 
             # Add sensor columns (empty for counters)
             if "mean" in stat_record:
+                row_dict["min"] = _format_decimal(stat_record.get("min"), decimal_comma)
+                row_dict["max"] = _format_decimal(stat_record.get("max"), decimal_comma)
                 row_dict["mean"] = _format_decimal(stat_record["mean"], decimal_comma)
                 if "min" not in all_columns:
                     all_columns.extend(["min", "max", "mean"])
@@ -415,16 +413,16 @@ def prepare_export_json(
     export_entities = []
 
     for statistic_id, data in statistics_dict.items():
-        if not data or "statistics" not in data:
-            continue
+        # Data format from recorder API: {"statistic_id": [...]}
+        statistics_list = data
+        unit = ""  # Unit not available from recorder API
 
-        statistics_list = data["statistics"]
         if not statistics_list:
             continue
 
         entity_obj = {
             "id": statistic_id,
-            "unit": data.get("unit_of_measurement", ""),
+            "unit": unit,
             "values": []
         }
 

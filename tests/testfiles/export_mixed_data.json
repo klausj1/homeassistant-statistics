@@ -16,20 +16,18 @@
             }
         ]
     },
-    "sensor.humidity": {
-        "unit_of_measurement": "%",
+    "counter.energy": {
+        "unit_of_measurement": "kWh",
         "statistics": [
             {
                 "start": "2024-01-26 12:00:00",
-                "min": 45.0,
-                "max": 55.0,
-                "mean": 50.0
+                "sum": 10.5,
+                "state": 100
             },
             {
                 "start": "2024-01-26 13:00:00",
-                "min": 46.0,
-                "max": 56.0,
-                "mean": 51.0
+                "sum": 11.2,
+                "state": 110
             }
         ]
     }

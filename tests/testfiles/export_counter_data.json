@@ -1,0 +1,32 @@
+{
+    "counter.energy_consumed": {
+        "unit_of_measurement": "kWh",
+        "statistics": [
+            {
+                "start": "2024-01-26 12:00:00",
+                "sum": 10.5,
+                "state": 100
+            },
+            {
+                "start": "2024-01-26 13:00:00",
+                "sum": 11.2,
+                "state": 110
+            }
+        ]
+    },
+    "counter.water_used": {
+        "unit_of_measurement": "L",
+        "statistics": [
+            {
+                "start": "2024-01-26 12:00:00",
+                "sum": 5.3,
+                "state": 50
+            },
+            {
+                "start": "2024-01-26 13:00:00",
+                "sum": 5.8,
+                "state": 55
+            }
+        ]
+    }
+}

@@ -160,17 +160,14 @@ class TestPrepareExportData:
     def test_prepare_export_data_sensor_statistics(self) -> None:
         """Test export preparation with sensor statistics."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         columns, rows = prepare_export_data(
@@ -191,21 +188,18 @@ class TestPrepareExportData:
         assert "state" not in columns
         assert len(rows) == 1
         assert rows[0][0] == "sensor.temperature"
-        assert rows[0][1] == "°C"
+        assert rows[0][1] == ""  # Unit is empty for raw format
 
     def test_prepare_export_data_counter_statistics(self) -> None:
         """Test export preparation with counter statistics."""
         statistics_dict = {
-            "sensor.energy": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "sum": 100.5,
-                        "state": 100.5,
-                    }
-                ],
-                "unit_of_measurement": "kWh",
-            }
+            "sensor.energy": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "sum": 100.5,
+                    "state": 100.5,
+                }
+            ]
         }
 
         columns, rows = prepare_export_data(
@@ -226,27 +220,21 @@ class TestPrepareExportData:
     def test_prepare_export_data_mixed_types(self) -> None:
         """Test export preparation with mixed sensor and counter statistics."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            },
-            "sensor.energy": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "sum": 100.5,
-                        "state": 100.5,
-                    }
-                ],
-                "unit_of_measurement": "kWh",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ],
+            "sensor.energy": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "sum": 100.5,
+                    "state": 100.5,
+                }
+            ]
         }
 
         columns, rows = prepare_export_data(
@@ -265,17 +253,14 @@ class TestPrepareExportData:
     def test_prepare_export_data_decimal_comma(self) -> None:
         """Test export with comma as decimal separator."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         columns, rows = prepare_export_data(
@@ -295,17 +280,14 @@ class TestPrepareExportData:
     def test_prepare_export_data_timezone_conversion(self) -> None:
         """Test export with timezone conversion."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         columns, rows = prepare_export_data(
@@ -322,17 +304,14 @@ class TestPrepareExportData:
     def test_prepare_export_data_invalid_timezone(self) -> None:
         """Test export with invalid timezone raises error."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime.now(),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime.now(),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         with pytest.raises(HomeAssistantError, match="Invalid timezone_identifier"):
@@ -361,11 +340,9 @@ class TestPrepareExportData:
         assert len(rows) == 0
 
     def test_prepare_export_data_no_statistics_list(self) -> None:
-        """Test export when entity has no statistics."""
+        """Test export when entity has empty statistics list."""
         statistics_dict = {
-            "sensor.temperature": {
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": []
         }
 
         columns, rows = prepare_export_data(
@@ -381,23 +358,20 @@ class TestPrepareExportData:
     def test_prepare_export_data_multiple_records(self) -> None:
         """Test export with multiple records for same entity."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    },
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 21.5,
-                        "min": 21.0,
-                        "max": 22.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                },
+                {
+                    "start": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 21.5,
+                    "min": 21.0,
+                    "max": 22.0,
+                }
+            ]
         }
 
         columns, rows = prepare_export_data(
@@ -523,24 +497,21 @@ class TestPrepareExportJson:
     def test_prepare_export_json_sensor(self) -> None:
         """Test JSON export with sensor statistics."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
         assert len(result) == 1
         assert result[0]["id"] == "sensor.temperature"
-        assert result[0]["unit"] == "°C"
+        assert result[0]["unit"] == ""  # Unit is empty for raw format
         assert len(result[0]["values"]) == 1
         assert result[0]["values"][0]["mean"] == 20.5
         assert result[0]["values"][0]["min"] == 20.0
@@ -549,16 +520,13 @@ class TestPrepareExportJson:
     def test_prepare_export_json_counter(self) -> None:
         """Test JSON export with counter statistics."""
         statistics_dict = {
-            "sensor.energy": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "sum": 100.5,
-                        "state": 100.5,
-                    }
-                ],
-                "unit_of_measurement": "kWh",
-            }
+            "sensor.energy": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "sum": 100.5,
+                    "state": 100.5,
+                }
+            ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
@@ -571,28 +539,22 @@ class TestPrepareExportJson:
     def test_prepare_export_json_multiple_entities(self) -> None:
         """Test JSON export with multiple entities."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            },
-            "sensor.humidity": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 65.0,
-                        "min": 60.0,
-                        "max": 70.0,
-                    }
-                ],
-                "unit_of_measurement": "%",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ],
+            "sensor.humidity": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 65.0,
+                    "min": 60.0,
+                    "max": 70.0,
+                }
+            ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
@@ -602,23 +564,20 @@ class TestPrepareExportJson:
     def test_prepare_export_json_multiple_records(self) -> None:
         """Test JSON export with multiple records per entity."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    },
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 21.5,
-                        "min": 21.0,
-                        "max": 22.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                },
+                {
+                    "start": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 21.5,
+                    "min": 21.0,
+                    "max": 22.0,
+                }
+            ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
@@ -628,17 +587,14 @@ class TestPrepareExportJson:
     def test_prepare_export_json_timezone_conversion(self) -> None:
         """Test JSON export with timezone conversion."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         result = prepare_export_json(statistics_dict, "Europe/Vienna", "%d.%m.%Y %H:%M")
@@ -649,17 +605,14 @@ class TestPrepareExportJson:
     def test_prepare_export_json_invalid_timezone(self) -> None:
         """Test JSON export with invalid timezone raises error."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime.now(),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime.now(),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         with pytest.raises(HomeAssistantError, match="Invalid timezone_identifier"):
@@ -676,17 +629,14 @@ class TestPrepareExportJson:
     def test_prepare_export_json_serializable(self) -> None:
         """Test that JSON export result is JSON serializable."""
         statistics_dict = {
-            "sensor.temperature": {
-                "statistics": [
-                    {
-                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                        "mean": 20.5,
-                        "min": 20.0,
-                        "max": 21.0,
-                    }
-                ],
-                "unit_of_measurement": "°C",
-            }
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                    "min": 20.0,
+                    "max": 21.0,
+                }
+            ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
