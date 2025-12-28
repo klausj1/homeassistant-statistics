@@ -173,17 +173,26 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         )
 
         # Prepare data for export (HA-independent)
-        columns, rows = prepare_data.prepare_export_data(
-            statistics_dict,
-            timezone_identifier,
-            datetime_format,
-            delimiter,
-            decimal
-        )
-
-        # Write to file (HA-independent)
         file_path = f"{hass.config.config_dir}/{filename}"
-        prepare_data.write_export_file(file_path, columns, rows, delimiter)
+
+        if filename.lower().endswith(".json"):
+            # Export as JSON
+            json_data = prepare_data.prepare_export_json(
+                statistics_dict,
+                timezone_identifier,
+                datetime_format
+            )
+            prepare_data.write_export_json(file_path, json_data)
+        else:
+            # Export as CSV/TSV (default)
+            columns, rows = prepare_data.prepare_export_data(
+                statistics_dict,
+                timezone_identifier,
+                datetime_format,
+                delimiter,
+                decimal
+            )
+            prepare_data.write_export_file(file_path, columns, rows, delimiter)
 
         hass.states.set("import_statistics.export_statistics", "OK")
         _LOGGER.info("Export completed successfully")

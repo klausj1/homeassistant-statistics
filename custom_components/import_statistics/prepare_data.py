@@ -451,3 +451,25 @@ def prepare_export_json(
         export_entities.append(entity_obj)
 
     return export_entities
+
+
+def write_export_json(file_path: str, json_data: list) -> None:
+    """
+    Write export data to a JSON file.
+
+    Args:
+        file_path: Absolute path to output file
+        json_data: List of dictionaries to export
+
+    Raises:
+        HomeAssistantError: If file cannot be written
+    """
+    _LOGGER.info("Writing export JSON file: %s", file_path)
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=2)
+
+        _LOGGER.info("Export JSON file written successfully: %s", file_path)
+    except IOError as e:
+        helpers.handle_error(f"Failed to write export JSON file {file_path}: {e}")
