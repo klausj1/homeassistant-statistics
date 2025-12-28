@@ -104,8 +104,8 @@ async def get_statistics_from_recorder(
     if recorder_instance is None:
         helpers.handle_error("Recorder component is not running")
 
-    # Fetch metadata to get units (single call for all entities) - run in executor for database access
-    metadata = await hass.async_add_executor_job(
+    # Fetch metadata to get units (single call for all entities) - use recorder executor for database access
+    metadata = await recorder_instance.async_add_executor_job(
         lambda: get_metadata(hass, statistic_ids=set(statistic_ids))
     )
 
@@ -119,16 +119,17 @@ async def get_statistics_from_recorder(
     # debug start_dt and end_dt
     _LOGGER.debug("Fetching statistics from %s to %s for %s", start_dt, end_dt, statistic_ids)
 
-    # Use executor for blocking database call
-    statistics_dict = await hass.async_add_executor_job(
-        statistics_during_period,
-        hass,
-        start_dt,
-        end_dt + dt.timedelta(hours=1),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
-        statistic_ids,
-        "hour",  # period
-        None,    # units
-        ["max", "mean", "min", "state", "sum"]  # types
+    # Use recorder's executor for blocking database call
+    statistics_dict = await recorder_instance.async_add_executor_job(
+        lambda: statistics_during_period(
+            hass,
+            start_dt,
+            end_dt + dt.timedelta(hours=1),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
+            statistic_ids,
+            "hour",  # period
+            None,    # units
+            ["max", "mean", "min", "state", "sum"]  # types
+        )
     )
 
     _LOGGER.debug("Statistics fetched: %s", statistics_dict)
