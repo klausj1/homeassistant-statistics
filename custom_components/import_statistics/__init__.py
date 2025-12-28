@@ -192,7 +192,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         else:
             # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
             columns, rows = await hass.async_add_executor_job(
-                lambda: prepare_data.prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal, units_dict)
+                lambda: prepare_data.prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
             )
             await hass.async_add_executor_job(lambda: prepare_data.write_export_file(file_path, columns, rows, delimiter))
 

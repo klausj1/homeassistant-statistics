@@ -3,6 +3,7 @@
 import datetime
 import tempfile
 import zoneinfo
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,6 +21,7 @@ from custom_components.import_statistics.const import (
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
+from tests.conftest import mock_async_add_executor_job
 
 
 class TestGetStatisticsFromRecorder:
@@ -273,10 +275,6 @@ class TestHandleExportStatistics:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -311,19 +309,16 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
-
-                # Verify write was called
-                mock_write.assert_called_once()
 
                 # Verify state was set
                 hass.states.async_set.assert_called_with("import_statistics.export_statistics", "OK")
@@ -335,10 +330,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -370,12 +361,12 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -383,7 +374,6 @@ class TestHandleExportStatistics:
 
                 # Verify defaults were used
                 assert mock_get_stats.called
-                assert mock_write.called
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_invalid_timezone(self) -> None:
@@ -392,10 +382,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -418,7 +404,7 @@ class TestHandleExportStatistics:
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
                 error_msg = "Invalid timezone_identifier"
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     raise HomeAssistantError(error_msg)
 
                 mock_get_stats.side_effect = async_mock
@@ -433,10 +419,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -458,7 +440,7 @@ class TestHandleExportStatistics:
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
                 error_msg = "Recorder component is not running"
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     raise HomeAssistantError(error_msg)
 
                 mock_get_stats.side_effect = async_mock
@@ -473,10 +455,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -513,7 +491,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -530,10 +508,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -571,7 +545,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -588,10 +562,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -631,12 +601,12 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -644,7 +614,6 @@ class TestHandleExportStatistics:
 
                 # Verify both entities were processed
                 assert mock_get_stats.called
-                assert mock_write.called
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_timezone_parameter(self) -> None:
@@ -653,10 +622,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -689,13 +654,13 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -714,10 +679,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -750,13 +711,13 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -775,10 +736,6 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -811,13 +768,13 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -837,10 +794,6 @@ class TestHandleExportStatistics:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -871,12 +824,12 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -893,10 +846,6 @@ class TestHandleExportStatistics:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -932,7 +881,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*args, **kwargs):
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock

@@ -225,7 +225,14 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
         helpers.handle_error(f"Failed to write export file {file_path}: {e}")
 
 
-def prepare_export_data(statistics_dict: dict, timezone_identifier: str, datetime_format: str, decimal_comma: bool, units_dict: dict | None = None) -> tuple:
+def prepare_export_data(
+    statistics_dict: dict,
+    timezone_identifier: str,
+    datetime_format: str,
+    *,
+    decimal_comma: bool = False,
+    units_dict: dict | None = None,
+) -> tuple:
     """
     Prepare statistics data for export (TSV/CSV format).
 
@@ -233,7 +240,6 @@ def prepare_export_data(statistics_dict: dict, timezone_identifier: str, datetim
         statistics_dict: Raw data from recorder API
         timezone_identifier: Timezone for timestamp output
         datetime_format: Format string for timestamps
-        delimiter: Column separator
         decimal_comma: Use comma (True) or dot (False) for decimals
         units_dict: Mapping of statistic_id to unit_of_measurement
 
@@ -285,20 +291,20 @@ def prepare_export_data(statistics_dict: dict, timezone_identifier: str, datetim
 
             # Add sensor columns (empty for counters)
             if "mean" in stat_record:
-                row_dict["min"] = _format_decimal(stat_record.get("min"), decimal_comma)
-                row_dict["max"] = _format_decimal(stat_record.get("max"), decimal_comma)
-                row_dict["mean"] = _format_decimal(stat_record["mean"], decimal_comma)
+                row_dict["min"] = _format_decimal(stat_record.get("min"), use_comma=decimal_comma)
+                row_dict["max"] = _format_decimal(stat_record.get("max"), use_comma=decimal_comma)
+                row_dict["mean"] = _format_decimal(stat_record["mean"], use_comma=decimal_comma)
                 if "min" not in all_columns:
                     all_columns.extend(["min", "max", "mean"])
 
             # Add counter columns (empty for sensors)
             if "sum" in stat_record:
-                row_dict["sum"] = _format_decimal(stat_record["sum"], decimal_comma)
+                row_dict["sum"] = _format_decimal(stat_record["sum"], use_comma=decimal_comma)
                 if "sum" not in all_columns:
                     all_columns.append("sum")
 
             if "state" in stat_record:
-                row_dict["state"] = _format_decimal(stat_record["state"], decimal_comma)
+                row_dict["state"] = _format_decimal(stat_record["state"], use_comma=decimal_comma)
                 if "state" not in all_columns:
                     all_columns.append("state")
 
@@ -372,7 +378,7 @@ def _format_datetime(dt_obj: datetime.datetime | float, timezone: zoneinfo.ZoneI
     return local_dt.strftime(format_str)
 
 
-def _format_decimal(value: float | None, use_comma: bool) -> str:
+def _format_decimal(value: float | None, *, use_comma: bool = False) -> str:
     """
     Format a numeric value with specified decimal separator.
 

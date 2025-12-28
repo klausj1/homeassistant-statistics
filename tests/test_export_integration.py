@@ -19,6 +19,7 @@ from custom_components.import_statistics.const import (
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
+from tests.conftest import mock_async_add_executor_job
 
 
 class TestExportIntegration:
@@ -49,10 +50,6 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -127,10 +124,6 @@ class TestExportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -200,10 +193,6 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -277,10 +266,6 @@ class TestExportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -338,10 +323,6 @@ class TestExportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -396,10 +377,6 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -461,10 +438,6 @@ class TestExportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -518,10 +491,6 @@ class TestExportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
 
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
-
             hass.async_add_executor_job = mock_async_add_executor_job
 
             setup(hass, {})
@@ -573,10 +542,6 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -630,10 +595,6 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
-
-            async def mock_async_add_executor_job(func, *args):
-                """Mock async_add_executor_job that executes the function."""
-                return func(*args) if args else func()
 
             hass.async_add_executor_job = mock_async_add_executor_job
 

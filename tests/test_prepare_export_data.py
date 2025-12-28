@@ -19,13 +19,32 @@ from custom_components.import_statistics.prepare_data import (
     write_export_file,
 )
 
+# Constants for test values
+EXPECTED_ROWS_2 = 2
+EXPECTED_MEAN_20_5 = 20.5
+EXPECTED_MIN_20_0 = 20.0
+EXPECTED_MAX_21_0 = 21.0
+EXPECTED_MEAN_21_5 = 21.5
+EXPECTED_MIN_21_0 = 21.0
+EXPECTED_MAX_22_0 = 22.0
+EXPECTED_MEAN_65_0 = 65.0
+EXPECTED_MIN_60_0 = 60.0
+EXPECTED_MAX_70_0 = 70.0
+EXPECTED_SUM_100_5 = 100.5
+EXPECTED_SUM_11_2 = 11.2
+EXPECTED_STATE_100_5 = 100.5
+UNIX_TIMESTAMP_2024_01_26 = 1706270400.0
+UNIX_TIMESTAMP_2024_01_26_13_00 = 1706274000.0
+DECIMAL_VALUE_1234_567 = 1234.567
+EXPECTED_ROWS_1 = 1
+
 
 class TestFormatDatetime:
     """Test timezone-aware datetime formatting."""
 
     def test_format_datetime_utc_to_vienna(self) -> None:
         """Test converting UTC datetime to Vienna timezone."""
-        dt_obj = 1706270400.0  # 2024-01-26 12:00:00 UTC
+        dt_obj = UNIX_TIMESTAMP_2024_01_26  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
         result = _format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
@@ -33,7 +52,7 @@ class TestFormatDatetime:
     def test_format_datetime_unix_timestamp(self) -> None:
         """Test formatting Unix timestamp (float) from recorder API."""
         # 2024-01-26 12:00:00 UTC = 1706270400.0
-        unix_timestamp = 1706270400.0
+        unix_timestamp = UNIX_TIMESTAMP_2024_01_26
         timezone = zoneinfo.ZoneInfo("UTC")
         result = _format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 12:00"
@@ -41,7 +60,7 @@ class TestFormatDatetime:
     def test_format_datetime_unix_timestamp_with_timezone(self) -> None:
         """Test converting Unix timestamp to different timezone."""
         # 2024-01-26 12:00:00 UTC = 1706270400.0
-        unix_timestamp = 1706270400.0
+        unix_timestamp = UNIX_TIMESTAMP_2024_01_26
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
         result = _format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
@@ -55,14 +74,14 @@ class TestFormatDatetime:
 
     def test_format_datetime_different_format(self) -> None:
         """Test datetime formatting with different format string."""
-        dt_obj = 1706270400.0  # 2024-01-26 12:00:00 UTC
+        dt_obj = UNIX_TIMESTAMP_2024_01_26  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("UTC")
         result = _format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
         assert result == "2024-01-26 12:00"
 
     def test_format_datetime_us_format(self) -> None:
         """Test datetime formatting with US format."""
-        dt_obj = 1706270400.0  # 2024-01-26 12:00:00 UTC
+        dt_obj = UNIX_TIMESTAMP_2024_01_26  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("UTC")
         result = _format_datetime(dt_obj, timezone, "%m/%d/%Y %H:%M")
         assert result == "01/26/2024 12:00"
@@ -81,12 +100,12 @@ class TestFormatDecimal:
 
     def test_format_decimal_dot_separator(self) -> None:
         """Test decimal with dot separator."""
-        result = _format_decimal(1234.567, use_comma=False)
+        result = _format_decimal(DECIMAL_VALUE_1234_567, use_comma=False)
         assert result == "1234.567"
 
     def test_format_decimal_comma_separator(self) -> None:
         """Test decimal with comma separator."""
-        result = _format_decimal(1234.567, use_comma=True)
+        result = _format_decimal(DECIMAL_VALUE_1234_567, use_comma=True)
         assert result == "1234,567"
 
     def test_format_decimal_integer(self) -> None:
@@ -175,10 +194,10 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ]
         }
@@ -193,7 +212,7 @@ class TestPrepareExportData:
         assert "max" in columns
         assert "sum" not in columns
         assert "state" not in columns
-        assert len(rows) == 1
+        assert len(rows) == EXPECTED_ROWS_1
         assert rows[0][0] == "sensor.temperature"
         assert rows[0][1] == ""  # Unit is empty for raw format
 
@@ -202,9 +221,9 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.energy": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "sum": 100.5,
-                    "state": 100.5,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "sum": EXPECTED_SUM_100_5,
+                    "state": EXPECTED_STATE_100_5,
                 }
             ]
         }
@@ -216,24 +235,24 @@ class TestPrepareExportData:
         assert "mean" not in columns
         assert "min" not in columns
         assert "max" not in columns
-        assert len(rows) == 1
+        assert len(rows) == EXPECTED_ROWS_1
 
     def test_prepare_export_data_mixed_types(self) -> None:
         """Test export preparation with mixed sensor and counter statistics."""
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ],
             "sensor.energy": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "sum": 100.5,
-                    "state": 100.5,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "sum": EXPECTED_SUM_100_5,
+                    "state": EXPECTED_STATE_100_5,
                 }
             ],
         }
@@ -243,17 +262,17 @@ class TestPrepareExportData:
         # Should include both sensor and counter columns
         assert "mean" in columns
         assert "sum" in columns
-        assert len(rows) == 2
+        assert len(rows) == EXPECTED_ROWS_2
 
     def test_prepare_export_data_decimal_comma(self) -> None:
         """Test export with comma as decimal separator."""
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ]
         }
@@ -275,10 +294,10 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ]
         }
@@ -294,9 +313,9 @@ class TestPrepareExportData:
             "sensor.temperature": [
                 {
                     "start": datetime.datetime.now(tz=datetime.UTC),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ]
         }
@@ -327,23 +346,23 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 },
                 {
-                    "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
-                    "mean": 21.5,
-                    "min": 21.0,
-                    "max": 22.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,  # 2024-01-26 13:00:00 UTC
+                    "mean": EXPECTED_MEAN_21_5,
+                    "min": EXPECTED_MIN_21_0,
+                    "max": EXPECTED_MAX_22_0,
                 },
             ]
         }
 
         _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
-        assert len(rows) == 2
+        assert len(rows) == EXPECTED_ROWS_2
 
 
 class TestWriteExportFile:
@@ -460,100 +479,100 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
-        assert len(result) == 1
+        assert len(result) == EXPECTED_ROWS_1
         assert result[0]["id"] == "sensor.temperature"
         assert result[0]["unit"] == ""  # Unit is empty for raw format
-        assert len(result[0]["values"]) == 1
-        assert result[0]["values"][0]["mean"] == 20.5
-        assert result[0]["values"][0]["min"] == 20.0
-        assert result[0]["values"][0]["max"] == 21.0
+        assert len(result[0]["values"]) == EXPECTED_ROWS_1
+        assert result[0]["values"][0]["mean"] == EXPECTED_MEAN_20_5
+        assert result[0]["values"][0]["min"] == EXPECTED_MIN_20_0
+        assert result[0]["values"][0]["max"] == EXPECTED_MAX_21_0
 
     def test_prepare_export_json_counter(self) -> None:
         """Test JSON export with counter statistics."""
         statistics_dict = {
             "sensor.energy": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "sum": 100.5,
-                    "state": 100.5,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "sum": EXPECTED_SUM_100_5,
+                    "state": EXPECTED_STATE_100_5,
                 }
             ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
-        assert len(result) == 1
+        assert len(result) == EXPECTED_ROWS_1
         assert result[0]["id"] == "sensor.energy"
-        assert result[0]["values"][0]["sum"] == 100.5
-        assert result[0]["values"][0]["state"] == 100.5
+        assert result[0]["values"][0]["sum"] == EXPECTED_SUM_100_5
+        assert result[0]["values"][0]["state"] == EXPECTED_STATE_100_5
 
     def test_prepare_export_json_multiple_entities(self) -> None:
         """Test JSON export with multiple entities."""
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ],
             "sensor.humidity": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 65.0,
-                    "min": 60.0,
-                    "max": 70.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_65_0,
+                    "min": EXPECTED_MIN_60_0,
+                    "max": EXPECTED_MAX_70_0,
                 }
             ],
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
-        assert len(result) == 2
+        assert len(result) == EXPECTED_ROWS_2
 
     def test_prepare_export_json_multiple_records(self) -> None:
         """Test JSON export with multiple records per entity."""
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 },
                 {
-                    "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
-                    "mean": 21.5,
-                    "min": 21.0,
-                    "max": 22.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,  # 2024-01-26 13:00:00 UTC
+                    "mean": EXPECTED_MEAN_21_5,
+                    "min": EXPECTED_MIN_21_0,
+                    "max": EXPECTED_MAX_22_0,
                 },
             ]
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
-        assert len(result[0]["values"]) == 2
+        assert len(result[0]["values"]) == EXPECTED_ROWS_2
 
     def test_prepare_export_json_timezone_conversion(self) -> None:
         """Test JSON export with timezone conversion."""
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
                 }
             ]
         }
