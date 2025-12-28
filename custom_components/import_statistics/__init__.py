@@ -3,6 +3,7 @@
 import csv
 import datetime as dt
 import json
+import zoneinfo
 from typing import Any
 
 from homeassistant.components.recorder import get_instance
@@ -40,25 +41,44 @@ def get_statistics_from_recorder(
     hass: HomeAssistant,
     entities_input: list[str],
     start_time_str: str,
-    end_time_str: str
+    end_time_str: str,
+    timezone_identifier: str = "UTC"
 ) -> dict:
     """
     Fetch statistics from Home Assistant recorder API.
 
     Uses the recorder API to avoid direct database access.
 
+    Args:
+        hass: Home Assistant instance
+        entities_input: List of entity IDs or statistic IDs
+        start_time_str: Start time in format "YYYY-MM-DD HH:MM:SS" (interpreted in timezone_identifier)
+        end_time_str: End time in format "YYYY-MM-DD HH:MM:SS" (interpreted in timezone_identifier)
+        timezone_identifier: Timezone for interpreting the start/end times (default: "UTC")
+
     Returns:
-        dict: {"statistic_id": {"metadata": {...}, "statistics": [...]}, ...}
+        dict: {"statistic_id": [{"start": float, "end": float, "mean": ..., ...}], ...}
+        Times in returned data are Unix timestamps (float) in UTC
 
     Raises:
-        HomeAssistantError: If time formats are invalid or no data found
+        HomeAssistantError: If time formats are invalid or recorder is not running
     """
     _LOGGER.info("Fetching statistics from recorder API")
 
     # Parse datetime strings (format: "2025-12-01 12:00:00")
+    # Times are provided in the user's selected timezone
     try:
         start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT)
         end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT)
+
+        # Apply the user's timezone to the naive datetimes
+        tz = zoneinfo.ZoneInfo(timezone_identifier)
+        start_dt = start_dt.replace(tzinfo=tz)
+        end_dt = end_dt.replace(tzinfo=tz)
+
+        # Convert to UTC for the recorder API
+        start_dt = start_dt.astimezone(dt.timezone.utc)
+        end_dt = end_dt.astimezone(dt.timezone.utc)
     except ValueError as e:
         helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
 
@@ -83,10 +103,12 @@ def get_statistics_from_recorder(
 
     # statistics_during_period returns data as:
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
+    # debug start_dt and end_dt
+    _LOGGER.debug("Fetching statistics from %s to %s for %s", start_dt, end_dt, statistic_ids)
     statistics_dict = statistics_during_period(
         hass,
         start_dt,
-        end_dt,
+        end_dt + dt.timedelta(hours=1),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
         statistic_ids,
         "hour",  # period
         None,    # units
@@ -145,8 +167,10 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
         _LOGGER.info("Output file: %s", filename)
 
-        # Get statistics from recorder API
-        statistics_dict = get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str)
+        # Get statistics from recorder API (using user's timezone for start/end times)
+        statistics_dict = get_statistics_from_recorder(
+            hass, entities_input, start_time_str, end_time_str, timezone_identifier
+        )
 
         # Prepare data for export (HA-independent)
         columns, rows = prepare_data.prepare_export_data(
