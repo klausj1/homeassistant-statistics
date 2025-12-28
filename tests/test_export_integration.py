@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from homeassistant.core import ServiceCall
 
+from custom_components.import_statistics import setup
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -29,7 +30,8 @@ class TestExportIntegration:
 
         Handles whitespace differences and format variations.
         """
-        with open(file_path, encoding="utf-8") as f:
+        file_obj = Path(file_path)
+        with file_obj.open(encoding="utf-8") as f:
             content = f.read()
 
         if file_path.endswith(".json"):

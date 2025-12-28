@@ -9,6 +9,7 @@ import pytest
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
+from custom_components.import_statistics import get_statistics_from_recorder, setup
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -315,7 +316,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -374,7 +375,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -415,9 +416,10 @@ class TestHandleExportStatistics:
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
+                error_msg = "Invalid timezone_identifier"
 
-                async def async_mock(*_args, **_kwargs):
-                    raise HomeAssistantError("Invalid timezone_identifier")
+                async def async_mock(*args, **kwargs):
+                    raise HomeAssistantError(error_msg)
 
                 mock_get_stats.side_effect = async_mock
 
@@ -454,9 +456,10 @@ class TestHandleExportStatistics:
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
+                error_msg = "Recorder component is not running"
 
-                async def async_mock(*_args, **_kwargs):
-                    raise HomeAssistantError("Recorder component is not running")
+                async def async_mock(*args, **kwargs):
+                    raise HomeAssistantError(error_msg)
 
                 mock_get_stats.side_effect = async_mock
 
@@ -510,7 +513,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -568,7 +571,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -633,7 +636,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -686,13 +689,13 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -747,13 +750,13 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -808,13 +811,13 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -868,12 +871,12 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
@@ -929,7 +932,7 @@ class TestHandleExportStatistics:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
 
-                async def async_mock(*_args, **_kwargs):
+                async def async_mock(*args, **kwargs):
                     return (mock_statistics, mock_units)
 
                 mock_get_stats.side_effect = async_mock
