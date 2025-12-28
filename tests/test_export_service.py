@@ -380,7 +380,7 @@ class TestHandleExportStatistics:
                 mock_write.assert_called_once()
 
                 # Verify state was set
-                hass.states.set.assert_called_with("import_statistics.export_statistics", "OK")
+                hass.states.async_set.assert_called_with("import_statistics.export_statistics", "OK")
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_with_defaults(self) -> None:
@@ -872,7 +872,7 @@ class TestHandleExportStatistics:
                 await service_handler(call)
 
                 # Verify state was set to OK
-                hass.states.set.assert_called_with("import_statistics.export_statistics", "OK")
+                hass.states.async_set.assert_called_with("import_statistics.export_statistics", "OK")
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_error_propagates(self) -> None:

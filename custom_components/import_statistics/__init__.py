@@ -104,8 +104,10 @@ async def get_statistics_from_recorder(
     if recorder_instance is None:
         helpers.handle_error("Recorder component is not running")
 
-    # Fetch metadata to get units (single call for all entities)
-    metadata = get_metadata(hass, statistic_ids=set(statistic_ids))
+    # Fetch metadata to get units (single call for all entities) - run in executor for database access
+    metadata = await hass.async_add_executor_job(
+        lambda: get_metadata(hass, statistic_ids=set(statistic_ids))
+    )
 
     # Extract units from metadata
     units_dict = {}
@@ -190,27 +192,40 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         file_path = f"{hass.config.config_dir}/{filename}"
 
         if filename.lower().endswith(".json"):
-            # Export as JSON
-            json_data = prepare_data.prepare_export_json(
-                statistics_dict,
-                timezone_identifier,
-                datetime_format,
-                units_dict
+            # Export as JSON - run in executor to avoid blocking I/O
+            json_data = await hass.async_add_executor_job(
+                lambda: prepare_data.prepare_export_json(
+                    statistics_dict,
+                    timezone_identifier,
+                    datetime_format,
+                    units_dict
+                )
             )
-            prepare_data.write_export_json(file_path, json_data)
+            await hass.async_add_executor_job(
+                lambda: prepare_data.write_export_json(file_path, json_data)
+            )
         else:
-            # Export as CSV/TSV (default)
-            columns, rows = prepare_data.prepare_export_data(
-                statistics_dict,
-                timezone_identifier,
-                datetime_format,
-                delimiter,
-                decimal,
-                units_dict
+            # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
+            columns, rows = await hass.async_add_executor_job(
+                lambda: prepare_data.prepare_export_data(
+                    statistics_dict,
+                    timezone_identifier,
+                    datetime_format,
+                    delimiter,
+                    decimal,
+                    units_dict
+                )
             )
-            prepare_data.write_export_file(file_path, columns, rows, delimiter)
+            await hass.async_add_executor_job(
+                lambda: prepare_data.write_export_file(
+                    file_path,
+                    columns,
+                    rows,
+                    delimiter
+                )
+            )
 
-        hass.states.set("import_statistics.export_statistics", "OK")
+        hass.states.async_set("import_statistics.export_statistics", "OK")
         _LOGGER.info("Export completed successfully")
 
     hass.services.register(DOMAIN, "export_statistics", handle_export_statistics)
