@@ -36,7 +36,7 @@ class TestGetStatisticsFromRecorder:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "end": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
                     "mean": 20.5,
                     "min": 20.0,
@@ -269,7 +269,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -319,7 +319,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -422,7 +422,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -466,7 +466,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -511,7 +511,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -519,7 +519,7 @@ class TestHandleExportStatistics:
             ],
             "sensor.humidity": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 65.0,
                     "min": 60.0,
                     "max": 70.0,
@@ -563,7 +563,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -610,7 +610,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -657,7 +657,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -704,7 +704,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -747,7 +747,7 @@ class TestHandleExportStatistics:
         mock_statistics = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,

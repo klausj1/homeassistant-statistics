@@ -348,19 +348,22 @@ def _detect_statistic_type(statistics_list: list) -> str:
     return "unknown"
 
 
-def _format_datetime(dt_obj: datetime.datetime, timezone: zoneinfo.ZoneInfo, format_str: str) -> str:
+def _format_datetime(dt_obj: datetime.datetime | float, timezone: zoneinfo.ZoneInfo, format_str: str) -> str:
     """
     Format a datetime object to string in specified timezone and format.
 
     Args:
-        dt_obj: Datetime object (may be UTC or already localized)
+        dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
         timezone: Target timezone
         format_str: Format string
 
     Returns:
         str: Formatted datetime string
     """
-    if dt_obj.tzinfo is None:
+    # Handle Unix timestamp (float) from recorder API
+    if isinstance(dt_obj, float):
+        dt_obj = datetime.datetime.fromtimestamp(dt_obj, tz=datetime.timezone.utc)
+    elif dt_obj.tzinfo is None:
         # Assume UTC if naive
         dt_obj = dt_obj.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
 

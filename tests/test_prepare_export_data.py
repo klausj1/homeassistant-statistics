@@ -26,9 +26,25 @@ class TestFormatDatetime:
 
     def test_format_datetime_utc_to_vienna(self) -> None:
         """Test converting UTC datetime to Vienna timezone."""
-        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
+        dt_obj = 1706270400.0  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
         result = _format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
+        assert result == "26.01.2024 13:00"
+
+    def test_format_datetime_unix_timestamp(self) -> None:
+        """Test formatting Unix timestamp (float) from recorder API."""
+        # 2024-01-26 12:00:00 UTC = 1706270400.0
+        unix_timestamp = 1706270400.0
+        timezone = zoneinfo.ZoneInfo("UTC")
+        result = _format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
+        assert result == "26.01.2024 12:00"
+
+    def test_format_datetime_unix_timestamp_with_timezone(self) -> None:
+        """Test converting Unix timestamp to different timezone."""
+        # 2024-01-26 12:00:00 UTC = 1706270400.0
+        unix_timestamp = 1706270400.0
+        timezone = zoneinfo.ZoneInfo("Europe/Vienna")
+        result = _format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
 
     def test_format_datetime_naive_assumed_utc(self) -> None:
@@ -40,14 +56,14 @@ class TestFormatDatetime:
 
     def test_format_datetime_different_format(self) -> None:
         """Test datetime formatting with different format string."""
-        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
+        dt_obj = 1706270400.0  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("UTC")
         result = _format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
         assert result == "2024-01-26 12:00"
 
     def test_format_datetime_us_format(self) -> None:
         """Test datetime formatting with US format."""
-        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
+        dt_obj = 1706270400.0  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("UTC")
         result = _format_datetime(dt_obj, timezone, "%m/%d/%Y %H:%M")
         assert result == "01/26/2024 12:00"
@@ -162,7 +178,7 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -195,7 +211,7 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.energy": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "sum": 100.5,
                     "state": 100.5,
                 }
@@ -222,7 +238,7 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -230,7 +246,7 @@ class TestPrepareExportData:
             ],
             "sensor.energy": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "sum": 100.5,
                     "state": 100.5,
                 }
@@ -255,7 +271,7 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -282,7 +298,7 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -360,13 +376,13 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
                 },
                 {
-                    "start": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
                     "mean": 21.5,
                     "min": 21.0,
                     "max": 22.0,
@@ -499,7 +515,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -522,7 +538,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.energy": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "sum": 100.5,
                     "state": 100.5,
                 }
@@ -541,7 +557,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -549,7 +565,7 @@ class TestPrepareExportJson:
             ],
             "sensor.humidity": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 65.0,
                     "min": 60.0,
                     "max": 70.0,
@@ -566,13 +582,13 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
                 },
                 {
-                    "start": datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
                     "mean": 21.5,
                     "min": 21.0,
                     "max": 22.0,
@@ -589,7 +605,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -631,7 +647,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
