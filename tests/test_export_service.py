@@ -1,6 +1,7 @@
 """Unit tests for HA-dependent export functions."""
 
 import datetime
+import tempfile
 import zoneinfo
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -25,13 +26,15 @@ from custom_components.import_statistics.const import (
 class TestGetStatisticsFromRecorder:
     """Test get_statistics_from_recorder function."""
 
-    def test_get_statistics_from_recorder_valid(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_valid(self) -> None:
         """Test fetching statistics with valid parameters."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         mock_statistics = {
             "sensor.temperature": [
@@ -45,12 +48,12 @@ class TestGetStatisticsFromRecorder:
             ]
         }
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance, \
-             patch("custom_components.import_statistics.statistics_during_period") as mock_stats_during:
+        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = MagicMock()
-            mock_stats_during.return_value = mock_statistics
+            # Mock async_add_executor_job to return the statistics directly
+            hass.async_add_executor_job.return_value = mock_statistics
 
-            result = get_statistics_from_recorder(
+            result = await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00:00",
@@ -66,15 +69,17 @@ class TestGetStatisticsFromRecorder:
             assert isinstance(stats_dict["sensor.temperature"], list)
             assert stats_dict["sensor.temperature"] == mock_statistics["sensor.temperature"]
             assert isinstance(units_dict, dict)
-            mock_stats_during.assert_called_once()
+            hass.async_add_executor_job.assert_called_once()
 
-    def test_get_statistics_from_recorder_with_timezone(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_with_timezone(self) -> None:
         """Test that start/end times are interpreted in the provided timezone."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         mock_statistics = {
             "sensor.temperature": [
@@ -85,14 +90,13 @@ class TestGetStatisticsFromRecorder:
             ]
         }
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance, \
-             patch("custom_components.import_statistics.statistics_during_period") as mock_stats_during:
+        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = MagicMock()
-            mock_stats_during.return_value = mock_statistics
+            hass.async_add_executor_job.return_value = mock_statistics
 
             # User provides times in Europe/Vienna timezone
             # 2024-01-26 12:00:00 Vienna = 2024-01-26 11:00:00 UTC
-            result = get_statistics_from_recorder(
+            result = await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00:00",
@@ -100,118 +104,130 @@ class TestGetStatisticsFromRecorder:
                 "Europe/Vienna"
             )
 
-            # Verify the recorder API was called with UTC times
-            mock_stats_during.assert_called_once()
-            call_args = mock_stats_during.call_args
+            # Verify async_add_executor_job was called
+            hass.async_add_executor_job.assert_called_once()
+            call_args = hass.async_add_executor_job.call_args
+            # Verify the executor was called with the right time boundaries
             # start_dt should be 11:00:00 UTC (12:00:00 Vienna - 1 hour)
-            assert call_args[0][1].hour == 11
-            # end_dt should be 12:00:00 UTC (13:00:00 Vienna - 1 hour), plus one hour to contain the last hour as well
-            assert call_args[0][2].hour == 13
+            assert call_args[0][2].hour == 11
+            # end_dt should be 13:00:00 UTC (14:00:00 Vienna, plus 1 hour buffer)
+            assert call_args[0][3].hour == 13
             stats_dict, units_dict = result
             assert stats_dict == mock_statistics
 
-    def test_get_statistics_from_recorder_invalid_start_time_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_invalid_start_time_format(self) -> None:
         """Test error handling with invalid start time format."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="Invalid datetime format"):
-            get_statistics_from_recorder(
+            await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00",  # Missing seconds
                 "2024-01-26 13:00:00"
             )
 
-    def test_get_statistics_from_recorder_invalid_end_time_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_invalid_end_time_format(self) -> None:
         """Test error handling with invalid end time format."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="Invalid datetime format"):
-            get_statistics_from_recorder(
+            await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00:00",
                 "not-a-datetime"
             )
 
-    def test_get_statistics_from_recorder_start_time_not_full_hour(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_start_time_not_full_hour(self) -> None:
         """Test error when start time is not a full hour."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="start_time must be a full hour"):
-            get_statistics_from_recorder(
+            await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:30:00",  # Not a full hour
                 "2024-01-26 13:00:00"
             )
 
-    def test_get_statistics_from_recorder_end_time_not_full_hour(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_end_time_not_full_hour(self) -> None:
         """Test error when end time is not a full hour."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="end_time must be a full hour"):
-            get_statistics_from_recorder(
+            await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00:00",
                 "2024-01-26 13:00:45"  # Has seconds
             )
 
-    def test_get_statistics_from_recorder_recorder_not_running(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_recorder_not_running(self) -> None:
         """Test error when recorder component is not running."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = None
 
             with pytest.raises(HomeAssistantError, match="Recorder component is not running"):
-                get_statistics_from_recorder(
+                await get_statistics_from_recorder(
                     hass,
                     ["sensor.temperature"],
                     "2024-01-26 12:00:00",
                     "2024-01-26 13:00:00"
                 )
 
-    def test_get_statistics_from_recorder_multiple_entities(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_multiple_entities(self) -> None:
         """Test fetching statistics for multiple entities."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         mock_statistics = {
             "sensor.temperature": [{"mean": 20.5}],
             "sensor.humidity": [{"mean": 65.0}]
         }
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance, \
-             patch("custom_components.import_statistics.statistics_during_period") as mock_stats_during:
+        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = MagicMock()
-            mock_stats_during.return_value = mock_statistics
+            hass.async_add_executor_job.return_value = mock_statistics
 
-            result = get_statistics_from_recorder(
+            result = await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature", "sensor.humidity"],
                 "2024-01-26 12:00:00",
@@ -223,24 +239,25 @@ class TestGetStatisticsFromRecorder:
             assert "sensor.temperature" in stats_dict
             assert "sensor.humidity" in stats_dict
 
-    def test_get_statistics_from_recorder_external_statistic_id(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_external_statistic_id(self) -> None:
         """Test fetching statistics with external statistic ID (colon format)."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         mock_statistics = {
             "custom:my_metric": [{"mean": 100.0}]
         }
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance, \
-             patch("custom_components.import_statistics.statistics_during_period") as mock_stats_during:
+        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = MagicMock()
-            mock_stats_during.return_value = mock_statistics
+            hass.async_add_executor_job.return_value = mock_statistics
 
-            result = get_statistics_from_recorder(
+            result = await get_statistics_from_recorder(
                 hass,
                 ["custom:my_metric"],
                 "2024-01-26 12:00:00",
@@ -250,592 +267,658 @@ class TestGetStatisticsFromRecorder:
             stats_dict, units_dict = result
             assert "custom:my_metric" in stats_dict
 
-    def test_get_statistics_from_recorder_invalid_entity_id(self) -> None:
+    @pytest.mark.asyncio
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_invalid_entity_id(self) -> None:
         """Test error with invalid entity ID format."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="invalid"):
-            get_statistics_from_recorder(
+            await get_statistics_from_recorder(
                 hass,
                 ["invalid_entity_id_no_separator"],
                 "2024-01-26 12:00:00",
                 "2024-01-26 13:00:00"
             )
 
-    def test_get_statistics_from_recorder_calls_recorder_api(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_calls_recorder_api(self) -> None:
         """Test that recorder API is called with correct parameters."""
         from custom_components.import_statistics import get_statistics_from_recorder
 
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
+        hass.async_add_executor_job = AsyncMock()
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance, \
-             patch("custom_components.import_statistics.statistics_during_period") as mock_stats_during:
+        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = MagicMock()
-            mock_stats_during.return_value = {}
+            hass.async_add_executor_job.return_value = {}
 
-            get_statistics_from_recorder(
+            await get_statistics_from_recorder(
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00:00",
                 "2024-01-26 13:00:00"
             )
 
-            # Verify recorder API was called
-            assert mock_stats_during.called
-            args, kwargs = mock_stats_during.call_args
+            # Verify async_add_executor_job was called
+            assert hass.async_add_executor_job.called
+            args, kwargs = hass.async_add_executor_job.call_args
 
-            # Check parameters
-            assert args[0] == hass
-            assert isinstance(args[1], datetime.datetime)
+            # Check parameters passed to executor
+            # args[0] is the function, args[1:] are the arguments
+            assert args[1] == hass
             assert isinstance(args[2], datetime.datetime)
-            assert "sensor.temperature" in args[3]
-            assert args[4] == "hour"  # period
-            assert args[5] is None  # units
-            assert set(args[6]) == {"max", "mean", "min", "state", "sum"}  # types
+            assert isinstance(args[3], datetime.datetime)
+            assert "sensor.temperature" in args[4]
+            assert args[5] == "hour"  # period
+            assert args[6] is None  # units
+            assert set(args[7]) == {"max", "mean", "min", "state", "sum"}  # types
 
 
 class TestHandleExportStatistics:
     """Test handle_export_statistics service handler."""
 
-    def test_handle_export_statistics_valid_call(self) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_valid_call(self) -> None:
         """Test successful export with valid parameters."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-                ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                ATTR_DELIMITER: "\t",
-                ATTR_DECIMAL: False,
-                ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            service_handler(call)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DELIMITER: "\t",
+                    ATTR_DECIMAL: False,
+                    ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
+                }
+            )
 
-            # Verify write was called
-            mock_write.assert_called_once()
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                # Make the mock return an async function result
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
 
-            # Verify state was set
-            hass.states.set.assert_called_with("import_statistics.export_statistics", "OK")
+                # Verify write was called
+                mock_write.assert_called_once()
 
-    def test_handle_export_statistics_with_defaults(self) -> None:
+                # Verify state was set
+                hass.states.set.assert_called_with("import_statistics.export_statistics", "OK")
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_with_defaults(self) -> None:
         """Test export with default parameters."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            service_handler(call)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                }
+            )
 
-            # Verify defaults were used
-            assert mock_get_stats.called
-            assert mock_write.called
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
 
-    def test_handle_export_statistics_invalid_timezone(self) -> None:
+                # Verify defaults were used
+                assert mock_get_stats.called
+                assert mock_write.called
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_invalid_timezone(self) -> None:
         """Test error handling with invalid timezone."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-                ATTR_TIMEZONE_IDENTIFIER: "Invalid/Timezone",
-            }
-        )
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_TIMEZONE_IDENTIFIER: "Invalid/Timezone",
+                }
+            )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
-            mock_get_stats.side_effect = HomeAssistantError("Invalid timezone_identifier")
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
+                async def async_mock(*args, **kwargs):
+                    raise HomeAssistantError("Invalid timezone_identifier")
+                mock_get_stats.side_effect = async_mock
 
-            with pytest.raises(HomeAssistantError):
-                service_handler(call)
+                with pytest.raises(HomeAssistantError):
+                    await service_handler(call)
 
-    def test_handle_export_statistics_recorder_not_running(self) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_recorder_not_running(self) -> None:
         """Test error when recorder is not running."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-            }
-        )
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                }
+            )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
-            mock_get_stats.side_effect = HomeAssistantError("Recorder component is not running")
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
+                async def async_mock(*args, **kwargs):
+                    raise HomeAssistantError("Recorder component is not running")
+                mock_get_stats.side_effect = async_mock
 
-            with pytest.raises(HomeAssistantError):
-                service_handler(call)
+                with pytest.raises(HomeAssistantError):
+                    await service_handler(call)
 
-    def test_handle_export_statistics_file_path_construction(self) -> None:
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_file_path_construction(self) -> None:
         """Test that file path is constructed correctly from config_dir."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            service_handler(call)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                }
+            )
 
-            # Verify file path was constructed correctly
-            call_args = mock_write.call_args
-            assert call_args[0][0] == "/config/export.tsv"
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
 
-    def test_handle_export_statistics_with_csv_delimiter(self) -> None:
+                # Verify file path was constructed correctly
+                call_args = mock_write.call_args
+                assert call_args[0][0] == f"{tmpdir}/export.tsv"
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_with_csv_delimiter(self) -> None:
         """Test export with CSV comma delimiter."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.csv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-                ATTR_DELIMITER: ",",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            service_handler(call)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.csv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_DELIMITER: ",",
+                }
+            )
 
-            # Verify delimiter was passed correctly
-            call_args = mock_write.call_args
-            assert call_args[0][3] == ","
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
 
-    def test_handle_export_statistics_multiple_entities(self) -> None:
+                # Verify delimiter was passed correctly
+                call_args = mock_write.call_args
+                assert call_args[0][3] == ","
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_multiple_entities(self) -> None:
         """Test export with multiple entities."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ],
-            "sensor.humidity": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 65.0,
-                    "min": 60.0,
-                    "max": 70.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature", "sensor.humidity"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ],
+                "sensor.humidity": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 65.0,
+                        "min": 60.0,
+                        "max": 70.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {
-                "sensor.temperature": "°C",
-                "sensor.humidity": "%"
-            }
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            service_handler(call)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature", "sensor.humidity"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                }
+            )
 
-            # Verify both entities were processed
-            assert mock_get_stats.called
-            assert mock_write.called
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {
+                    "sensor.temperature": "°C",
+                    "sensor.humidity": "%"
+                }
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
 
-    def test_handle_export_statistics_timezone_parameter(self) -> None:
+                # Verify both entities were processed
+                assert mock_get_stats.called
+                assert mock_write.called
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_timezone_parameter(self) -> None:
         """Test that timezone parameter is passed correctly."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-                ATTR_TIMEZONE_IDENTIFIER: "Europe/Vienna",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
-             patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            mock_prepare.return_value = (["col1"], [("row1",)])
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_TIMEZONE_IDENTIFIER: "Europe/Vienna",
+                }
+            )
 
-            service_handler(call)
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
+                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                mock_prepare.return_value = (["col1"], [("row1",)])
 
-            # Verify timezone was passed to prepare_export_data
-            call_args = mock_prepare.call_args
-            assert call_args[0][1] == "Europe/Vienna"
+                await service_handler(call)
 
-    def test_handle_export_statistics_decimal_comma(self) -> None:
+                # Verify timezone was passed to prepare_export_data
+                call_args = mock_prepare.call_args
+                assert call_args[0][1] == "Europe/Vienna"
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_decimal_comma(self) -> None:
         """Test export with comma decimal separator."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-                ATTR_DECIMAL: True,
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
-             patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            mock_prepare.return_value = (["col1"], [("row1",)])
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_DECIMAL: True,
+                }
+            )
 
-            service_handler(call)
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
+                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                mock_prepare.return_value = (["col1"], [("row1",)])
 
-            # Verify decimal parameter was passed
-            call_args = mock_prepare.call_args
-            assert call_args[0][4] is True
+                await service_handler(call)
 
-    def test_handle_export_statistics_datetime_format(self) -> None:
+                # Verify decimal parameter was passed
+                call_args = mock_prepare.call_args
+                assert call_args[0][4] is True
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_datetime_format(self) -> None:
         """Test export with custom datetime format."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
-                ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
-             patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            mock_prepare.return_value = (["col1"], [("row1",)])
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M",
+                }
+            )
 
-            service_handler(call)
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
+                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                mock_prepare.return_value = (["col1"], [("row1",)])
 
-            # Verify datetime format was passed
-            call_args = mock_prepare.call_args
-            assert call_args[0][2] == "%Y-%m-%d %H:%M"
+                await service_handler(call)
 
-    def test_handle_export_statistics_sets_ok_state(self) -> None:
+                # Verify datetime format was passed
+                call_args = mock_prepare.call_args
+                assert call_args[0][2] == "%Y-%m-%d %H:%M"
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_sets_ok_state(self) -> None:
         """Test that state is set to OK on successful export."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            service_handler(call)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                }
+            )
 
-            # Verify state was set to OK
-            hass.states.set.assert_called_with("import_statistics.export_statistics", "OK")
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
 
-    def test_handle_export_statistics_error_propagates(self) -> None:
+                # Verify state was set to OK
+                hass.states.set.assert_called_with("import_statistics.export_statistics", "OK")
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_error_propagates(self) -> None:
         """Test that errors from write are propagated."""
         from custom_components.import_statistics import setup
 
-        hass = MagicMock()
-        hass.config = MagicMock()
-        hass.config.config_dir = "/config"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
-        setup(hass, {})
-        service_handler = hass.services.register.call_args_list[-1][0][2]
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
 
-        mock_statistics = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
-                    "mean": 20.5,
-                    "min": 20.0,
-                    "max": 21.0,
-                }
-            ]
-        }
-
-        call = ServiceCall(
-            hass,
-            "import_statistics",
-            "export_statistics",
-            {
-                ATTR_FILENAME: "export.tsv",
-                ATTR_ENTITIES: ["sensor.temperature"],
-                ATTR_START_TIME: "2024-01-26 12:00:00",
-                ATTR_END_TIME: "2024-01-26 13:00:00",
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
             }
-        )
 
-        with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-             patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
-            # Return tuple: (statistics_dict, units_dict)
-            mock_units = {"sensor.temperature": "°C"}
-            mock_get_stats.return_value = (mock_statistics, mock_units)
-            mock_write.side_effect = HomeAssistantError("Permission denied")
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                }
+            )
 
-            with pytest.raises(HomeAssistantError, match="Permission denied"):
-                service_handler(call)
+            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
+                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+                # Return tuple: (statistics_dict, units_dict)
+                mock_units = {"sensor.temperature": "°C"}
+                async def async_mock(*args, **kwargs):
+                    return (mock_statistics, mock_units)
+                mock_get_stats.side_effect = async_mock
+                mock_write.side_effect = HomeAssistantError("Permission denied")
+
+                with pytest.raises(HomeAssistantError, match="Permission denied"):
+                    await service_handler(call)

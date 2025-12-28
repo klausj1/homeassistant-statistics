@@ -38,7 +38,7 @@ from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
-def get_statistics_from_recorder(
+async def get_statistics_from_recorder(
     hass: HomeAssistant,
     entities_input: list[str],
     start_time_str: str,
@@ -116,7 +116,10 @@ def get_statistics_from_recorder(
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
     # debug start_dt and end_dt
     _LOGGER.debug("Fetching statistics from %s to %s for %s", start_dt, end_dt, statistic_ids)
-    statistics_dict = statistics_during_period(
+
+    # Use executor for blocking database call
+    statistics_dict = await hass.async_add_executor_job(
+        statistics_during_period,
         hass,
         start_dt,
         end_dt + dt.timedelta(hours=1),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
@@ -160,7 +163,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
 
-    def handle_export_statistics(call: ServiceCall) -> None:
+    async def handle_export_statistics(call: ServiceCall) -> None:
         """Handle the export statistics service call."""
         filename = call.data.get(ATTR_FILENAME)
         entities_input = call.data.get(ATTR_ENTITIES)
@@ -179,7 +182,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Output file: %s", filename)
 
         # Get statistics from recorder API (using user's timezone for start/end times)
-        statistics_dict, units_dict = get_statistics_from_recorder(
+        statistics_dict, units_dict = await get_statistics_from_recorder(
             hass, entities_input, start_time_str, end_time_str, timezone_identifier
         )
 

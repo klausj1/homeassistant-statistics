@@ -1,11 +1,12 @@
 """Integration tests for export statistics feature."""
 
+import asyncio
 import datetime
 import json
 import tempfile
 import zoneinfo
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import ServiceCall
@@ -43,7 +44,8 @@ class TestExportIntegration:
         lines = content.strip().split('\n')
         return '\n'.join(line.rstrip() for line in lines)
 
-    def test_export_sensor_statistics_tsv(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_sensor_statistics_tsv(self) -> None:
         """Test exporting sensor statistics to TSV format."""
         from custom_components.import_statistics import setup
 
@@ -51,6 +53,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -107,7 +110,7 @@ class TestExportIntegration:
                     "sensor.humidity": "%"
                 }
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_sensor_data.tsv"
@@ -118,7 +121,8 @@ class TestExportIntegration:
             reference = self.normalize_file_content("tests/testfiles/export_sensor_data.tsv")
             assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
 
-    def test_export_counter_statistics_csv(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_counter_statistics_csv(self) -> None:
         """Test exporting counter statistics to CSV format."""
         from custom_components.import_statistics import setup
 
@@ -126,6 +130,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -179,7 +184,7 @@ class TestExportIntegration:
                     "counter.water_used": "L"
                 }
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_counter_data.csv"
@@ -190,7 +195,8 @@ class TestExportIntegration:
             reference = self.normalize_file_content("tests/testfiles/export_counter_data.csv")
             assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
 
-    def test_export_mixed_statistics_semicolon_delimiter(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_mixed_statistics_semicolon_delimiter(self) -> None:
         """Test exporting mixed sensor/counter data with semicolon delimiter."""
         from custom_components.import_statistics import setup
 
@@ -198,6 +204,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -253,7 +260,7 @@ class TestExportIntegration:
                     "counter.energy": "kWh"
                 }
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_mixed_data.tsv"
@@ -264,7 +271,8 @@ class TestExportIntegration:
             reference = self.normalize_file_content("tests/testfiles/export_mixed_data.tsv")
             assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
 
-    def test_export_sensor_to_json_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_sensor_to_json_format(self) -> None:
         """Test exporting sensor data to JSON format with correct structure."""
         from custom_components.import_statistics import setup
 
@@ -272,6 +280,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -304,7 +313,7 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created and is valid JSON
             export_file = Path(tmpdir) / "export_sensor_data.json"
@@ -320,7 +329,8 @@ class TestExportIntegration:
             assert data[0]["values"][0]["min"] == 20.0
             assert data[0]["values"][0]["max"] == 21.0
 
-    def test_export_counter_to_json_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_counter_to_json_format(self) -> None:
         """Test exporting counter data to JSON format with correct structure."""
         from custom_components.import_statistics import setup
 
@@ -328,6 +338,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -359,7 +370,7 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"counter.energy": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created and is valid JSON
             export_file = Path(tmpdir) / "export_counter_data.json"
@@ -374,7 +385,8 @@ class TestExportIntegration:
             assert data[0]["values"][0]["sum"] == 10.5
             assert data[0]["values"][0]["state"] == 100.0
 
-    def test_export_mixed_to_json_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_mixed_to_json_format(self) -> None:
         """Test exporting mixed data to JSON format."""
         from custom_components.import_statistics import setup
 
@@ -382,6 +394,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -424,7 +437,7 @@ class TestExportIntegration:
                     "counter.energy": "kWh"
                 }
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created and is valid JSON
             export_file = Path(tmpdir) / "export_mixed_data.json"
@@ -436,7 +449,8 @@ class TestExportIntegration:
             assert any(r["id"] == "sensor.temperature" for r in data)
             assert any(r["id"] == "counter.energy" for r in data)
 
-    def test_export_with_decimal_comma_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_with_decimal_comma_format(self) -> None:
         """Test export with comma as decimal separator."""
         from custom_components.import_statistics import setup
 
@@ -444,6 +458,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -478,7 +493,7 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_decimal_comma.csv"
@@ -488,7 +503,8 @@ class TestExportIntegration:
             content = export_file.read_text()
             assert "20,5" in content, "Values should use comma as decimal separator"
 
-    def test_export_with_custom_datetime_format(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_with_custom_datetime_format(self) -> None:
         """Test export with custom datetime format."""
         from custom_components.import_statistics import setup
 
@@ -496,6 +512,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -529,7 +546,7 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_iso_format.tsv"
@@ -539,7 +556,8 @@ class TestExportIntegration:
             content = export_file.read_text()
             assert "2024-01-26 12:00" in content, "Should use ISO datetime format"
 
-    def test_export_with_timezone_conversion(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_with_timezone_conversion(self) -> None:
         """Test export with timezone conversion (UTC to Europe/Vienna)."""
         from custom_components.import_statistics import setup
 
@@ -547,6 +565,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -581,7 +600,7 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_vienna_tz.tsv"
@@ -591,7 +610,8 @@ class TestExportIntegration:
             content = export_file.read_text()
             assert "13:00" in content, "Should show time in Vienna timezone"
 
-    def test_export_file_existence_check(self) -> None:
+    @pytest.mark.asyncio
+    async def test_export_file_existence_check(self) -> None:
         """Test that exported files are created with content."""
         from custom_components.import_statistics import setup
 
@@ -599,6 +619,7 @@ class TestExportIntegration:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = AsyncMock()
 
             setup(hass, {})
             service_handler = hass.services.register.call_args_list[-1][0][2]
@@ -631,7 +652,7 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                service_handler(call)
+                await service_handler(call)
 
             # Verify file exists and has content
             export_file = Path(tmpdir) / "test_export.tsv"
