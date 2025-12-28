@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 from custom_components.import_statistics.prepare_data import (
     _detect_statistic_type,
     _format_datetime,
@@ -49,7 +48,7 @@ class TestFormatDatetime:
 
     def test_format_datetime_naive_assumed_utc(self) -> None:
         """Test that naive datetime is assumed to be UTC."""
-        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0)
+        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=datetime.UTC)
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
         result = _format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
@@ -82,37 +81,37 @@ class TestFormatDecimal:
 
     def test_format_decimal_dot_separator(self) -> None:
         """Test decimal with dot separator."""
-        result = _format_decimal(1234.567, False)
+        result = _format_decimal(1234.567, use_comma=False)
         assert result == "1234.567"
 
     def test_format_decimal_comma_separator(self) -> None:
         """Test decimal with comma separator."""
-        result = _format_decimal(1234.567, True)
+        result = _format_decimal(1234.567, use_comma=True)
         assert result == "1234,567"
 
     def test_format_decimal_integer(self) -> None:
         """Test formatting integer value."""
-        result = _format_decimal(42, False)
+        result = _format_decimal(42, use_comma=False)
         assert result == "42"
 
     def test_format_decimal_none_value(self) -> None:
         """Test formatting None value returns empty string."""
-        result = _format_decimal(None, False)
+        result = _format_decimal(None, use_comma=False)
         assert result == ""
 
     def test_format_decimal_small_value(self) -> None:
         """Test formatting small decimal value."""
-        result = _format_decimal(0.001, False)
+        result = _format_decimal(0.001, use_comma=False)
         assert result == "0.001"
 
     def test_format_decimal_trailing_zeros_removed(self) -> None:
         """Test that trailing zeros are removed."""
-        result = _format_decimal(1.0, False)
+        result = _format_decimal(1.0, use_comma=False)
         assert result == "1"
 
     def test_format_decimal_zero(self) -> None:
         """Test formatting zero."""
-        result = _format_decimal(0, False)
+        result = _format_decimal(0, use_comma=False)
         assert result == "0"
 
 
@@ -121,39 +120,37 @@ class TestDetectStatisticType:
 
     def test_detect_sensor_type_mean(self) -> None:
         """Test detection of sensor type with mean."""
-        stats_list = [
-            {"start": datetime.datetime.now(), "mean": 20.5, "min": 20.0, "max": 21.0}
-        ]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "mean": 20.5, "min": 20.0, "max": 21.0}]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor"
 
     def test_detect_sensor_type_min(self) -> None:
         """Test detection of sensor type with min."""
-        stats_list = [{"start": datetime.datetime.now(), "min": 20.0}]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "min": 20.0}]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor"
 
     def test_detect_sensor_type_max(self) -> None:
         """Test detection of sensor type with max."""
-        stats_list = [{"start": datetime.datetime.now(), "max": 21.0}]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "max": 21.0}]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor"
 
     def test_detect_counter_type_sum(self) -> None:
         """Test detection of counter type with sum."""
-        stats_list = [{"start": datetime.datetime.now(), "sum": 100.5}]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "sum": 100.5}]
         result = _detect_statistic_type(stats_list)
         assert result == "counter"
 
     def test_detect_counter_type_state(self) -> None:
         """Test detection of counter type with state."""
-        stats_list = [{"start": datetime.datetime.now(), "state": 100.5}]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "state": 100.5}]
         result = _detect_statistic_type(stats_list)
         assert result == "counter"
 
     def test_detect_counter_type_both(self) -> None:
         """Test detection of counter type with both sum and state."""
-        stats_list = [{"start": datetime.datetime.now(), "sum": 100.5, "state": 100.5}]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "sum": 100.5, "state": 100.5}]
         result = _detect_statistic_type(stats_list)
         assert result == "counter"
 
@@ -165,7 +162,7 @@ class TestDetectStatisticType:
 
     def test_detect_unknown_type_no_matching_fields(self) -> None:
         """Test detection of unknown type with no matching fields."""
-        stats_list = [{"start": datetime.datetime.now()}]
+        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC)}]
         result = _detect_statistic_type(stats_list)
         assert result == "unknown"
 
@@ -186,13 +183,7 @@ class TestPrepareExportData:
             ]
         }
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "UTC",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         assert "statistic_id" in columns
         assert "unit" in columns
@@ -218,13 +209,7 @@ class TestPrepareExportData:
             ]
         }
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "UTC",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         assert "sum" in columns
         assert "state" in columns
@@ -250,16 +235,10 @@ class TestPrepareExportData:
                     "sum": 100.5,
                     "state": 100.5,
                 }
-            ]
+            ],
         }
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "UTC",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         # Should include both sensor and counter columns
         assert "mean" in columns
@@ -278,13 +257,11 @@ class TestPrepareExportData:
                 }
             ]
         }
-
         columns, rows = prepare_export_data(
             statistics_dict,
             "UTC",
             "%d.%m.%Y %H:%M",
-            "\t",
-            True  # use comma
+            decimal_comma=True,  # use comma
         )
 
         # Values should have comma separator
@@ -306,13 +283,7 @@ class TestPrepareExportData:
             ]
         }
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "Europe/Vienna",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        _columns, rows = prepare_export_data(statistics_dict, "Europe/Vienna", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         # Time should be converted from UTC to Vienna (UTC+1)
         assert "26.01.2024 13:00" in str(rows[0])
@@ -322,7 +293,7 @@ class TestPrepareExportData:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime.now(),
+                    "start": datetime.datetime.now(tz=datetime.UTC),
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,
@@ -331,25 +302,13 @@ class TestPrepareExportData:
         }
 
         with pytest.raises(HomeAssistantError, match="Invalid timezone_identifier"):
-            prepare_export_data(
-                statistics_dict,
-                "Invalid/Timezone",
-                "%d.%m.%Y %H:%M",
-                "\t",
-                False
-            )
+            prepare_export_data(statistics_dict, "Invalid/Timezone", "%d.%m.%Y %H:%M", decimal_comma=False)
 
     def test_prepare_export_data_empty_statistics(self) -> None:
         """Test export with empty statistics dict."""
         statistics_dict = {}
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "UTC",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         # Should return base columns with no data rows
         assert "statistic_id" in columns
@@ -357,17 +316,9 @@ class TestPrepareExportData:
 
     def test_prepare_export_data_no_statistics_list(self) -> None:
         """Test export when entity has empty statistics list."""
-        statistics_dict = {
-            "sensor.temperature": []
-        }
+        statistics_dict = {"sensor.temperature": []}
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "UTC",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         assert len(rows) == 0
 
@@ -386,17 +337,11 @@ class TestPrepareExportData:
                     "mean": 21.5,
                     "min": 21.0,
                     "max": 22.0,
-                }
+                },
             ]
         }
 
-        columns, rows = prepare_export_data(
-            statistics_dict,
-            "UTC",
-            "%d.%m.%Y %H:%M",
-            "\t",
-            False
-        )
+        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
 
         assert len(rows) == 2
 
@@ -417,7 +362,7 @@ class TestWriteExportFile:
             write_export_file(str(file_path), columns, rows, "\t")
 
             assert file_path.exists()
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f, delimiter="\t")
                 lines = list(reader)
                 assert lines[0] == columns
@@ -436,7 +381,7 @@ class TestWriteExportFile:
             write_export_file(str(file_path), columns, rows, ",")
 
             assert file_path.exists()
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f, delimiter=",")
                 lines = list(reader)
                 assert lines[0] == columns
@@ -450,7 +395,7 @@ class TestWriteExportFile:
 
             write_export_file(str(file_path), columns, rows, ";")
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f, delimiter=";")
                 lines = list(reader)
                 assert lines[0] == columns
@@ -468,7 +413,7 @@ class TestWriteExportFile:
 
             write_export_file(str(file_path), columns, rows, "\t")
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 content = f.read()
                 assert "°C" in content
                 assert "mbar" in content
@@ -482,7 +427,7 @@ class TestWriteExportFile:
 
             write_export_file(str(file_path), columns, rows, "\t")
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f, delimiter="\t")
                 lines = list(reader)
                 assert len(lines) == 1  # Only header
@@ -500,7 +445,7 @@ class TestWriteExportFile:
 
             write_export_file(str(file_path), columns, rows, "\t")
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8") as f:
                 reader = csv.reader(f, delimiter="\t")
                 lines = list(reader)
                 assert lines[1][4] == ""  # Empty sum for temperature
@@ -570,7 +515,7 @@ class TestPrepareExportJson:
                     "min": 60.0,
                     "max": 70.0,
                 }
-            ]
+            ],
         }
 
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
@@ -592,7 +537,7 @@ class TestPrepareExportJson:
                     "mean": 21.5,
                     "min": 21.0,
                     "max": 22.0,
-                }
+                },
             ]
         }
 
@@ -623,7 +568,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime.now(),
+                    "start": datetime.datetime.now(tz=datetime.UTC),
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,

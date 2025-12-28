@@ -196,6 +196,7 @@ def handle_dataframe(
         stats[statistic_id][1].append(new_stat)
     return stats
 
+
 def write_export_file(file_path: str, columns: list, rows: list, delimiter: str) -> None:
     """
     Write export data to a TSV/CSV file.
@@ -208,28 +209,23 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
 
     Raises:
         HomeAssistantError: If file cannot be written
+
     """
     _LOGGER.info("Writing export file: %s", file_path)
 
     try:
-        with open(file_path, "w", encoding="utf-8", newline="") as f:
+        file_obj = Path(file_path)
+        with file_obj.open("w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=delimiter)
             writer.writerow(columns)
             writer.writerows(rows)
 
         _LOGGER.info("Export file written successfully: %s", file_path)
-    except IOError as e:
+    except OSError as e:
         helpers.handle_error(f"Failed to write export file {file_path}: {e}")
 
 
-def prepare_export_data(
-    statistics_dict: dict,
-    timezone_identifier: str,
-    datetime_format: str,
-    delimiter: str,
-    decimal_comma: bool,
-    units_dict: dict = None
-) -> tuple:
+def prepare_export_data(statistics_dict: dict, timezone_identifier: str, datetime_format: str, decimal_comma: bool, units_dict: dict | None = None) -> tuple:
     """
     Prepare statistics data for export (TSV/CSV format).
 
@@ -243,6 +239,7 @@ def prepare_export_data(
 
     Returns:
         tuple: (columns list, data rows list)
+
     """
     _LOGGER.info("Preparing export data")
 
@@ -309,10 +306,7 @@ def prepare_export_data(
 
     # Validate if sensors and counters are mixed
     if has_sensors and has_counters:
-        _LOGGER.info(
-            "Export contains both sensor (mean/min/max) and counter (sum/state) statistics. "
-            "Sensor columns will be empty for counters and vice versa."
-        )
+        _LOGGER.info("Export contains both sensor (mean/min/max) and counter (sum/state) statistics. Sensor columns will be empty for counters and vice versa.")
 
     # Build column list: always include statistic_id, unit, start
     # Then conditionally add sensor or counter columns
@@ -325,10 +319,7 @@ def prepare_export_data(
     # Convert row dicts to tuples in column order, filling empty cells
     data_rows = []
     for row_dict in rows:
-        row_tuple = tuple(
-            row_dict.get(col, "")
-            for col in column_order
-        )
+        row_tuple = tuple(row_dict.get(col, "") for col in column_order)
         data_rows.append(row_tuple)
 
     _LOGGER.debug("Export data prepared with columns: %s", column_order)
@@ -344,6 +335,7 @@ def _detect_statistic_type(statistics_list: list) -> str:
 
     Returns:
         str: "sensor", "counter", or "unknown"
+
     """
     for stat_record in statistics_list:
         if "mean" in stat_record or "min" in stat_record or "max" in stat_record:
@@ -365,10 +357,11 @@ def _format_datetime(dt_obj: datetime.datetime | float, timezone: zoneinfo.ZoneI
 
     Returns:
         str: Formatted datetime string
+
     """
     # Handle Unix timestamp (float) from recorder API
     if isinstance(dt_obj, float):
-        dt_obj = datetime.datetime.fromtimestamp(dt_obj, tz=datetime.timezone.utc)
+        dt_obj = datetime.datetime.fromtimestamp(dt_obj, tz=datetime.UTC)
     elif dt_obj.tzinfo is None:
         # Assume UTC if naive
         dt_obj = dt_obj.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
@@ -379,7 +372,7 @@ def _format_datetime(dt_obj: datetime.datetime | float, timezone: zoneinfo.ZoneI
     return local_dt.strftime(format_str)
 
 
-def _format_decimal(value: float | int | None, use_comma: bool) -> str:
+def _format_decimal(value: float | None, use_comma: bool) -> str:
     """
     Format a numeric value with specified decimal separator.
 
@@ -389,6 +382,7 @@ def _format_decimal(value: float | int | None, use_comma: bool) -> str:
 
     Returns:
         str: Formatted number string
+
     """
     if value is None:
         return ""
@@ -401,12 +395,7 @@ def _format_decimal(value: float | int | None, use_comma: bool) -> str:
     return formatted
 
 
-def prepare_export_json(
-    statistics_dict: dict,
-    timezone_identifier: str,
-    datetime_format: str,
-    units_dict: dict = None
-) -> list:
+def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetime_format: str, units_dict: dict | None = None) -> list:
     """
     Prepare statistics data for JSON export.
 
@@ -418,6 +407,7 @@ def prepare_export_json(
 
     Returns:
         list: List of entity objects in JSON format
+
     """
     _LOGGER.info("Preparing JSON export data")
 
@@ -440,16 +430,10 @@ def prepare_export_json(
         if not statistics_list:
             continue
 
-        entity_obj = {
-            "id": statistic_id,
-            "unit": unit,
-            "values": []
-        }
+        entity_obj = {"id": statistic_id, "unit": unit, "values": []}
 
         for stat_record in statistics_list:
-            value_obj = {
-                "datetime": _format_datetime(stat_record["start"], timezone, datetime_format)
-            }
+            value_obj = {"datetime": _format_datetime(stat_record["start"], timezone, datetime_format)}
 
             # Add all available fields
             if "mean" in stat_record:
@@ -480,13 +464,15 @@ def write_export_json(file_path: str, json_data: list) -> None:
 
     Raises:
         HomeAssistantError: If file cannot be written
+
     """
     _LOGGER.info("Writing export JSON file: %s", file_path)
 
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
+        file_obj = Path(file_path)
+        with file_obj.open("w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
 
         _LOGGER.info("Export JSON file written successfully: %s", file_path)
-    except IOError as e:
+    except OSError as e:
         helpers.handle_error(f"Failed to write export JSON file {file_path}: {e}")

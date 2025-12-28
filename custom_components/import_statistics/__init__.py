@@ -1,8 +1,6 @@
 """The import_statistics integration."""
 
-import csv
 import datetime as dt
-import json
 import zoneinfo
 from typing import Any
 
@@ -39,11 +37,7 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 async def get_statistics_from_recorder(
-    hass: HomeAssistant,
-    entities_input: list[str],
-    start_time_str: str,
-    end_time_str: str,
-    timezone_identifier: str = "UTC"
+    hass: HomeAssistant, entities_input: list[str], start_time_str: str, end_time_str: str, timezone_identifier: str = "UTC"
 ) -> tuple[dict, dict]:
     """
     Fetch statistics from Home Assistant recorder API.
@@ -65,23 +59,21 @@ async def get_statistics_from_recorder(
 
     Raises:
         HomeAssistantError: If time formats are invalid or recorder is not running
+
     """
     _LOGGER.info("Fetching statistics from recorder API")
 
     # Parse datetime strings (format: "2025-12-01 12:00:00")
     # Times are provided in the user's selected timezone
     try:
-        start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT)
-        end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT)
-
         # Apply the user's timezone to the naive datetimes
         tz = zoneinfo.ZoneInfo(timezone_identifier)
-        start_dt = start_dt.replace(tzinfo=tz)
-        end_dt = end_dt.replace(tzinfo=tz)
+        start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz)
+        end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz)
 
         # Convert to UTC for the recorder API
-        start_dt = start_dt.astimezone(dt.timezone.utc)
-        end_dt = end_dt.astimezone(dt.timezone.utc)
+        start_dt = start_dt.astimezone(dt.UTC)
+        end_dt = end_dt.astimezone(dt.UTC)
     except ValueError as e:
         helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
 
@@ -105,13 +97,11 @@ async def get_statistics_from_recorder(
         helpers.handle_error("Recorder component is not running")
 
     # Fetch metadata to get units (single call for all entities) - use recorder executor for database access
-    metadata = await recorder_instance.async_add_executor_job(
-        lambda: get_metadata(hass, statistic_ids=set(statistic_ids))
-    )
+    metadata = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=set(statistic_ids)))
 
     # Extract units from metadata
     units_dict = {}
-    for statistic_id, (meta_id, meta_data) in metadata.items():
+    for statistic_id, (_meta_id, meta_data) in metadata.items():
         units_dict[statistic_id] = meta_data.get("unit_of_measurement", "")
 
     # statistics_during_period returns data as:
@@ -124,11 +114,14 @@ async def get_statistics_from_recorder(
         lambda: statistics_during_period(
             hass,
             start_dt,
-            end_dt + dt.timedelta(hours=1),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
+            end_dt
+            + dt.timedelta(
+                hours=1
+            ),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
             statistic_ids,
             "hour",  # period
-            None,    # units
-            ["max", "mean", "min", "state", "sum"]  # types
+            None,  # units
+            ["max", "mean", "min", "state", "sum"],  # types
         )
     )
 
@@ -185,9 +178,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Output file: %s", filename)
 
         # Get statistics from recorder API (using user's timezone for start/end times)
-        statistics_dict, units_dict = await get_statistics_from_recorder(
-            hass, entities_input, start_time_str, end_time_str, timezone_identifier
-        )
+        statistics_dict, units_dict = await get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str, timezone_identifier)
 
         # Prepare data for export (HA-independent)
         file_path = f"{hass.config.config_dir}/{filename}"
@@ -195,36 +186,15 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         if filename.lower().endswith(".json"):
             # Export as JSON - run in executor to avoid blocking I/O
             json_data = await hass.async_add_executor_job(
-                lambda: prepare_data.prepare_export_json(
-                    statistics_dict,
-                    timezone_identifier,
-                    datetime_format,
-                    units_dict
-                )
+                lambda: prepare_data.prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict)
             )
-            await hass.async_add_executor_job(
-                lambda: prepare_data.write_export_json(file_path, json_data)
-            )
+            await hass.async_add_executor_job(lambda: prepare_data.write_export_json(file_path, json_data))
         else:
             # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
             columns, rows = await hass.async_add_executor_job(
-                lambda: prepare_data.prepare_export_data(
-                    statistics_dict,
-                    timezone_identifier,
-                    datetime_format,
-                    delimiter,
-                    decimal,
-                    units_dict
-                )
+                lambda: prepare_data.prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal, units_dict)
             )
-            await hass.async_add_executor_job(
-                lambda: prepare_data.write_export_file(
-                    file_path,
-                    columns,
-                    rows,
-                    delimiter
-                )
-            )
+            await hass.async_add_executor_job(lambda: prepare_data.write_export_file(file_path, columns, rows, delimiter))
 
         hass.states.async_set("import_statistics.export_statistics", "OK")
         _LOGGER.info("Export completed successfully")

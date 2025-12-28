@@ -1,12 +1,9 @@
 """Integration tests for export statistics feature."""
 
-import asyncio
-import datetime
 import json
 import tempfile
-import zoneinfo
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.core import ServiceCall
@@ -20,7 +17,6 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
-    DATETIME_DEFAULT_FORMAT,
 )
 
 
@@ -41,14 +37,12 @@ class TestExportIntegration:
             data = json.loads(content)
             return json.dumps(data, indent=2, sort_keys=True)
         # For CSV/TSV, strip trailing whitespace from each line and normalize line endings
-        lines = content.strip().split('\n')
-        return '\n'.join(line.rstrip() for line in lines)
+        lines = content.strip().split("\n")
+        return "\n".join(line.rstrip() for line in lines)
 
     @pytest.mark.asyncio
     async def test_export_sensor_statistics_tsv(self) -> None:
         """Test exporting sensor statistics to TSV format."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -77,7 +71,7 @@ class TestExportIntegration:
                         "mean": 20.1,
                         "min": 19.8,
                         "max": 20.5,
-                    }
+                    },
                 ],
                 "sensor.humidity": [
                     {
@@ -91,8 +85,8 @@ class TestExportIntegration:
                         "mean": 51.0,
                         "min": 46.0,
                         "max": 56.0,
-                    }
-                ]
+                    },
+                ],
             }
 
             call = ServiceCall(
@@ -105,15 +99,12 @@ class TestExportIntegration:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
-                mock_units = {
-                    "sensor.temperature": "°C",
-                    "sensor.humidity": "%"
-                }
+                mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
                 await service_handler(call)
 
@@ -129,8 +120,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_counter_statistics_csv(self) -> None:
         """Test exporting counter statistics to CSV format."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -157,7 +146,7 @@ class TestExportIntegration:
                         "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
                         "sum": 11.2,
                         "state": 110.0,
-                    }
+                    },
                 ],
                 "counter.water_used": [
                     {
@@ -169,8 +158,8 @@ class TestExportIntegration:
                         "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
                         "sum": 5.8,
                         "state": 55.0,
-                    }
-                ]
+                    },
+                ],
             }
 
             call = ServiceCall(
@@ -184,15 +173,12 @@ class TestExportIntegration:
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_DELIMITER: ",",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
-                mock_units = {
-                    "counter.energy_consumed": "kWh",
-                    "counter.water_used": "L"
-                }
+                mock_units = {"counter.energy_consumed": "kWh", "counter.water_used": "L"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
                 await service_handler(call)
 
@@ -208,8 +194,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_mixed_statistics_semicolon_delimiter(self) -> None:
         """Test exporting mixed sensor/counter data with semicolon delimiter."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -238,7 +222,7 @@ class TestExportIntegration:
                         "mean": 20.1,
                         "min": 19.8,
                         "max": 20.5,
-                    }
+                    },
                 ],
                 "counter.energy": [
                     {
@@ -250,8 +234,8 @@ class TestExportIntegration:
                         "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
                         "sum": 11.2,
                         "state": 110.0,
-                    }
-                ]
+                    },
+                ],
             }
 
             call = ServiceCall(
@@ -265,15 +249,12 @@ class TestExportIntegration:
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_DELIMITER: ";",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
-                mock_units = {
-                    "sensor.temperature": "°C",
-                    "counter.energy": "kWh"
-                }
+                mock_units = {"sensor.temperature": "°C", "counter.energy": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
                 await service_handler(call)
 
@@ -289,8 +270,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_sensor_to_json_format(self) -> None:
         """Test exporting sensor data to JSON format with correct structure."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -326,7 +305,7 @@ class TestExportIntegration:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
@@ -352,8 +331,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_counter_to_json_format(self) -> None:
         """Test exporting counter data to JSON format with correct structure."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -388,7 +365,7 @@ class TestExportIntegration:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
@@ -413,8 +390,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_mixed_to_json_format(self) -> None:
         """Test exporting mixed data to JSON format."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -444,7 +419,7 @@ class TestExportIntegration:
                         "sum": 10.5,
                         "state": 100.0,
                     }
-                ]
+                ],
             }
 
             call = ServiceCall(
@@ -457,15 +432,12 @@ class TestExportIntegration:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
-                mock_units = {
-                    "sensor.temperature": "°C",
-                    "counter.energy": "kWh"
-                }
+                mock_units = {"sensor.temperature": "°C", "counter.energy": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
                 await service_handler(call)
 
@@ -482,8 +454,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_with_decimal_comma_format(self) -> None:
         """Test export with comma as decimal separator."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -521,7 +491,7 @@ class TestExportIntegration:
                     ATTR_DECIMAL: True,  # Use comma as decimal separator
                     ATTR_DELIMITER: ",",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
@@ -541,8 +511,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_with_custom_datetime_format(self) -> None:
         """Test export with custom datetime format."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -579,7 +547,7 @@ class TestExportIntegration:
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M",  # ISO format
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
@@ -599,8 +567,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_with_timezone_conversion(self) -> None:
         """Test export with timezone conversion (UTC to Europe/Vienna)."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -638,7 +604,7 @@ class TestExportIntegration:
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "Europe/Vienna",
                     ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
@@ -658,8 +624,6 @@ class TestExportIntegration:
     @pytest.mark.asyncio
     async def test_export_file_existence_check(self) -> None:
         """Test that exported files are created with content."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -695,7 +659,7 @@ class TestExportIntegration:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 14:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:

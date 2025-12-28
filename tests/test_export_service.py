@@ -6,7 +6,7 @@ import zoneinfo
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.const import (
@@ -18,8 +18,6 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
-    DATETIME_DEFAULT_FORMAT,
-    DATETIME_INPUT_FORMAT,
 )
 
 
@@ -29,8 +27,6 @@ class TestGetStatisticsFromRecorder:
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_valid(self) -> None:
         """Test fetching statistics with valid parameters."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -47,25 +43,16 @@ class TestGetStatisticsFromRecorder:
             ]
         }
 
-        mock_metadata = {
-            "sensor.temperature": (1, {"unit_of_measurement": "°C"})
-        }
+        mock_metadata = {"sensor.temperature": (1, {"unit_of_measurement": "°C"})}
 
         mock_recorder = MagicMock()
         # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=[mock_metadata, mock_statistics]
-        )
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
-            result = await get_statistics_from_recorder(
-                hass,
-                ["sensor.temperature"],
-                "2024-01-26 12:00:00",
-                "2024-01-26 13:00:00"
-            )
+            result = await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
             # Result should be tuple: (statistics_dict, units_dict)
             assert isinstance(result, tuple)
@@ -82,15 +69,11 @@ class TestGetStatisticsFromRecorder:
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_with_timezone(self) -> None:
         """Test that start/end times are interpreted in the provided timezone."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
 
-        mock_metadata = {
-            "sensor.temperature": (1, {"unit_of_measurement": "°C"})
-        }
+        mock_metadata = {"sensor.temperature": (1, {"unit_of_measurement": "°C"})}
         mock_statistics = {
             "sensor.temperature": [
                 {
@@ -102,33 +85,23 @@ class TestGetStatisticsFromRecorder:
 
         mock_recorder = MagicMock()
         # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=[mock_metadata, mock_statistics]
-        )
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
             # User provides times in Europe/Vienna timezone
             # 2024-01-26 12:00:00 Vienna = 2024-01-26 11:00:00 UTC
-            result = await get_statistics_from_recorder(
-                hass,
-                ["sensor.temperature"],
-                "2024-01-26 12:00:00",
-                "2024-01-26 13:00:00",
-                "Europe/Vienna"
-            )
+            result = await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00", "Europe/Vienna")
 
             # Verify async_add_executor_job was called
             assert mock_recorder.async_add_executor_job.call_count == 2
-            stats_dict, units_dict = result
+            stats_dict, _units_dict = result
             assert stats_dict == mock_statistics
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_invalid_start_time_format(self) -> None:
         """Test error handling with invalid start time format."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -139,32 +112,23 @@ class TestGetStatisticsFromRecorder:
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00",  # Missing seconds
-                "2024-01-26 13:00:00"
+                "2024-01-26 13:00:00",
             )
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_invalid_end_time_format(self) -> None:
         """Test error handling with invalid end time format."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
         hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="Invalid datetime format"):
-            await get_statistics_from_recorder(
-                hass,
-                ["sensor.temperature"],
-                "2024-01-26 12:00:00",
-                "not-a-datetime"
-            )
+            await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "not-a-datetime")
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_start_time_not_full_hour(self) -> None:
         """Test error when start time is not a full hour."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -175,14 +139,12 @@ class TestGetStatisticsFromRecorder:
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:30:00",  # Not a full hour
-                "2024-01-26 13:00:00"
+                "2024-01-26 13:00:00",
             )
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_end_time_not_full_hour(self) -> None:
         """Test error when end time is not a full hour."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -193,14 +155,12 @@ class TestGetStatisticsFromRecorder:
                 hass,
                 ["sensor.temperature"],
                 "2024-01-26 12:00:00",
-                "2024-01-26 13:00:45"  # Has seconds
+                "2024-01-26 13:00:45",  # Has seconds
             )
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_recorder_not_running(self) -> None:
         """Test error when recorder component is not running."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -210,111 +170,69 @@ class TestGetStatisticsFromRecorder:
             mock_get_instance.return_value = None
 
             with pytest.raises(HomeAssistantError, match="Recorder component is not running"):
-                await get_statistics_from_recorder(
-                    hass,
-                    ["sensor.temperature"],
-                    "2024-01-26 12:00:00",
-                    "2024-01-26 13:00:00"
-                )
+                await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_multiple_entities(self) -> None:
         """Test fetching statistics for multiple entities."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
 
-        mock_metadata = {
-            "sensor.temperature": (1, {"unit_of_measurement": "°C"}),
-            "sensor.humidity": (2, {"unit_of_measurement": "%"})
-        }
-        mock_statistics = {
-            "sensor.temperature": [{"mean": 20.5}],
-            "sensor.humidity": [{"mean": 65.0}]
-        }
+        mock_metadata = {"sensor.temperature": (1, {"unit_of_measurement": "°C"}), "sensor.humidity": (2, {"unit_of_measurement": "%"})}
+        mock_statistics = {"sensor.temperature": [{"mean": 20.5}], "sensor.humidity": [{"mean": 65.0}]}
 
         mock_recorder = MagicMock()
         # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=[mock_metadata, mock_statistics]
-        )
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
-            result = await get_statistics_from_recorder(
-                hass,
-                ["sensor.temperature", "sensor.humidity"],
-                "2024-01-26 12:00:00",
-                "2024-01-26 13:00:00"
-            )
+            result = await get_statistics_from_recorder(hass, ["sensor.temperature", "sensor.humidity"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
             assert len(result) == 2
-            stats_dict, units_dict = result
+            stats_dict, _units_dict = result
             assert "sensor.temperature" in stats_dict
             assert "sensor.humidity" in stats_dict
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_external_statistic_id(self) -> None:
         """Test fetching statistics with external statistic ID (colon format)."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
 
-        mock_metadata = {
-            "custom:my_metric": (1, {"unit_of_measurement": None})
-        }
-        mock_statistics = {
-            "custom:my_metric": [{"mean": 100.0}]
-        }
+        mock_metadata = {"custom:my_metric": (1, {"unit_of_measurement": None})}
+        mock_statistics = {"custom:my_metric": [{"mean": 100.0}]}
 
         mock_recorder = MagicMock()
         # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=[mock_metadata, mock_statistics]
-        )
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
-            result = await get_statistics_from_recorder(
-                hass,
-                ["custom:my_metric"],
-                "2024-01-26 12:00:00",
-                "2024-01-26 13:00:00"
-            )
+            result = await get_statistics_from_recorder(hass, ["custom:my_metric"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
-            stats_dict, units_dict = result
+            stats_dict, _units_dict = result
             assert "custom:my_metric" in stats_dict
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_invalid_entity_id(self) -> None:
         """Test error with invalid entity ID format."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
         hass.async_add_executor_job = AsyncMock()
 
         with pytest.raises(HomeAssistantError, match="invalid"):
-            await get_statistics_from_recorder(
-                hass,
-                ["invalid_entity_id_no_separator"],
-                "2024-01-26 12:00:00",
-                "2024-01-26 13:00:00"
-            )
+            await get_statistics_from_recorder(hass, ["invalid_entity_id_no_separator"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_calls_recorder_api(self) -> None:
         """Test that recorder API is called with correct parameters."""
-        from custom_components.import_statistics import get_statistics_from_recorder
-
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -324,19 +242,12 @@ class TestGetStatisticsFromRecorder:
 
         mock_recorder = MagicMock()
         # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=[mock_metadata, mock_statistics]
-        )
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
-            await get_statistics_from_recorder(
-                hass,
-                ["sensor.temperature"],
-                "2024-01-26 12:00:00",
-                "2024-01-26 13:00:00"
-            )
+            await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
             # Verify async_add_executor_job was called twice
             assert mock_recorder.async_add_executor_job.call_count == 2
@@ -356,8 +267,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_valid_call(self) -> None:
         """Test successful export with valid parameters."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -396,15 +305,19 @@ class TestHandleExportStatistics:
                     ATTR_DELIMITER: "\t",
                     ATTR_DECIMAL: False,
                     ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
 
@@ -417,8 +330,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_with_defaults(self) -> None:
         """Test export with default parameters."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -453,15 +364,19 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
 
@@ -472,8 +387,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_invalid_timezone(self) -> None:
         """Test error handling with invalid timezone."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -498,12 +411,14 @@ class TestHandleExportStatistics:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "Invalid/Timezone",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     raise HomeAssistantError("Invalid timezone_identifier")
+
                 mock_get_stats.side_effect = async_mock
 
                 with pytest.raises(HomeAssistantError):
@@ -512,8 +427,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_recorder_not_running(self) -> None:
         """Test error when recorder is not running."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -537,12 +450,14 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                }
+                },
             )
 
             with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     raise HomeAssistantError("Recorder component is not running")
+
                 mock_get_stats.side_effect = async_mock
 
                 with pytest.raises(HomeAssistantError):
@@ -551,8 +466,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_file_path_construction(self) -> None:
         """Test that file path is constructed correctly from config_dir."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -587,15 +500,19 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
 
@@ -606,8 +523,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_with_csv_delimiter(self) -> None:
         """Test export with CSV comma delimiter."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -643,15 +558,19 @@ class TestHandleExportStatistics:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_DELIMITER: ",",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
 
@@ -662,8 +581,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_multiple_entities(self) -> None:
         """Test export with multiple entities."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -694,7 +611,7 @@ class TestHandleExportStatistics:
                         "min": 60.0,
                         "max": 70.0,
                     }
-                ]
+                ],
             }
 
             call = ServiceCall(
@@ -706,18 +623,19 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature", "sensor.humidity"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
-                mock_units = {
-                    "sensor.temperature": "°C",
-                    "sensor.humidity": "%"
-                }
-                async def async_mock(*args, **kwargs):
+                mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
 
@@ -728,8 +646,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_timezone_parameter(self) -> None:
         """Test that timezone parameter is passed correctly."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -765,16 +681,20 @@ class TestHandleExportStatistics:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "Europe/Vienna",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
-                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 mock_prepare.return_value = (["col1"], [("row1",)])
 
@@ -787,8 +707,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_decimal_comma(self) -> None:
         """Test export with comma decimal separator."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -824,16 +742,20 @@ class TestHandleExportStatistics:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_DECIMAL: True,
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
-                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 mock_prepare.return_value = (["col1"], [("row1",)])
 
@@ -841,13 +763,11 @@ class TestHandleExportStatistics:
 
                 # Verify decimal parameter was passed
                 call_args = mock_prepare.call_args
-                assert call_args[0][4] is True
+                assert call_args[0][3] is True
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_datetime_format(self) -> None:
         """Test export with custom datetime format."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -883,16 +803,20 @@ class TestHandleExportStatistics:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write, \
-                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+                patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 mock_prepare.return_value = (["col1"], [("row1",)])
 
@@ -905,8 +829,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_sets_ok_state(self) -> None:
         """Test that state is set to OK on successful export."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -941,15 +863,19 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as _mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 await service_handler(call)
 
@@ -959,8 +885,6 @@ class TestHandleExportStatistics:
     @pytest.mark.asyncio
     async def test_handle_export_statistics_error_propagates(self) -> None:
         """Test that errors from write are propagated."""
-        from custom_components.import_statistics import setup
-
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -995,15 +919,19 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                }
+                },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats, \
-                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write:
+            with (
+                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+            ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
-                async def async_mock(*args, **kwargs):
+
+                async def async_mock(*_args, **_kwargs):
                     return (mock_statistics, mock_units)
+
                 mock_get_stats.side_effect = async_mock
                 mock_write.side_effect = HomeAssistantError("Permission denied")
 
