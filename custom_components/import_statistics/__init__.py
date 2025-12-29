@@ -37,7 +37,7 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 async def get_statistics_from_recorder(
-    hass: HomeAssistant, entities_input: list[str], start_time_str: str, end_time_str: str, timezone_identifier: str = "UTC"
+    hass: HomeAssistant, entities_input: list[str], start_time_str: str, end_time_str: str, timezone_identifier: str = "Europe/Vienna"
 ) -> tuple[dict, dict]:
     """
     Fetch statistics from Home Assistant recorder API.
@@ -49,7 +49,7 @@ async def get_statistics_from_recorder(
         entities_input: List of entity IDs or statistic IDs
         start_time_str: Start time in format "YYYY-MM-DD HH:MM:SS" (interpreted in timezone_identifier)
         end_time_str: End time in format "YYYY-MM-DD HH:MM:SS" (interpreted in timezone_identifier)
-        timezone_identifier: Timezone for interpreting the start/end times (default: "UTC")
+        timezone_identifier: Timezone for interpreting the start/end times (default: "Europe/Vienna")
 
     Returns:
         tuple: (statistics_dict, units_dict)
@@ -167,7 +167,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         end_time_str = call.data.get(ATTR_END_TIME)
 
         # Extract other parameters (with defaults matching services.yaml)
-        timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "UTC")
+        timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
         delimiter = call.data.get(ATTR_DELIMITER, "\t")
         decimal = call.data.get(ATTR_DECIMAL, False)
         datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
