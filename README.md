@@ -162,6 +162,58 @@ You can then import this file back into Home Assistant (or another instance) usi
 
 You can mix sensors and counters in one export. However, in this case a direct import is not possible, as `import_from_file` can only import either sensors or counters in one file.
 
+## Export
+
+This integration also offers the action `export_statistics` to export statistics to a file (TSV/CSV format, or JSON format).
+
+> The export operation is asynchronous. Depending on the size of the export, it can take some time until the export is finished.
+
+First, go to `Developer tools / Actions`, and select the action `import_statistics: export_statistics`.
+
+Fill out the settings in the UI:
+
+- **Filename**: The name of the file to export to (relative to your configuration directory). E.g., `exported_statistics.tsv`. If the suffix is .json, the file is exported as JSON.
+- **Entities**: List of entity IDs or statistic IDs to export. You can export both:
+  - **Internal statistics**: Existing sensors like `sensor.temperature` (format with '.')
+  - **External statistics**: Custom statistics like `sensor:my_custom_statistic` (format with ':')
+  - Make sure to use a Yaml list like:
+```yaml
+- sensor.temperature
+- sensor:my_custom_statistic
+```
+- **Start time**: The beginning of the time range to export (must be a full hour, e.g., "2025-12-22 12:00:00")
+- **End time**: The end of the time range to export (must be a full hour, e.g., "2025-12-25 12:00:00")
+- **Timezone identifier** (optional, default: "Europe/Vienna"): Timezone for formatting the timestamps in the exported file
+- **Delimiter** (optional, default: tab): Column separator for the export file. Options: tab (`\t`), semicolon (`;`), comma (`,`), or pipe (`|`)
+- **Decimal** (optional, default: false==dot): Use comma (true) or dot (false) as decimal separator in numeric values
+
+Or use the YAML syntax, e.g.:
+
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: exported_statistics.tsv
+  entities:
+    - sensor.temperature
+    - sensor.energy_consumption
+  start_time: "2025-12-22 12:00:00"
+  end_time: "2025-12-25 12:00:00"
+  timezone_identifier: Europe/Vienna
+  delimiter: \t
+  decimal: false
+```
+
+The exported file will contain the following columns:
+- `statistic_id`: The ID of the statistic
+- `unit`: The unit of measurement
+- `start`: The timestamp of the data point (in your specified timezone and format)
+- For **sensors**: `min`, `max`, `mean` - the minimum, maximum, and average values for the hour
+- For **counters**: `sum`, `state` - the summed value and the state value for the hour
+
+You can then import this file back into Home Assistant (or another instance) using the `import_from_file` action.
+
+You can mix sensors and counters in one export. However, in this case a direct import is not possible, as `import_from_file` can only import either sensors or counters in one file.
+
 ## Concrete examples
 
 [Loading, Manipulating, Recovering and Moving Long Term Statistics in Home Assistant](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802) describes concrete examples to enhance/repair your historical data, esp. explaining the complex topic with state and sum. If you have troubles with state/sum, make sure you read this. Thx to Geoffrey!
