@@ -177,6 +177,16 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
         _LOGGER.info("Output file: %s", filename)
 
+        # Validate delimiter and set default
+        if delimiter is None:
+            # Default to tab character
+            delimiter = "\t"
+        elif delimiter == "\\t":
+            # Convert literal \t string to actual tab character
+            delimiter = "\t"
+        elif not isinstance(delimiter, str) or len(delimiter) != 1:
+            helpers.handle_error(f"Delimiter must be exactly 1 character or \\t, got: {repr(delimiter)}")
+
         # Get statistics from recorder API (using user's timezone for start/end times)
         statistics_dict, units_dict = await get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str, timezone_identifier)
 

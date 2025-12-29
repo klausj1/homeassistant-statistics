@@ -128,6 +128,17 @@ def handle_arguments(call: ServiceCall) -> tuple:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
     delimiter = call.data.get(ATTR_DELIMITER)
+
+    # Validate delimiter and set default
+    if delimiter is None:
+        # Default to tab character
+        delimiter = "\t"
+    elif delimiter == "\\t":
+        # Convert literal \t string to actual tab character
+        delimiter = "\t"
+    elif not isinstance(delimiter, str) or len(delimiter) != 1:
+        helpers.handle_error(f"Delimiter must be exactly 1 character or \\t, got: {repr(delimiter)}")
+
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
@@ -522,7 +533,7 @@ def write_export_json(file_path: str, json_data: list) -> None:
     try:
         file_obj = Path(file_path)
         with file_obj.open("w", encoding="utf-8") as f:
-            json.dump(json_data, f, indent=2)
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
 
         _LOGGER.info("Export JSON file written successfully: %s", file_path)
     except OSError as e:

@@ -42,7 +42,7 @@ def test_handle_arguments_all_valid_other_parameters() -> None:
     data = {
         ATTR_DECIMAL: False,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "/t",
+        ATTR_DELIMITER: ";",
         ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M:%S",
         ATTR_UNIT_FROM_ENTITY: True,
     }
@@ -53,7 +53,7 @@ def test_handle_arguments_all_valid_other_parameters() -> None:
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
-    assert delimiter == "/t"
+    assert delimiter == ";"
     assert datetime_format == "%Y-%m-%d %H:%M:%S"
     assert unit_from_entity is UnitFrom.ENTITY
 
@@ -101,7 +101,7 @@ def test_handle_arguments_attr_from_entity_false() -> None:
     data = {
         ATTR_DECIMAL: False,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "/t",
+        ATTR_DELIMITER: ";",
         ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M:%S",
         ATTR_UNIT_FROM_ENTITY: False,
     }
@@ -112,6 +112,77 @@ def test_handle_arguments_attr_from_entity_false() -> None:
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
-    assert delimiter == "/t"
+    assert delimiter == ";"
     assert datetime_format == "%Y-%m-%d %H:%M:%S"
+    assert unit_from_entity is UnitFrom.TABLE
+
+
+def test_handle_arguments_delimiter_tab_literal() -> None:
+    """Test the handle_arguments function with literal \\t delimiter."""
+    data = {
+        ATTR_DECIMAL: True,
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+        ATTR_DELIMITER: "\\t",
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
+
+    assert decimal == ","
+    assert timezone_identifier == "Europe/London"
+    assert delimiter == "\t"  # Should be converted to actual tab character
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
+    assert unit_from_entity is UnitFrom.TABLE
+
+
+def test_handle_arguments_delimiter_invalid_two_chars() -> None:
+    """Test the handle_arguments function with invalid 2-character delimiter."""
+    data = {
+        ATTR_DECIMAL: True,
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+        ATTR_DELIMITER: "ab",
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delimiter must be exactly 1 character or \\t, got: 'ab'"),
+    ):
+        handle_arguments(call)
+
+
+def test_handle_arguments_delimiter_invalid_empty() -> None:
+    """Test the handle_arguments function with empty delimiter."""
+    data = {
+        ATTR_DECIMAL: True,
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+        ATTR_DELIMITER: "",
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delimiter must be exactly 1 character or \\t, got: ''"),
+    ):
+        handle_arguments(call)
+
+
+def test_handle_arguments_delimiter_none_default() -> None:
+    """Test the handle_arguments function with None delimiter defaults to tab."""
+    data = {
+        ATTR_DECIMAL: True,
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
+
+    assert decimal == ","
+    assert timezone_identifier == "Europe/London"
+    assert delimiter == "\t"  # Should default to tab
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
     assert unit_from_entity is UnitFrom.TABLE
