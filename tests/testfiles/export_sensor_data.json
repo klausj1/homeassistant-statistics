@@ -1,36 +1,14 @@
-{
-    "sensor.temperature": {
-        "unit_of_measurement": "°C",
-        "statistics": [
+[
+    {
+        "id": "sensor.temperature",
+        "unit": "°C",
+        "values": [
             {
-                "start": "2024-01-26 12:00:00",
-                "min": 20.0,
+                "datetime": "26.01.2024 12:00",
                 "max": 21.0,
-                "mean": 20.5
-            },
-            {
-                "start": "2024-01-26 13:00:00",
-                "min": 19.8,
-                "max": 20.5,
-                "mean": 20.1
-            }
-        ]
-    },
-    "sensor.humidity": {
-        "unit_of_measurement": "%",
-        "statistics": [
-            {
-                "start": "2024-01-26 12:00:00",
-                "min": 45.0,
-                "max": 55.0,
-                "mean": 50.0
-            },
-            {
-                "start": "2024-01-26 13:00:00",
-                "min": 46.0,
-                "max": 56.0,
-                "mean": 51.0
+                "mean": 20.5,
+                "min": 20.0
             }
         ]
     }
-}
+]

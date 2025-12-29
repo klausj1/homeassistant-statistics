@@ -323,6 +323,11 @@ class TestExportIntegration:
             assert data[0]["values"][0]["min"] == SENSOR_TEMPERATURE_MIN
             assert data[0]["values"][0]["max"] == SENSOR_TEMPERATURE_MAX
 
+            # Compare with reference file
+            generated = self.normalize_file_content(str(export_file))
+            reference = self.normalize_file_content("tests/testfiles/export_sensor_data.json")
+            assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
+
     @pytest.mark.asyncio
     async def test_export_counter_to_json_format(self) -> None:
         """Test exporting counter data to JSON format with correct structure."""
@@ -377,6 +382,11 @@ class TestExportIntegration:
             assert len(data[0]["values"]) == 1
             assert data[0]["values"][0]["sum"] == COUNTER_ENERGY_SUM
             assert data[0]["values"][0]["state"] == COUNTER_ENERGY_STATE
+
+            # Compare with reference file
+            generated = self.normalize_file_content(str(export_file))
+            reference = self.normalize_file_content("tests/testfiles/export_counter_data.json")
+            assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
 
     @pytest.mark.asyncio
     async def test_export_mixed_to_json_format(self) -> None:
@@ -437,6 +447,11 @@ class TestExportIntegration:
             assert len(data) == EXPECTED_RECORDS_COUNT, f"Should have {EXPECTED_RECORDS_COUNT} records"
             assert any(r["id"] == "sensor.temperature" for r in data)
             assert any(r["id"] == "counter.energy" for r in data)
+
+            # Compare with reference file
+            generated = self.normalize_file_content(str(export_file))
+            reference = self.normalize_file_content("tests/testfiles/export_mixed_data.json")
+            assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
 
     @pytest.mark.asyncio
     async def test_export_with_decimal_comma_format(self) -> None:

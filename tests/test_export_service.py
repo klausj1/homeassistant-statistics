@@ -226,7 +226,6 @@ class TestGetStatisticsFromRecorder:
             assert "custom:my_metric" in stats_dict
 
     @pytest.mark.asyncio
-    @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_invalid_entity_id(self) -> None:
         """Test error with invalid entity ID format."""
         hass = MagicMock()

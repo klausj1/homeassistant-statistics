@@ -4,6 +4,7 @@ import datetime as dt
 import logging
 import zoneinfo
 from enum import Enum
+from pathlib import Path
 
 import pandas as pd
 from homeassistant.components.recorder.statistics import valid_statistic_id
@@ -287,3 +288,90 @@ def add_unit_to_dataframe(source: str, unit_from_where: UnitFrom, unit_from_row:
         handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
         return ""
     return unit_from_row
+
+
+def validate_delimiter(delimiter: str | None) -> str:
+    r"""
+    Validate and normalize a delimiter string.
+
+    Converts None to tab character, converts literal \t to actual tab,
+    and validates that the delimiter is exactly 1 character.
+
+    Args:
+    ----
+        delimiter: The delimiter to validate (can be None, "\t", or a single character)
+
+    Returns:
+    -------
+        str: The validated and normalized delimiter character
+
+    Raises:
+    ------
+        HomeAssistantError: If the delimiter is invalid
+
+    """
+    if delimiter is None:
+        # Default to tab character
+        return "\t"
+    if delimiter == "\\t":
+        # Convert literal \t string to actual tab character
+        return "\t"
+    if not isinstance(delimiter, str) or len(delimiter) != 1:
+        handle_error(f"Delimiter must be exactly 1 character or \\t, got: {delimiter!r}")
+    return delimiter
+
+
+def validate_filename(filename: str, config_dir: str) -> str:
+    """
+    Validate and normalize a filename to prevent directory traversal attacks.
+
+    Ensures that:
+    - The filename is a string
+    - No absolute paths
+    - No .. directory traversal sequences
+    - No path separators (/)
+    - The resolved path stays within config_dir
+
+    Args:
+    ----
+        filename: The filename relative to config directory
+        config_dir: The config directory path
+
+    Returns:
+    -------
+        str: The full validated file path
+
+    Raises:
+    ------
+        HomeAssistantError: If the filename is invalid or attempts directory traversal
+
+    """
+    if not isinstance(filename, str):
+        handle_error(f"Filename must be a string, got {type(filename).__name__}")
+
+    if not filename:
+        handle_error("Filename cannot be empty")
+
+    # Reject absolute paths
+    if filename.startswith("/"):
+        handle_error(f"Filename cannot be an absolute path: {filename}")
+
+    # Reject path separators
+    if "/" in filename or "\\" in filename:
+        handle_error(f"Filename cannot contain path separators: {filename}")
+
+    # Reject .. sequences
+    if ".." in filename:
+        handle_error(f"Filename cannot contain .. directory traversal: {filename}")
+
+    # Construct and validate the full path
+    config_path = Path(config_dir).resolve()
+    file_path = (config_path / filename).resolve()
+
+    # Ensure the resolved path is within the config directory
+    try:
+        file_path.relative_to(config_path)
+    except ValueError:
+        handle_error(f"Filename would resolve outside config directory: {filename}")
+
+    return str(file_path)

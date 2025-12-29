@@ -40,7 +40,7 @@
                 },
                 "entities": {
                     "name": "entities",
-                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Make sure to use a Yaml list with '- '."
+                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Make sure to use a Yaml list with '- '"
                 },
                 "start_time": {
                     "name": "start_time",

@@ -63,7 +63,7 @@ export_statistics:
       required: true
       example: |
         - sensor.temperature
-        - sensor:energy_consumption
+        - sensor:external_stat
       selector:
         object:
 

@@ -128,16 +128,7 @@ def handle_arguments(call: ServiceCall) -> tuple:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
     delimiter = call.data.get(ATTR_DELIMITER)
-
-    # Validate delimiter and set default
-    if delimiter is None:
-        # Default to tab character
-        delimiter = "\t"
-    elif delimiter == "\\t":
-        # Convert literal \t string to actual tab character
-        delimiter = "\t"
-    elif not isinstance(delimiter, str) or len(delimiter) != 1:
-        helpers.handle_error(f"Delimiter must be exactly 1 character or \\t, got: {delimiter!r}")
+    delimiter = helpers.validate_delimiter(delimiter)
 
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
