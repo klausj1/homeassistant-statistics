@@ -384,9 +384,14 @@ def _detect_statistic_type(statistics_list: list) -> str:
 
     """
     for stat_record in statistics_list:
-        if "mean" in stat_record or "min" in stat_record or "max" in stat_record:
+        # Check if this is a sensor (has non-None mean/min/max values)
+        if (stat_record.get("mean") is not None or
+            stat_record.get("min") is not None or
+            stat_record.get("max") is not None):
             return "sensor"
-        if "sum" in stat_record or "state" in stat_record:
+        # Check if this is a counter (has non-None sum/state values)
+        if (stat_record.get("sum") is not None or
+            stat_record.get("state") is not None):
             return "counter"
 
     return "unknown"

@@ -185,6 +185,44 @@ class TestDetectStatisticType:
         result = _detect_statistic_type(stats_list)
         assert result == "unknown"
 
+    def test_detect_sensor_type_with_null_counter_fields(self) -> None:
+        """Test detection of sensor type when counter fields are None.
+
+        This simulates Home Assistant recorder API behavior where all fields are present
+        but some are set to None depending on the statistic type.
+        """
+        stats_list = [
+            {
+                "start": datetime.datetime.now(tz=datetime.UTC),
+                "mean": 20.5,
+                "min": 20.0,
+                "max": 21.0,
+                "state": None,  # Present but None
+                "sum": None,     # Present but None
+            }
+        ]
+        result = _detect_statistic_type(stats_list)
+        assert result == "sensor", "Should correctly identify sensor even when sum/state fields are None"
+
+    def test_detect_counter_type_with_null_sensor_fields(self) -> None:
+        """Test detection of counter type when sensor fields are None.
+
+        This simulates Home Assistant recorder API behavior where all fields are present
+        but some are set to None depending on the statistic type.
+        """
+        stats_list = [
+            {
+                "start": datetime.datetime.now(tz=datetime.UTC),
+                "mean": None,     # Present but None
+                "min": None,      # Present but None
+                "max": None,      # Present but None
+                "state": 100.5,
+                "sum": 10.5,
+            }
+        ]
+        result = _detect_statistic_type(stats_list)
+        assert result == "counter", "Should correctly identify counter even when mean/min/max fields are None"
+
 
 class TestPrepareExportData:
     """Test prepare_export_data function."""
@@ -625,3 +663,82 @@ class TestPrepareExportJson:
         json_str = json.dumps(result)
         assert "sensor.temperature" in json_str
         assert "20.5" in json_str
+
+    def test_prepare_export_data_mixed_types_with_null_fields(self) -> None:
+        """Test export with mixed sensor and counter data where all fields are present but some are None.
+
+        This simulates the actual Home Assistant recorder API behavior where all fields
+        (max, mean, min, state, sum) are present in the returned data, but some values
+        are None depending on the statistic type.
+        """
+        # Real API data format: all fields present, but some are None
+        statistics_dict = {
+            "sensor.temperature": [
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26,
+                    "mean": EXPECTED_MEAN_20_5,
+                    "min": EXPECTED_MIN_20_0,
+                    "max": EXPECTED_MAX_21_0,
+                    "state": None,  # Sensors have None for state
+                    "sum": None,     # Sensors have None for sum
+                },
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,
+                    "mean": EXPECTED_MEAN_21_5,
+                    "min": EXPECTED_MIN_21_0,
+                    "max": EXPECTED_MAX_22_0,
+                    "state": None,
+                    "sum": None,
+                },
+            ],
+            "counter.energy": [
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26,
+                    "mean": None,     # Counters have None for mean
+                    "min": None,      # Counters have None for min
+                    "max": None,      # Counters have None for max
+                    "state": EXPECTED_STATE_100_5,
+                    "sum": EXPECTED_SUM_100_5,
+                },
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,
+                    "mean": None,
+                    "min": None,
+                    "max": None,
+                    "state": 110.0,
+                    "sum": EXPECTED_SUM_11_2,
+                },
+            ],
+        }
+
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+
+        # Should include both sensor and counter columns
+        assert "mean" in columns
+        assert "min" in columns
+        assert "max" in columns
+        assert "sum" in columns
+        assert "state" in columns
+        assert len(rows) == 4  # 2 sensor records + 2 counter records
+
+        # Verify sensor rows have sensor values, empty counter values
+        sensor_rows = rows[:2]
+        for row in sensor_rows:
+            # Row format: (statistic_id, unit, start, min, max, mean, sum, state)
+            assert row[0] == "sensor.temperature"  # statistic_id
+            assert row[3] != ""  # min should have value
+            assert row[4] != ""  # max should have value
+            assert row[5] != ""  # mean should have value
+            assert row[6] == ""  # sum should be empty
+            assert row[7] == ""  # state should be empty
+
+        # Verify counter rows have counter values, empty sensor values
+        counter_rows = rows[2:]
+        for row in counter_rows:
+            # Row format: (statistic_id, unit, start, min, max, mean, sum, state)
+            assert row[0] == "counter.energy"  # statistic_id
+            assert row[3] == ""  # min should be empty
+            assert row[4] == ""  # max should be empty
+            assert row[5] == ""  # mean should be empty
+            assert row[6] != ""  # sum should have value
+            assert row[7] != ""  # state should have value

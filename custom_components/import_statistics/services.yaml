@@ -48,6 +48,8 @@ import_from_file:
       required: false
       example: true
       default: true
+      selector:
+        boolean:
 
 export_statistics:
   description: "Export statistics to a file or JSON format"
