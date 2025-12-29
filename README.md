@@ -116,8 +116,6 @@ You can upload the json via the api at: `https://<homeassistant.url>/api/service
 
 This integration also offers the action `export_statistics` to export statistics to a file (TSV/CSV format, or JSON format).
 
-> The export operation is asynchronous. Depending on the size of the export, it can take some time until the export is finished.
-
 First, go to `Developer tools / Actions`, and select the action `import_statistics: export_statistics`.
 
 Fill out the settings in the UI:
