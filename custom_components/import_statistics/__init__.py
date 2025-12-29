@@ -106,7 +106,7 @@ async def get_statistics_from_recorder(
 
     # statistics_during_period returns data as:
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
-    # debug start_dt and end_dt
+    # Log the requested time range and statistic IDs for debugging purposes
     _LOGGER.debug("Fetching statistics from %s to %s for %s", start_dt, end_dt, statistic_ids)
 
     # Use recorder's executor for blocking database call
