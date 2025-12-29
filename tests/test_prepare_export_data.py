@@ -186,7 +186,8 @@ class TestDetectStatisticType:
         assert result == "unknown"
 
     def test_detect_sensor_type_with_null_counter_fields(self) -> None:
-        """Test detection of sensor type when counter fields are None.
+        """
+        Test detection of sensor type when counter fields are None.
 
         This simulates Home Assistant recorder API behavior where all fields are present
         but some are set to None depending on the statistic type.
@@ -198,14 +199,15 @@ class TestDetectStatisticType:
                 "min": 20.0,
                 "max": 21.0,
                 "state": None,  # Present but None
-                "sum": None,     # Present but None
+                "sum": None,  # Present but None
             }
         ]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor", "Should correctly identify sensor even when sum/state fields are None"
 
     def test_detect_counter_type_with_null_sensor_fields(self) -> None:
-        """Test detection of counter type when sensor fields are None.
+        """
+        Test detection of counter type when sensor fields are None.
 
         This simulates Home Assistant recorder API behavior where all fields are present
         but some are set to None depending on the statistic type.
@@ -213,9 +215,9 @@ class TestDetectStatisticType:
         stats_list = [
             {
                 "start": datetime.datetime.now(tz=datetime.UTC),
-                "mean": None,     # Present but None
-                "min": None,      # Present but None
-                "max": None,      # Present but None
+                "mean": None,  # Present but None
+                "min": None,  # Present but None
+                "max": None,  # Present but None
                 "state": 100.5,
                 "sum": 10.5,
             }
@@ -665,7 +667,8 @@ class TestPrepareExportJson:
         assert "20.5" in json_str
 
     def test_prepare_export_data_mixed_types_with_null_fields(self) -> None:
-        """Test export with mixed sensor and counter data where all fields are present but some are None.
+        """
+        Test export with mixed sensor and counter data where all fields are present but some are None.
 
         This simulates the actual Home Assistant recorder API behavior where all fields
         (max, mean, min, state, sum) are present in the returned data, but some values
@@ -680,7 +683,7 @@ class TestPrepareExportJson:
                     "min": EXPECTED_MIN_20_0,
                     "max": EXPECTED_MAX_21_0,
                     "state": None,  # Sensors have None for state
-                    "sum": None,     # Sensors have None for sum
+                    "sum": None,  # Sensors have None for sum
                 },
                 {
                     "start": UNIX_TIMESTAMP_2024_01_26_13_00,
@@ -694,9 +697,9 @@ class TestPrepareExportJson:
             "counter.energy": [
                 {
                     "start": UNIX_TIMESTAMP_2024_01_26,
-                    "mean": None,     # Counters have None for mean
-                    "min": None,      # Counters have None for min
-                    "max": None,      # Counters have None for max
+                    "mean": None,  # Counters have None for mean
+                    "min": None,  # Counters have None for min
+                    "max": None,  # Counters have None for max
                     "state": EXPECTED_STATE_100_5,
                     "sum": EXPECTED_SUM_100_5,
                 },
@@ -719,7 +722,8 @@ class TestPrepareExportJson:
         assert "max" in columns
         assert "sum" in columns
         assert "state" in columns
-        assert len(rows) == 4  # 2 sensor records + 2 counter records
+        expected_rows = 4  # 2 sensor records + 2 counter records
+        assert len(rows) == expected_rows
 
         # Verify sensor rows have sensor values, empty counter values
         sensor_rows = rows[:2]

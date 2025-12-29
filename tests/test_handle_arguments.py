@@ -118,7 +118,7 @@ def test_handle_arguments_attr_from_entity_false() -> None:
 
 
 def test_handle_arguments_delimiter_tab_literal() -> None:
-    """Test the handle_arguments function with literal \\t delimiter."""
+    r"""Test the handle_arguments function with literal \t delimiter."""
     data = {
         ATTR_DECIMAL: True,
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",

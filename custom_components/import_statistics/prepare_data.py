@@ -137,7 +137,7 @@ def handle_arguments(call: ServiceCall) -> tuple:
         # Convert literal \t string to actual tab character
         delimiter = "\t"
     elif not isinstance(delimiter, str) or len(delimiter) != 1:
-        helpers.handle_error(f"Delimiter must be exactly 1 character or \\t, got: {repr(delimiter)}")
+        helpers.handle_error(f"Delimiter must be exactly 1 character or \\t, got: {delimiter!r}")
 
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)
@@ -396,13 +396,10 @@ def _detect_statistic_type(statistics_list: list) -> str:
     """
     for stat_record in statistics_list:
         # Check if this is a sensor (has non-None mean/min/max values)
-        if (stat_record.get("mean") is not None or
-            stat_record.get("min") is not None or
-            stat_record.get("max") is not None):
+        if stat_record.get("mean") is not None or stat_record.get("min") is not None or stat_record.get("max") is not None:
             return "sensor"
         # Check if this is a counter (has non-None sum/state values)
-        if (stat_record.get("sum") is not None or
-            stat_record.get("state") is not None):
+        if stat_record.get("sum") is not None or stat_record.get("state") is not None:
             return "counter"
 
     return "unknown"
