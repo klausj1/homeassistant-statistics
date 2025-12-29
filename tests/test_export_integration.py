@@ -21,6 +21,14 @@ from custom_components.import_statistics.const import (
 )
 from tests.conftest import mock_async_add_executor_job
 
+# Test data constants
+SENSOR_TEMPERATURE_MEAN = 20.5
+SENSOR_TEMPERATURE_MIN = 20.0
+SENSOR_TEMPERATURE_MAX = 21.0
+COUNTER_ENERGY_SUM = 10.5
+COUNTER_ENERGY_STATE = 100.0
+EXPECTED_RECORDS_COUNT = 2
+
 
 class TestExportIntegration:
     """Integration tests for export statistics feature."""
@@ -311,9 +319,9 @@ class TestExportIntegration:
             assert data[0]["id"] == "sensor.temperature"
             assert "values" in data[0]
             assert len(data[0]["values"]) == 1
-            assert data[0]["values"][0]["mean"] == 20.5
-            assert data[0]["values"][0]["min"] == 20.0
-            assert data[0]["values"][0]["max"] == 21.0
+            assert data[0]["values"][0]["mean"] == SENSOR_TEMPERATURE_MEAN
+            assert data[0]["values"][0]["min"] == SENSOR_TEMPERATURE_MIN
+            assert data[0]["values"][0]["max"] == SENSOR_TEMPERATURE_MAX
 
     @pytest.mark.asyncio
     async def test_export_counter_to_json_format(self) -> None:
@@ -367,8 +375,8 @@ class TestExportIntegration:
             assert data[0]["id"] == "counter.energy"
             assert "values" in data[0]
             assert len(data[0]["values"]) == 1
-            assert data[0]["values"][0]["sum"] == 10.5
-            assert data[0]["values"][0]["state"] == 100.0
+            assert data[0]["values"][0]["sum"] == COUNTER_ENERGY_SUM
+            assert data[0]["values"][0]["state"] == COUNTER_ENERGY_STATE
 
     @pytest.mark.asyncio
     async def test_export_mixed_to_json_format(self) -> None:
@@ -426,7 +434,7 @@ class TestExportIntegration:
 
             data = json.loads(export_file.read_text())
             assert isinstance(data, list), "JSON should be a list of records"
-            assert len(data) == 2, "Should have two records"
+            assert len(data) == EXPECTED_RECORDS_COUNT, f"Should have {EXPECTED_RECORDS_COUNT} records"
             assert any(r["id"] == "sensor.temperature" for r in data)
             assert any(r["id"] == "counter.energy" for r in data)
 

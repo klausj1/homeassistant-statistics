@@ -225,6 +225,63 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
         helpers.handle_error(f"Failed to write export file {file_path}: {e}")
 
 
+def _process_statistic_record(
+    stat_record: dict,
+    statistic_id: str,
+    unit: str,
+    timezone: zoneinfo.ZoneInfo,
+    datetime_format: str,
+    *,
+    decimal_comma: bool = False,
+    all_columns: list | None = None,
+) -> dict:
+    """
+    Process a single statistic record into a row dictionary.
+
+    Args:
+        stat_record: The statistic record to process
+        statistic_id: The ID of the statistic
+        unit: The unit of measurement
+        timezone: The timezone for formatting
+        datetime_format: The format string for dates
+        decimal_comma: Whether to use comma as decimal separator
+        all_columns: List to track all columns (mutated in place)
+
+    Returns:
+        Dictionary representation of the row
+
+    """
+    if all_columns is None:
+        all_columns = []
+
+    row_dict = {
+        "statistic_id": statistic_id,
+        "unit": unit,
+        "start": _format_datetime(stat_record["start"], timezone, datetime_format),
+    }
+
+    # Add sensor columns (empty for counters)
+    if "mean" in stat_record:
+        row_dict["min"] = _format_decimal(stat_record.get("min"), use_comma=decimal_comma)
+        row_dict["max"] = _format_decimal(stat_record.get("max"), use_comma=decimal_comma)
+        row_dict["mean"] = _format_decimal(stat_record["mean"], use_comma=decimal_comma)
+        if "min" not in all_columns:
+            all_columns.extend(["min", "max", "mean"])
+
+    # Add counter columns (empty for sensors)
+    if "sum" in stat_record:
+        row_dict["sum"] = _format_decimal(stat_record["sum"], use_comma=decimal_comma)
+        if "sum" not in all_columns:
+            all_columns.append("sum")
+
+    if "state" in stat_record:
+        row_dict["state"] = _format_decimal(stat_record["state"], use_comma=decimal_comma)
+        if "state" not in all_columns:
+            all_columns.append("state")
+
+    return row_dict
+
+
 def prepare_export_data(
     statistics_dict: dict,
     timezone_identifier: str,
@@ -283,31 +340,15 @@ def prepare_export_data(
             has_counters = True
 
         for stat_record in statistics_list:
-            row_dict = {
-                "statistic_id": statistic_id,
-                "unit": unit,
-                "start": _format_datetime(stat_record["start"], timezone, datetime_format),
-            }
-
-            # Add sensor columns (empty for counters)
-            if "mean" in stat_record:
-                row_dict["min"] = _format_decimal(stat_record.get("min"), use_comma=decimal_comma)
-                row_dict["max"] = _format_decimal(stat_record.get("max"), use_comma=decimal_comma)
-                row_dict["mean"] = _format_decimal(stat_record["mean"], use_comma=decimal_comma)
-                if "min" not in all_columns:
-                    all_columns.extend(["min", "max", "mean"])
-
-            # Add counter columns (empty for sensors)
-            if "sum" in stat_record:
-                row_dict["sum"] = _format_decimal(stat_record["sum"], use_comma=decimal_comma)
-                if "sum" not in all_columns:
-                    all_columns.append("sum")
-
-            if "state" in stat_record:
-                row_dict["state"] = _format_decimal(stat_record["state"], use_comma=decimal_comma)
-                if "state" not in all_columns:
-                    all_columns.append("state")
-
+            row_dict = _process_statistic_record(
+                stat_record,
+                statistic_id,
+                unit,
+                timezone=timezone,
+                datetime_format=datetime_format,
+                decimal_comma=decimal_comma,
+                all_columns=all_columns,
+            )
             rows.append(row_dict)
 
     # Validate if sensors and counters are mixed
@@ -323,10 +364,7 @@ def prepare_export_data(
         column_order.extend(["sum", "state"])
 
     # Convert row dicts to tuples in column order, filling empty cells
-    data_rows = []
-    for row_dict in rows:
-        row_tuple = tuple(row_dict.get(col, "") for col in column_order)
-        data_rows.append(row_tuple)
+    data_rows = [tuple(row_dict.get(col, "") for col in column_order) for row_dict in rows]
 
     _LOGGER.debug("Export data prepared with columns: %s", column_order)
     return column_order, data_rows

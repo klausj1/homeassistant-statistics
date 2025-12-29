@@ -23,6 +23,10 @@ from custom_components.import_statistics.const import (
 )
 from tests.conftest import mock_async_add_executor_job
 
+# Test constants
+EXPECTED_RESULT_TUPLE_LENGTH = 2
+EXPECTED_EXECUTOR_JOB_CALLS = 2
+
 
 class TestGetStatisticsFromRecorder:
     """Test get_statistics_from_recorder function."""
@@ -59,7 +63,7 @@ class TestGetStatisticsFromRecorder:
 
             # Result should be tuple: (statistics_dict, units_dict)
             assert isinstance(result, tuple)
-            assert len(result) == 2
+            assert len(result) == EXPECTED_RESULT_TUPLE_LENGTH
             stats_dict, units_dict = result
             assert stats_dict == mock_statistics
             assert "sensor.temperature" in stats_dict
@@ -67,7 +71,7 @@ class TestGetStatisticsFromRecorder:
             assert stats_dict["sensor.temperature"] == mock_statistics["sensor.temperature"]
             assert isinstance(units_dict, dict)
             assert units_dict["sensor.temperature"] == "°C"
-            assert mock_recorder.async_add_executor_job.call_count == 2
+            assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
 
     @pytest.mark.asyncio
     async def test_get_statistics_from_recorder_with_timezone(self) -> None:
@@ -98,7 +102,7 @@ class TestGetStatisticsFromRecorder:
             result = await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00", "Europe/Vienna")
 
             # Verify async_add_executor_job was called
-            assert mock_recorder.async_add_executor_job.call_count == 2
+            assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
             stats_dict, _units_dict = result
             assert stats_dict == mock_statistics
 
@@ -194,7 +198,7 @@ class TestGetStatisticsFromRecorder:
 
             result = await get_statistics_from_recorder(hass, ["sensor.temperature", "sensor.humidity"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
-            assert len(result) == 2
+            assert len(result) == EXPECTED_RESULT_TUPLE_LENGTH
             stats_dict, _units_dict = result
             assert "sensor.temperature" in stats_dict
             assert "sensor.humidity" in stats_dict
@@ -253,7 +257,7 @@ class TestGetStatisticsFromRecorder:
             await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
             # Verify async_add_executor_job was called twice
-            assert mock_recorder.async_add_executor_job.call_count == 2
+            assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
 
             # Check first call (metadata)
             first_call_args = mock_recorder.async_add_executor_job.call_args_list[0]
@@ -727,7 +731,7 @@ class TestHandleExportStatistics:
 
                 # Verify decimal parameter was passed
                 call_args = mock_prepare.call_args
-                assert call_args[0][3] is True
+                assert call_args[1]["decimal_comma"] is True
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_datetime_format(self) -> None:
