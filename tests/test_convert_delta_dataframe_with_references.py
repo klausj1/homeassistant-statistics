@@ -145,26 +145,6 @@ def test_convert_delta_dataframe_with_references_external_statistics() -> None:
     assert metadata["has_sum"] is True
 
 
-def test_convert_delta_dataframe_with_references_no_delta_column() -> None:
-    """Test convert_delta_dataframe_with_references raises error if delta column missing."""
-    tz_id = "Europe/Vienna"
-    datetime_format = "%d.%m.%Y %H:%M"
-
-    df = pd.DataFrame(
-        {
-            "statistic_id": ["sensor.temperature"],
-            "start": ["01.01.2022 00:00"],
-            "sum": [100.0],
-            "unit": ["°C"],
-        }
-    )
-
-    references = {}
-
-    with pytest.raises(HomeAssistantError, match="Delta column not found"):
-        convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
-
-
 def test_convert_delta_dataframe_with_references_invalid_rows_filtered() -> None:
     """Test convert_delta_dataframe_with_references silently filters invalid rows."""
     tz_id = "Europe/Vienna"

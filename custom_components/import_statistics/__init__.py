@@ -40,8 +40,8 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
     """
     Query recorder for oldest statistics before given timestamps.
 
-    Uses batch query optimization with _statistics_at_time() to fetch all references
-    with a single database call.
+    Queries each statistic_id separately with its own before_timestamp, since the oldest
+    record can be different for each statistic_id.
 
     Args:
     ----
@@ -63,15 +63,14 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
     if not references_needed:
         return {}
 
-    # Step 1: Extract unique statistic_ids and get metadata for all
-    statistic_ids = list(references_needed.keys())
-    _LOGGER.debug("Getting metadata for %d statistics", len(statistic_ids))
-
     recorder_instance = get_instance(hass)
     if recorder_instance is None:
         helpers.handle_error("Recorder component is not running")
 
-    # Get metadata for all statistic_ids via executor
+    # Get metadata for all statistic_ids in one call
+    statistic_ids = list(references_needed.keys())
+    _LOGGER.debug("Getting metadata for %d statistics", len(statistic_ids))
+
     try:
         metadata_dict = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=set(statistic_ids)))
     except Exception as exc:  # noqa: BLE001
@@ -80,61 +79,39 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
     if not metadata_dict:
         helpers.handle_error(f"No metadata found for statistics: {statistic_ids}")
 
-    # Step 2: Extract metadata_ids (keyed by statistic_id) and build reverse mapping
-    metadata_id_map = {}  # {metadata_id: statistic_id}
-    for statistic_id, (metadata_id, _meta_data) in metadata_dict.items():
-        metadata_id_map[metadata_id] = statistic_id
-
-    metadata_ids = set(metadata_id_map.keys())
-    _LOGGER.debug("Got metadata for %d statistics, querying statistics_at_time", len(metadata_ids))
-
-    # Step 3: Query all statistics before their respective timestamps in ONE call
-    # Call _statistics_at_time via executor (private but necessary API)
-    # We query the earliest timestamp to get all data in one batch
-    min_timestamp = min(references_needed.values()) if references_needed else None
-
-    try:
-        statistics_at_time = await recorder_instance.async_add_executor_job(
-            lambda: recorder_instance._statistics_at_time(  # noqa: SLF001
-                session=None,  # Will be obtained from instance
-                metadata_ids=metadata_ids,
-                table=None,  # Will be determined by recorder
-                start_time=min_timestamp,
-                types={"sum", "state"},
-            )
-        )
-    except AttributeError:
-        # Fallback: _statistics_at_time not available, use alternative approach
-        _LOGGER.warning("_statistics_at_time not available, using fallback")
-        statistics_at_time = None
-    except Exception as exc:  # noqa: BLE001
-        helpers.handle_error(f"Failed to query statistics: {exc}")
-
-    # Step 4: Parse results and match back to statistic_ids
+    # Query each statistic_id separately with its own before_timestamp
     result = {}
+    for statistic_id, before_timestamp in references_needed.items():
+        _LOGGER.debug("Querying reference for %s before %s", statistic_id, before_timestamp)
 
-    if statistics_at_time:
-        # Build a dict of results indexed by metadata_id
-        stats_by_metadata = {}
-        for row in statistics_at_time:
-            metadata_id = row.metadata_id
-            if metadata_id not in stats_by_metadata:
-                stats_by_metadata[metadata_id] = row
+        if statistic_id not in metadata_dict:
+            result[statistic_id] = None
+            _LOGGER.debug("No metadata found for %s", statistic_id)
+            continue
 
-        # For each statistic_id, extract and validate the record
-        for statistic_id, before_timestamp in references_needed.items():
-            if statistic_id not in metadata_dict:
-                result[statistic_id] = None
-                continue
+        metadata_id, _meta_data = metadata_dict[statistic_id]
 
-            metadata_id, _meta_data = metadata_dict[statistic_id]
+        try:
+            # Query statistics for this specific ID up to its before_timestamp
+            statistics_at_time = await recorder_instance.async_add_executor_job(
+                lambda mid=metadata_id, ts=before_timestamp: recorder_instance._statistics_at_time(  # noqa: SLF001
+                    session=None,
+                    metadata_ids={mid},
+                    table=None,
+                    start_time=ts,
+                    types={"sum", "state"},
+                )
+            )
+        except AttributeError:
+            _LOGGER.warning("_statistics_at_time not available for %s, skipping", statistic_id)
+            result[statistic_id] = None
+            continue
+        except Exception as exc:  # noqa: BLE001
+            helpers.handle_error(f"Failed to query statistics for {statistic_id}: {exc}")
 
-            if metadata_id not in stats_by_metadata:
-                result[statistic_id] = None
-                continue
-
-            row = stats_by_metadata[metadata_id]
-
+        # Extract the result for this statistic_id
+        if statistics_at_time:
+            row = statistics_at_time[0]
             # Validate: record must be at least 1 hour before target timestamp
             if row.start < before_timestamp - dt.timedelta(hours=1):
                 result[statistic_id] = {
@@ -155,10 +132,9 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
                     "Reference for %s exists but is too recent (not 1 hour before)",
                     statistic_id,
                 )
-    else:
-        # No statistics found
-        for statistic_id in references_needed:
+        else:
             result[statistic_id] = None
+            _LOGGER.debug("No reference found for %s", statistic_id)
 
     _LOGGER.debug(
         "Query complete: found %d / %d references",
@@ -280,6 +256,19 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         _LOGGER.info("Peparing data for import")
         stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_data_to_import(file_path, call, hass=hass))
 
+        # Handle delta processing marker (async operation required)
+        if isinstance(stats, tuple) and len(stats) >= 6 and stats[0] == "_DELTA_PROCESSING_NEEDED":
+            _LOGGER.info("Delta processing detected, fetching references from database")
+            _marker, df, references_needed, timezone_identifier, datetime_format, unit_from_where = stats[:6]
+
+            # Fetch references from database asynchronously
+            references = await get_oldest_statistics_before(hass, references_needed)
+
+            # Convert delta dataframe with references (run in executor)
+            stats = await hass.async_add_executor_job(
+                lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
+            )
+
         import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
@@ -288,6 +277,20 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         """Handle the json service call."""
         _LOGGER.info("Service handle_import_from_json called")
         stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_json_data_to_import(call, hass=hass))
+
+        # Handle delta processing marker (async operation required)
+        if isinstance(stats, tuple) and len(stats) >= 6 and stats[0] == "_DELTA_PROCESSING_NEEDED":
+            _LOGGER.info("Delta processing detected, fetching references from database")
+            _marker, df, references_needed, timezone_identifier, datetime_format, unit_from_where = stats[:6]
+
+            # Fetch references from database asynchronously
+            references = await get_oldest_statistics_before(hass, references_needed)
+
+            # Convert delta dataframe with references (run in executor)
+            stats = await hass.async_add_executor_job(
+                lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
+            )
+
         import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)

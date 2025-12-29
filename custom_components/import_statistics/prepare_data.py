@@ -118,17 +118,6 @@ def convert_delta_dataframe_with_references(
 
     columns = df.columns
 
-    # Validate column structure
-    if "delta" not in columns:
-        helpers.handle_error("Delta column not found in dataframe")
-
-    if "sum" in columns:
-        helpers.handle_error("Delta column cannot coexist with 'sum' column")
-    if "state" in columns:
-        helpers.handle_error("Delta column cannot coexist with 'state' column")
-    if "mean" in columns or "min" in columns or "max" in columns:
-        helpers.handle_error("Delta column cannot be used with 'mean', 'min', or 'max' columns")
-
     # Group rows by statistic_id
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
@@ -390,11 +379,13 @@ def handle_dataframe(
             }
             stats[statistic_id] = (metadata, [])
 
+        new_stat = {}
         if has_mean:
             new_stat = helpers.get_mean_stat(row, timezone, datetime_format)
-        if has_sum:
+        elif has_sum:
             new_stat = helpers.get_sum_stat(row, timezone, datetime_format)
-        stats[statistic_id][1].append(new_stat)
+        if new_stat:
+            stats[statistic_id][1].append(new_stat)
     return stats
 
 
