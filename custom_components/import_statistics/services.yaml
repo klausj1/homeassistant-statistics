@@ -50,3 +50,72 @@ import_from_file:
       default: true
       selector:
         boolean:
+
+export_statistics:
+  fields:
+    filename:
+      required: true
+      example: "exported_statistics.tsv"
+      selector:
+        text:
+
+    entities:
+      required: true
+      example: |
+        - sensor.temperature
+        - sensor:external_stat
+      selector:
+        object:
+
+    start_time:
+      required: true
+      example: "2025-12-22 12:00:00"
+      selector:
+        datetime:
+
+    end_time:
+      required: true
+      example: "2025-12-25 12:00:00"
+      selector:
+        datetime:
+
+    timezone_identifier:
+      required: false
+      default: "Europe/Vienna"
+      example: "Europe/Vienna"
+      selector:
+        text:
+
+    delimiter:
+      required: false
+      default: \t
+      example: \t
+      selector:
+        select:
+          custom_value: true
+          options:
+            - '\t'
+            - ";"
+            - ","
+            - "|"
+
+    decimal:
+      required: false
+      default: false
+      example: false
+      selector:
+        boolean:
+
+    datetime_format:
+      required: false
+      default: "%d.%m.%Y %H:%M"
+      example: "%d.%m.%Y %H:%M"
+      selector:
+        select:
+          custom_value: true
+          options:
+            - "%d.%m.%Y %H:%M"
+            - "%Y.%m.%d %H:%M"
+            - "%Y-%m-%d %H:%M"
+            - "%m/%d/%Y %H:%M"
+            - "%d/%m/%Y %H:%M"

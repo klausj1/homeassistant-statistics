@@ -4,7 +4,7 @@
             "description": "Imports long term statistic values (1h) from tsv/csv file",
             "fields": {
                 "decimal": {
-                    "description": "The decimal separator. Default is '.'; set to true to use ','",
+                    "description": "The decimal separator. Default is '.'/dot; set to true to use ','/comma",
                     "name": "decimal"
                 },
                 "delimiter": {
@@ -29,6 +29,44 @@
                 }
             },
             "name": "Import statistics from file"
+        },
+        "export_statistics": {
+            "name": "Export Statistics",
+            "description": "Exports long term statistic values (1h) to a tsv/csv or a json file",
+            "fields": {
+                "filename": {
+                    "name": "filename",
+                    "description": "Filename relative to config directory (e.g., 'exported.tsv' or 'myData.json')"
+                },
+                "entities": {
+                    "name": "entities",
+                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Make sure to use a Yaml list with '- '"
+                },
+                "start_time": {
+                    "name": "start_time",
+                    "description": "The start time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). Make sure to use quotes around the timestamp in Yaml."
+                },
+                "end_time": {
+                    "name": "end_time",
+                    "description": "The end time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). Make sure to use quotes around the timestamp in Yaml."
+                },
+                "timezone_identifier": {
+                    "name": "timezone_identifier",
+                    "description": "Timezone identifier for start/end-time and timestamp output formatting (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)"
+                },
+                "delimiter": {
+                    "name": "delimiter",
+                    "description": "The delimiter between fields. Default is tab; options are tab, semicolon, comma, or pipe"
+                },
+                "decimal": {
+                    "name": "decimal",
+                    "description": "The decimal separator. Default is '.'/dot; set to true to use ','/comma"
+                },
+                "datetime_format": {
+                    "name": "datetime_format",
+                    "description": "The format of the datetime strings in the exported file. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
+                }
+            }
         }
     },
     "config": {

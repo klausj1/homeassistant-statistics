@@ -1,0 +1,25 @@
+[
+    {
+        "id": "sensor.temperature",
+        "unit": "°C",
+        "values": [
+            {
+                "datetime": "26.01.2024 12:00",
+                "max": 21.0,
+                "mean": 20.5,
+                "min": 20.0
+            }
+        ]
+    },
+    {
+        "id": "counter.energy",
+        "unit": "kWh",
+        "values": [
+            {
+                "datetime": "26.01.2024 12:00",
+                "state": 100.0,
+                "sum": 10.5
+            }
+        ]
+    }
+]
