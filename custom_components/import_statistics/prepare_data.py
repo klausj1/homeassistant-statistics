@@ -229,10 +229,8 @@ def _process_statistic_record(
     stat_record: dict,
     statistic_id: str,
     unit: str,
-    timezone: zoneinfo.ZoneInfo,
-    datetime_format: str,
+    format_context: dict,
     *,
-    decimal_comma: bool = False,
     all_columns: list | None = None,
 ) -> dict:
     """
@@ -242,9 +240,7 @@ def _process_statistic_record(
         stat_record: The statistic record to process
         statistic_id: The ID of the statistic
         unit: The unit of measurement
-        timezone: The timezone for formatting
-        datetime_format: The format string for dates
-        decimal_comma: Whether to use comma as decimal separator
+        format_context: Dict with timezone, datetime_format, and decimal_comma
         all_columns: List to track all columns (mutated in place)
 
     Returns:
@@ -253,6 +249,10 @@ def _process_statistic_record(
     """
     if all_columns is None:
         all_columns = []
+
+    timezone = format_context["timezone"]
+    datetime_format = format_context["datetime_format"]
+    decimal_comma = format_context["decimal_comma"]
 
     row_dict = {
         "statistic_id": statistic_id,
@@ -344,9 +344,11 @@ def prepare_export_data(
                 stat_record,
                 statistic_id,
                 unit,
-                timezone=timezone,
-                datetime_format=datetime_format,
-                decimal_comma=decimal_comma,
+                {
+                    "timezone": timezone,
+                    "datetime_format": datetime_format,
+                    "decimal_comma": decimal_comma,
+                },
                 all_columns=all_columns,
             )
             rows.append(row_dict)
