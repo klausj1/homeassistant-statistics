@@ -120,6 +120,34 @@ def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: s
     return {}
 
 
+def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
+    """
+    Extract delta statistic from a row.
+
+    Args:
+    ----
+        row (pd.Series): The input row containing the statistics data.
+        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
+        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
+
+    Returns:
+    -------
+        dict: A dictionary containing 'start' (datetime with timezone) and 'delta' (float).
+        dict: Empty dict {} if validation fails (silent failure pattern).
+
+    """
+    try:
+        if is_full_hour(row["start"], datetime_format) and is_valid_float(row["delta"]):
+            return {
+                "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+                "delta": float(row["delta"]),
+            }
+    except HomeAssistantError:
+        # Silent failure pattern - return empty dict on validation error
+        pass
+    return {}
+
+
 def is_full_hour(timestamp_str: str, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> bool:
     """
     Check if the given timestamp is a full hour.
@@ -209,6 +237,44 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
 
     """
     columns = df.columns
+
+    # Check if delta column exists - if so, use delta-specific validation
+    if "delta" in columns:
+        # Delta-specific validation
+        if not ("statistic_id" in columns and "start" in columns):
+            handle_error("The file must contain the columns 'statistic_id' and 'start' (check delimiter)")
+
+        # Delta column cannot coexist with sum, state, mean, min, or max columns
+        if "sum" in columns:
+            handle_error("Delta column cannot coexist with 'sum' column")
+        if "state" in columns:
+            handle_error("Delta column cannot coexist with 'state' column")
+        if "mean" in columns or "min" in columns or "max" in columns:
+            handle_error("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)")
+
+        # Unit column validation unchanged (required or from entity)
+        if not ("unit" in columns or unit_from_where == UnitFrom.ENTITY):
+            handle_error("The file must contain the column 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)")
+
+        # Define allowed columns for delta
+        allowed_columns = {"statistic_id", "start", "delta"}
+        if unit_from_where == UnitFrom.TABLE:
+            allowed_columns.add("unit")
+
+        # Check for unknown columns
+        unknown_columns = set(columns) - allowed_columns
+        if unknown_columns:
+            if unknown_columns == {"unit"} and unit_from_where == UnitFrom.ENTITY:
+                handle_error(
+                    "A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file."
+                )
+            unknown_cols_str = ", ".join(sorted(unknown_columns))
+            allowed_cols_str = ", ".join(sorted(allowed_columns))
+            handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
+
+        return True
+
+    # Non-delta validation (existing logic)
     if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_where == UnitFrom.ENTITY)):
         handle_error(
             "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"

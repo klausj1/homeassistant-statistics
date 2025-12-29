@@ -76,3 +76,92 @@ def test_are_columns_valid_multiple_unknown_columns_rejected() -> None:
         match=re.escape("Unknown columns in file: extra_field_1, extra_field_2, notes."),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_with_unit() -> None:
+    """Test the are_columns_valid function with valid delta-only CSV (with unit column)."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta"])
+    assert are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_without_unit_from_entity() -> None:
+    """Test the are_columns_valid function with valid delta-only CSV (without unit, unit_from_entity=True)."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "delta"])
+    assert are_columns_valid(my_df, UnitFrom.ENTITY)
+
+
+def test_are_columns_valid_delta_with_unit_from_entity_error() -> None:
+    """Test that delta with unit column and unit_from_entity=True raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file."),
+    ):
+        are_columns_valid(my_df, UnitFrom.ENTITY)
+
+
+def test_are_columns_valid_delta_plus_sum_error() -> None:
+    """Test that delta + sum columns raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "sum"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delta column cannot coexist with 'sum' column"),
+    ):
+        are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_plus_state_error() -> None:
+    """Test that delta + state columns raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "state"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delta column cannot coexist with 'state' column"),
+    ):
+        are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_plus_mean_error() -> None:
+    """Test that delta + mean columns raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "mean"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)"),
+    ):
+        are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_plus_min_error() -> None:
+    """Test that delta + min columns raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "min"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)"),
+    ):
+        are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_plus_max_error() -> None:
+    """Test that delta + max columns raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "max"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)"),
+    ):
+        are_columns_valid(my_df, UnitFrom.TABLE)
+
+
+def test_are_columns_valid_delta_missing_unit_table() -> None:
+    """Test that delta without unit column and unit_from_entity=False raises error."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "delta"])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("The file must contain the column 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"),
+    ):
+        are_columns_valid(my_df, UnitFrom.TABLE)

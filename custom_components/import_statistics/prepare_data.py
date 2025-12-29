@@ -5,6 +5,7 @@ import datetime
 import json
 import zoneinfo
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytz
@@ -23,7 +24,172 @@ from custom_components.import_statistics.const import (
 from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 
 
-def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
+def convert_deltas_case_1(delta_rows: list[dict], sum_oldest: float, state_oldest: float) -> list[dict]:
+    """
+    Convert delta rows to absolute sum/state values.
+
+    Uses Case 1 reference (older database record) to accumulate deltas.
+
+    Args:
+    ----
+        delta_rows: List of dicts with 'start' (datetime) and 'delta' (float) keys
+        sum_oldest: Reference sum value from database
+        state_oldest: Reference state value from database
+
+    Returns:
+    -------
+        list[dict]: Converted rows with 'start', 'sum', and 'state' keys
+
+    Raises:
+    ------
+        HomeAssistantError: If rows are not sorted by timestamp
+
+    """
+    _LOGGER.debug("Converting %d delta rows to absolute values", len(delta_rows))
+    _LOGGER.debug("Starting from sum=%s, state=%s", sum_oldest, state_oldest)
+
+    if not delta_rows:
+        return []
+
+    # Validate rows are sorted by start timestamp
+    sorted_rows = sorted(delta_rows, key=lambda r: r["start"])
+    if sorted_rows != delta_rows:
+        helpers.handle_error("Delta rows must be sorted by start timestamp in ascending order")
+
+    # Initialize accumulators
+    current_sum = sum_oldest
+    current_state = state_oldest
+    converted_rows = []
+
+    # Accumulate deltas
+    for delta_row in delta_rows:
+        current_sum += delta_row["delta"]
+        current_state += delta_row["delta"]
+
+        converted_rows.append(
+            {
+                "start": delta_row["start"],
+                "sum": current_sum,
+                "state": current_state,
+            }
+        )
+
+        _LOGGER.debug(
+            "Delta: %s, Accumulated: sum=%s, state=%s",
+            delta_row["delta"],
+            current_sum,
+            current_state,
+        )
+
+    _LOGGER.debug("Conversion complete: final sum=%s, state=%s", current_sum, current_state)
+    return converted_rows
+
+
+def convert_delta_dataframe_with_references(
+    df: pd.DataFrame,
+    references: dict,
+    timezone_identifier: str,
+    datetime_format: str,
+    unit_from_where: UnitFrom,
+) -> dict:
+    """
+    Convert DataFrame with delta column using pre-fetched reference data.
+
+    Pure calculation function - no HA dependency (all references pre-fetched).
+
+    Args:
+    ----
+        df: DataFrame with delta column
+        references: {statistic_id: {start, sum, state} or None}
+        timezone_identifier: User's timezone
+        datetime_format: Datetime format string
+        unit_from_where: UnitFrom.ENTITY or UnitFrom.TABLE
+
+    Returns:
+    -------
+        dict: {statistic_id: (metadata, statistics_list), ...}
+
+    Raises:
+    ------
+        HomeAssistantError: On validation or missing reference
+
+    """
+    _LOGGER.info("Converting delta dataframe with references")
+
+    columns = df.columns
+
+    # Validate column structure
+    if "delta" not in columns:
+        helpers.handle_error("Delta column not found in dataframe")
+
+    if "sum" in columns:
+        helpers.handle_error("Delta column cannot coexist with 'sum' column")
+    if "state" in columns:
+        helpers.handle_error("Delta column cannot coexist with 'state' column")
+    if "mean" in columns or "min" in columns or "max" in columns:
+        helpers.handle_error("Delta column cannot be used with 'mean', 'min', or 'max' columns")
+
+    # Group rows by statistic_id
+    stats = {}
+    timezone = zoneinfo.ZoneInfo(timezone_identifier)
+
+    for statistic_id in df["statistic_id"].unique():
+        group = df[df["statistic_id"] == statistic_id]
+
+        # Validate reference exists
+        if statistic_id not in references:
+            helpers.handle_error(f"No reference found for statistic_id: {statistic_id}")
+
+        reference = references[statistic_id]
+        if reference is None:
+            helpers.handle_error(f"Failed to find database reference for: {statistic_id} (no records at least 1 hour before import start)")
+
+        sum_oldest = reference.get("sum", 0)
+        state_oldest = reference.get("state", 0)
+
+        # Extract delta rows using get_delta_stat
+        delta_rows = []
+        for _index, row in group.iterrows():
+            delta_stat = helpers.get_delta_stat(row, timezone, datetime_format)
+            if delta_stat:  # Silent failure - skip invalid rows
+                delta_rows.append(delta_stat)
+
+        if not delta_rows:
+            _LOGGER.warning("No valid delta rows found for statistic_id: %s", statistic_id)
+            continue
+
+        # Get source and unit
+        source = helpers.get_source(statistic_id)
+        unit = helpers.add_unit_to_dataframe(source, unit_from_where, group.iloc[0].get("unit", ""), statistic_id)
+
+        # Convert deltas to absolute values
+        converted = convert_deltas_case_1(delta_rows, sum_oldest, state_oldest)
+
+        # Build metadata
+        metadata = {
+            "mean_type": StatisticMeanType.NONE,
+            "has_sum": True,
+            "source": source,
+            "statistic_id": statistic_id,
+            "name": None,
+            "unit_class": None,
+            "unit_of_measurement": unit,
+        }
+
+        stats[statistic_id] = (metadata, converted)
+
+        _LOGGER.debug(
+            "Converted %d delta rows for %s (unit: %s)",
+            len(converted),
+            statistic_id,
+            unit,
+        )
+
+    _LOGGER.info("Delta dataframe conversion complete: %d statistics", len(stats))
+    return stats
+
+
+def prepare_data_to_import(file_path: str, call: ServiceCall, hass: Any = None) -> tuple:
     """
     Prepare data to import statistics from a file.
 
@@ -31,6 +197,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     ----
         file_path: Path to the file with the data to be imported.
         call: The call data containing the necessary information.
+        hass: Home Assistant instance (optional, required for delta processing)
 
     Returns:
     -------
@@ -50,7 +217,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
 
-    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
+    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity, hass=hass)
     return stats, unit_from_entity
 
 
@@ -67,7 +234,7 @@ def prepare_json_entities(call: ServiceCall) -> tuple:
     return timezone, entities
 
 
-def prepare_json_data_to_import(call: ServiceCall) -> tuple:
+def prepare_json_data_to_import(call: ServiceCall, hass: Any = None) -> tuple:
     """Parse json data to import statistics from."""
     _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call)
 
@@ -95,7 +262,7 @@ def prepare_json_data_to_import(call: ServiceCall) -> tuple:
             data.append(tuple([value_dict[column] for column in columns]))
 
     my_df = pd.DataFrame(data, columns=columns)
-    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity)
+    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity, hass=hass)
     return stats, unit_from_entity
 
 
@@ -144,17 +311,20 @@ def handle_dataframe(
     timezone_identifier: str,
     datetime_format: str,
     unit_from_where: UnitFrom,
+    hass: Any = None,
 ) -> dict:
     """
     Process a dataframe and extract statistics based on the specified columns and timezone.
 
+    Supports both regular (mean/sum) and delta column formats.
+
     Args:
     ----
         df (pandas.DataFrame): The input dataframe containing the statistics data.
-        columns (list): The list of columns to extract from the dataframe.
         timezone_identifier (str): The timezone identifier to convert the timestamps.
         datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
         unit_from_where: ENTITY if the unit is taken from the entity, TABLE if taken from input file.
+        hass: Home Assistant instance (required if delta column detected, optional otherwise)
 
     Returns:
     -------
@@ -162,16 +332,45 @@ def handle_dataframe(
 
     Raises:
     ------
-        ImplementationError: If both 'mean' and 'sum' columns are present in the columns list.
+        HomeAssistantError: If delta detected but hass is None, or on validation failure
 
     """
     columns = df.columns
-    _LOGGER.debug("Columns:")
-    _LOGGER.debug(columns)
+    _LOGGER.debug("Columns: %s", columns)
+
     if not helpers.are_columns_valid(df, unit_from_where):
         helpers.handle_error(
             "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
         )
+
+    # Check if delta column exists - if so, use delta conversion path
+    if "delta" in columns:
+        _LOGGER.info("Delta column detected, using delta conversion path")
+
+        if hass is None:
+            helpers.handle_error("hass parameter is required for delta column processing")
+
+        # Extract all unique statistic_ids and find oldest delta timestamp for each
+        references_needed = {}
+        for statistic_id in df["statistic_id"].unique():
+            group = df[df["statistic_id"] == statistic_id]
+            oldest_timestamp_str = group["start"].min()
+
+            # Parse the oldest timestamp to get a datetime object
+            timezone = zoneinfo.ZoneInfo(timezone_identifier)
+            try:
+                oldest_dt = datetime.datetime.strptime(oldest_timestamp_str, datetime_format).replace(tzinfo=timezone)
+            except (ValueError, TypeError) as e:
+                helpers.handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
+
+            references_needed[statistic_id] = oldest_dt
+
+        _LOGGER.debug("Need references for %d statistics", len(references_needed))
+
+        # Return special marker for async handling in prepare_data_to_import
+        return ("_DELTA_PROCESSING_NEEDED", df, references_needed, timezone_identifier, datetime_format, unit_from_where)
+
+    # Non-delta path (existing logic)
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
     has_mean = "mean" in columns
@@ -204,13 +403,13 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
     Write export data to a TSV/CSV file.
 
     Args:
-        file_path: Absolute path to output file
-        columns: List of column headers
-        rows: List of row tuples
-        delimiter: Column delimiter
+         file_path: Absolute path to output file
+         columns: List of column headers
+         rows: List of row tuples
+         delimiter: Column delimiter
 
     Raises:
-        HomeAssistantError: If file cannot be written
+         HomeAssistantError: If file cannot be written
 
     """
     _LOGGER.info("Writing export file: %s", file_path)
@@ -239,14 +438,14 @@ def _process_statistic_record(
     Process a single statistic record into a row dictionary.
 
     Args:
-        stat_record: The statistic record to process
-        statistic_id: The ID of the statistic
-        unit: The unit of measurement
-        format_context: Dict with timezone, datetime_format, and decimal_comma
-        all_columns: List to track all columns (mutated in place)
+         stat_record: The statistic record to process
+         statistic_id: The ID of the statistic
+         unit: The unit of measurement
+         format_context: Dict with timezone, datetime_format, and decimal_comma
+         all_columns: List to track all columns (mutated in place)
 
     Returns:
-        Dictionary representation of the row
+         Dictionary representation of the row
 
     """
     if all_columns is None:
@@ -296,14 +495,14 @@ def prepare_export_data(
     Prepare statistics data for export (TSV/CSV format).
 
     Args:
-        statistics_dict: Raw data from recorder API
-        timezone_identifier: Timezone for timestamp output
-        datetime_format: Format string for timestamps
-        decimal_comma: Use comma (True) or dot (False) for decimals
-        units_dict: Mapping of statistic_id to unit_of_measurement
+         statistics_dict: Raw data from recorder API
+         timezone_identifier: Timezone for timestamp output
+         datetime_format: Format string for timestamps
+         decimal_comma: Use comma (True) or dot (False) for decimals
+         units_dict: Mapping of statistic_id to unit_of_measurement
 
     Returns:
-        tuple: (columns list, data rows list)
+         tuple: (columns list, data rows list)
 
     """
     _LOGGER.info("Preparing export data")
@@ -379,10 +578,10 @@ def _detect_statistic_type(statistics_list: list) -> str:
     Detect if statistics are sensor (mean/min/max) or counter (sum/state) type.
 
     Args:
-        statistics_list: List of statistic records from recorder
+         statistics_list: List of statistic records from recorder
 
     Returns:
-        str: "sensor", "counter", or "unknown"
+         str: "sensor", "counter", or "unknown"
 
     """
     for stat_record in statistics_list:
@@ -401,12 +600,12 @@ def _format_datetime(dt_obj: datetime.datetime | float, timezone: zoneinfo.ZoneI
     Format a datetime object to string in specified timezone and format.
 
     Args:
-        dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
-        timezone: Target timezone
-        format_str: Format string
+         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
+         timezone: Target timezone
+         format_str: Format string
 
     Returns:
-        str: Formatted datetime string
+         str: Formatted datetime string
 
     """
     # Handle Unix timestamp (float) from recorder API
@@ -427,11 +626,11 @@ def _format_decimal(value: float | None, *, use_comma: bool = False) -> str:
     Format a numeric value with specified decimal separator.
 
     Args:
-        value: Numeric value to format
-        use_comma: Use comma (True) or dot (False) as decimal separator
+         value: Numeric value to format
+         use_comma: Use comma (True) or dot (False) as decimal separator
 
     Returns:
-        str: Formatted number string
+         str: Formatted number string
 
     """
     if value is None:
@@ -450,13 +649,13 @@ def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetim
     Prepare statistics data for JSON export.
 
     Args:
-        statistics_dict: Raw data from recorder API
-        timezone_identifier: Timezone for timestamp output
-        datetime_format: Format string for timestamps
-        units_dict: Mapping of statistic_id to unit_of_measurement
+         statistics_dict: Raw data from recorder API
+         timezone_identifier: Timezone for timestamp output
+         datetime_format: Format string for timestamps
+         units_dict: Mapping of statistic_id to unit_of_measurement
 
     Returns:
-        list: List of entity objects in JSON format
+         list: List of entity objects in JSON format
 
     """
     _LOGGER.info("Preparing JSON export data")
@@ -509,11 +708,11 @@ def write_export_json(file_path: str, json_data: list) -> None:
     Write export data to a JSON file.
 
     Args:
-        file_path: Absolute path to output file
-        json_data: List of dictionaries to export
+         file_path: Absolute path to output file
+         json_data: List of dictionaries to export
 
     Raises:
-        HomeAssistantError: If file cannot be written
+         HomeAssistantError: If file cannot be written
 
     """
     _LOGGER.info("Writing export JSON file: %s", file_path)

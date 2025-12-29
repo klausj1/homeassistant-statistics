@@ -36,6 +36,139 @@ from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
+async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: dict) -> dict:
+    """
+    Query recorder for oldest statistics before given timestamps.
+
+    Uses batch query optimization with _statistics_at_time() to fetch all references
+    with a single database call.
+
+    Args:
+    ----
+        hass: Home Assistant instance
+        references_needed: dict mapping {statistic_id: before_timestamp (datetime, UTC)}
+
+    Returns:
+    -------
+        dict: {statistic_id: {start, sum, state} or None}
+        Returns None for statistic_ids where no valid reference found or < 1 hour before target.
+
+    Raises:
+    ------
+        HomeAssistantError: On metadata lookup failure or database query failure
+
+    """
+    _LOGGER.debug("Querying oldest statistics before given timestamps")
+
+    if not references_needed:
+        return {}
+
+    # Step 1: Extract unique statistic_ids and get metadata for all
+    statistic_ids = list(references_needed.keys())
+    _LOGGER.debug("Getting metadata for %d statistics", len(statistic_ids))
+
+    recorder_instance = get_instance(hass)
+    if recorder_instance is None:
+        helpers.handle_error("Recorder component is not running")
+
+    # Get metadata for all statistic_ids via executor
+    try:
+        metadata_dict = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=set(statistic_ids)))
+    except Exception as exc:  # noqa: BLE001
+        helpers.handle_error(f"Failed to get metadata: {exc}")
+
+    if not metadata_dict:
+        helpers.handle_error(f"No metadata found for statistics: {statistic_ids}")
+
+    # Step 2: Extract metadata_ids (keyed by statistic_id) and build reverse mapping
+    metadata_id_map = {}  # {metadata_id: statistic_id}
+    for statistic_id, (metadata_id, _meta_data) in metadata_dict.items():
+        metadata_id_map[metadata_id] = statistic_id
+
+    metadata_ids = set(metadata_id_map.keys())
+    _LOGGER.debug("Got metadata for %d statistics, querying statistics_at_time", len(metadata_ids))
+
+    # Step 3: Query all statistics before their respective timestamps in ONE call
+    # Call _statistics_at_time via executor (private but necessary API)
+    # We query the earliest timestamp to get all data in one batch
+    min_timestamp = min(references_needed.values()) if references_needed else None
+
+    try:
+        statistics_at_time = await recorder_instance.async_add_executor_job(
+            lambda: recorder_instance._statistics_at_time(  # noqa: SLF001
+                session=None,  # Will be obtained from instance
+                metadata_ids=metadata_ids,
+                table=None,  # Will be determined by recorder
+                start_time=min_timestamp,
+                types={"sum", "state"},
+            )
+        )
+    except AttributeError:
+        # Fallback: _statistics_at_time not available, use alternative approach
+        _LOGGER.warning("_statistics_at_time not available, using fallback")
+        statistics_at_time = None
+    except Exception as exc:  # noqa: BLE001
+        helpers.handle_error(f"Failed to query statistics: {exc}")
+
+    # Step 4: Parse results and match back to statistic_ids
+    result = {}
+
+    if statistics_at_time:
+        # Build a dict of results indexed by metadata_id
+        stats_by_metadata = {}
+        for row in statistics_at_time:
+            metadata_id = row.metadata_id
+            if metadata_id not in stats_by_metadata:
+                stats_by_metadata[metadata_id] = row
+
+        # For each statistic_id, extract and validate the record
+        for statistic_id, before_timestamp in references_needed.items():
+            if statistic_id not in metadata_dict:
+                result[statistic_id] = None
+                continue
+
+            metadata_id, _meta_data = metadata_dict[statistic_id]
+
+            if metadata_id not in stats_by_metadata:
+                result[statistic_id] = None
+                continue
+
+            row = stats_by_metadata[metadata_id]
+
+            # Validate: record must be at least 1 hour before target timestamp
+            if row.start < before_timestamp - dt.timedelta(hours=1):
+                result[statistic_id] = {
+                    "start": row.start,
+                    "sum": row.sum,
+                    "state": row.state,
+                }
+                _LOGGER.debug(
+                    "Found reference for %s: start=%s, sum=%s, state=%s",
+                    statistic_id,
+                    row.start,
+                    row.sum,
+                    row.state,
+                )
+            else:
+                result[statistic_id] = None
+                _LOGGER.debug(
+                    "Reference for %s exists but is too recent (not 1 hour before)",
+                    statistic_id,
+                )
+    else:
+        # No statistics found
+        for statistic_id in references_needed:
+            result[statistic_id] = None
+
+    _LOGGER.debug(
+        "Query complete: found %d / %d references",
+        sum(1 for v in result.values() if v is not None),
+        len(result),
+    )
+
+    return result
+
+
 async def get_statistics_from_recorder(
     hass: HomeAssistant, entities_input: list[str], start_time_str: str, end_time_str: str, timezone_identifier: str = "Europe/Vienna"
 ) -> tuple[dict, dict]:
@@ -132,7 +265,7 @@ async def get_statistics_from_recorder(
 def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
     """Set up is called when Home Assistant is loading our component."""
 
-    def handle_import_from_file(call: ServiceCall) -> None:
+    async def handle_import_from_file(call: ServiceCall) -> None:
         """
         Handle the service call.
 
@@ -145,16 +278,16 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         hass.states.set("import_statistics.import_from_file", file_path)
 
         _LOGGER.info("Peparing data for import")
-        stats, unit_from_entity = prepare_data.prepare_data_to_import(file_path, call)
+        stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_data_to_import(file_path, call, hass=hass))
 
         import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
-    def handle_import_from_json(call: ServiceCall) -> None:
+    async def handle_import_from_json(call: ServiceCall) -> None:
         """Handle the json service call."""
         _LOGGER.info("Service handle_import_from_json called")
-        stats, unit_from_entity = prepare_data.prepare_json_data_to_import(call)
+        stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_json_data_to_import(call, hass=hass))
         import_stats(hass, stats, unit_from_entity)
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)

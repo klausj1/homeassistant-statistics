@@ -11,6 +11,7 @@ ATTR_UNIT_FROM_ENTITY = "unit_from_entity"
 ATTR_START_TIME = "start_time"
 ATTR_END_TIME = "end_time"
 ATTR_ENTITIES = "entities"
+ATTR_DELTA = "delta"
 
 TESTFILEPATHS = "tests/testfiles/"
 
