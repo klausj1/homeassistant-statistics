@@ -1,6 +1,6 @@
-# Import statistics
+# Import statistics integration
 
-This HA integration allows to import long term statistics from a file like csv or tsv.
+This HA integration allows to import / export long term statistics from / to a file like csv or tsv, or JSON.
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
@@ -10,7 +10,7 @@ This HA integration allows to import long term statistics from a file like csv o
 
 [![Community Forum][forum-shield]][forum]
 
-**This integration just offers an action (previously known as service)**
+**This integration just offers actions (previously known as services)**
 
 ## Installation
 
@@ -42,7 +42,7 @@ The preferred way is to use HACS:
 
 ## Usage
 
-This integration offers the service `import_from_file` to import statistics from a file and `import_from_json` to import from an uploaded JSON.
+This integration offers the action `import_from_file` to import statistics from a file and `import_from_json` to import from an uploaded JSON.
 
 > As this integration uses database-independent methods of the recorder to do the import, it does not depend on the used database - it should work for all databases supported by HA.
 
@@ -79,7 +79,7 @@ The examples are hopefully self-explaining, just some additional information:
 
 Then, copy your file to your HA configuration (where you find `configuration.yaml`).
 
-Then, go to `Developer tools / Actions` (called Services in former HA versions), and select the service `import_statistics: import_from_file`.
+Then, go to `Developer tools / Actions` (called Services in former HA versions), and select the action `import_statistics: import_from_file`.
 
 Fill out the settings in the UI:
 
@@ -88,7 +88,7 @@ Fill out the settings in the UI:
 or use the yaml syntax:
 
 ```yaml
-service: import_statistics.import_from_file
+action: import_statistics.import_from_file
 data:
   timezone_identifier: Europe/Vienna
   delimiter: \t
@@ -96,7 +96,7 @@ data:
   filename: counterdata.tsv
 ```
 
-Last, call the service. You will get feedback directly in the GUI.
+Last, call the action. You will get feedback directly in the GUI.
 
 > The importing is an async operation. Depending on the size of the import, it can take some time until the import is finished, even though you already get an OK as feedback in the GUI
 
@@ -111,6 +111,58 @@ The JSON format is shown here:
 - [state_sum.json](./assets/state_sum.json)
 
 You can upload the json via the api at: `https://<homeassistant.url>/api/services/import_statistics/import_from_json` with the JSON file as the request body.
+
+## Export
+
+This integration also offers the action `export_statistics` to export statistics to a file (TSV/CSV format, or JSON format).
+
+> The export operation is asynchronous. Depending on the size of the export, it can take some time until the export is finished.
+
+First, go to `Developer tools / Actions`, and select the action `import_statistics: export_statistics`.
+
+Fill out the settings in the UI:
+
+- **Filename**: The name of the file to export to (relative to your configuration directory). E.g., `exported_statistics.tsv`. If the suffix is .json, the file is exported as JSON.
+- **Entities**: List of entity IDs or statistic IDs to export. You can export both:
+  - **Internal statistics**: Existing sensors like `sensor.temperature` (format with '.')
+  - **External statistics**: Custom statistics like `sensor:my_custom_statistic` (format with ':')
+  - Make sure to use a Yaml list like:
+```yaml
+- sensor.temperature
+- sensor:my_custom_statistic
+```
+- **Start time**: The beginning of the time range to export (must be a full hour, e.g., "2025-12-22 12:00:00")
+- **End time**: The end of the time range to export (must be a full hour, e.g., "2025-12-25 12:00:00")
+- **Timezone identifier** (optional, default: "Europe/Vienna"): Timezone for formatting the timestamps in the exported file
+- **Delimiter** (optional, default: tab): Column separator for the export file. Options: tab (`\t`), semicolon (`;`), comma (`,`), or pipe (`|`)
+- **Decimal** (optional, default: false==dot): Use comma (true) or dot (false) as decimal separator in numeric values
+
+Or use the YAML syntax, e.g.:
+
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: exported_statistics.tsv
+  entities:
+    - sensor.temperature
+    - sensor.energy_consumption
+  start_time: "2025-12-22 12:00:00"
+  end_time: "2025-12-25 12:00:00"
+  timezone_identifier: Europe/Vienna
+  delimiter: \t
+  decimal: false
+```
+
+The exported file will contain the following columns:
+- `statistic_id`: The ID of the statistic
+- `unit`: The unit of measurement
+- `start`: The timestamp of the data point (in your specified timezone and format)
+- For **sensors**: `min`, `max`, `mean` - the minimum, maximum, and average values for the hour
+- For **counters**: `sum`, `state` - the summed value and the state value for the hour
+
+You can then import this file back into Home Assistant (or another instance) using the `import_from_file` action.
+
+You can mix sensors and counters in one export. However, in this case a direct import is not possible, as `import_from_file` can only import either sensors or counters in one file.
 
 ## Concrete examples
 
