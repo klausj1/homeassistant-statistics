@@ -3,23 +3,23 @@
 import datetime as dt
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import prepare_data, setup
 from custom_components.import_statistics.const import (
-    ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
     ATTR_DELIMITER,
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
-    ATTR_UNIT_FROM_ENTITY,
 )
-from custom_components.import_statistics.helpers import UnitFrom
+from custom_components.import_statistics.helpers import UnitFrom, are_columns_valid
+from custom_components.import_statistics.prepare_data import convert_deltas_case_1
 from tests.conftest import mock_async_add_executor_job
 
 
@@ -66,46 +66,48 @@ class TestDeltaImportIntegration:
             mock_reference = {
                 "counter.energy": {
                     "start": None,  # Not used in this test
-                    "sum": 100.0,   # Reference sum value
-                    "state": 200.0, # Reference state value
+                    "sum": 100.0,  # Reference sum value
+                    "state": 200.0,  # Reference state value
                 }
             }
 
-            with patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest:
-                with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
-                    mock_get_oldest.return_value = mock_reference
-                    await import_handler(call)
+            with (
+                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
+                patch("custom_components.import_statistics.async_import_statistics") as mock_import,
+            ):
+                mock_get_oldest.return_value = mock_reference
+                await import_handler(call)
 
-                    # Verify async_import_statistics was called
-                    assert mock_import.called, "async_import_statistics should have been called"
+                # Verify async_import_statistics was called
+                assert mock_import.called, "async_import_statistics should have been called"
 
-                    # Extract the call arguments
-                    call_args = mock_import.call_args
-                    assert call_args is not None
+                # Extract the call arguments
+                call_args = mock_import.call_args
+                assert call_args is not None
 
-                    # Verify the metadata passed to import
-                    metadata = call_args[0][1]  # Second argument is metadata
-                    assert metadata["statistic_id"] == "counter.energy"
-                    assert metadata["source"] == "recorder"
-                    assert metadata["unit_of_measurement"] == "kWh"
-                    assert metadata["has_sum"] is True
-                    from homeassistant.components.recorder.models import StatisticMeanType
-                    assert metadata["mean_type"] == StatisticMeanType.NONE
+                # Verify the metadata passed to import
+                metadata = call_args[0][1]  # Second argument is metadata
+                assert metadata["statistic_id"] == "counter.energy"
+                assert metadata["source"] == "recorder"
+                assert metadata["unit_of_measurement"] == "kWh"
+                assert metadata["has_sum"] is True
 
-                    # Verify the statistics list passed to import
-                    statistics = call_args[0][2]  # Third argument is statistics list
-                    assert len(statistics) == 3, "Should have 3 statistics rows"
+                assert metadata["mean_type"] == StatisticMeanType.NONE
 
-                    # Verify accumulated values (using approximate equality for floating point)
-                    assert pytest.approx(statistics[0]["sum"]) == 110.5  # 100.0 + 10.5
-                    assert pytest.approx(statistics[0]["state"]) == 210.5
-                    assert pytest.approx(statistics[1]["sum"]) == 115.7  # 110.5 + 5.2
-                    assert pytest.approx(statistics[1]["state"]) == 215.7
-                    assert pytest.approx(statistics[2]["sum"]) == 118.8  # 115.7 + 3.1
-                    assert pytest.approx(statistics[2]["state"]) == 218.8
-                    # Verify timestamps are datetime objects with UTC timezone
-                    assert isinstance(statistics[0]["start"], dt.datetime)
-                    assert statistics[0]["start"].tzinfo is not None
+                # Verify the statistics list passed to import
+                statistics = call_args[0][2]  # Third argument is statistics list
+                assert len(statistics) == 3
+
+                # Verify accumulated values (using approximate equality for floating point)
+                assert pytest.approx(statistics[0]["sum"]) == pytest.approx(110.5)
+                assert pytest.approx(statistics[0]["state"]) == pytest.approx(210.5)
+                assert pytest.approx(statistics[1]["sum"]) == pytest.approx(115.7)
+                assert pytest.approx(statistics[1]["state"]) == pytest.approx(215.7)
+                assert pytest.approx(statistics[2]["sum"]) == pytest.approx(118.8)
+                assert pytest.approx(statistics[2]["state"]) == pytest.approx(218.8)
+                # Verify timestamps are datetime objects with UTC timezone
+                assert isinstance(statistics[0]["start"], dt.datetime)
+                assert statistics[0]["start"].tzinfo is not None
 
     @pytest.mark.asyncio
     async def test_import_delta_multiple_statistics(self) -> None:
@@ -150,27 +152,40 @@ class TestDeltaImportIntegration:
                 "counter.gas": {"start": None, "sum": 50.0, "state": 50.0},
             }
 
-            with patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest:
-                with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
-                    mock_get_oldest.return_value = mock_reference
-                    await import_handler(call)
+            with (
+                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
+                patch("custom_components.import_statistics.async_import_statistics") as mock_import,
+            ):
+                mock_get_oldest.return_value = mock_reference
+                await import_handler(call)
 
-                    # Verify async_import_statistics was called for both statistics
-                    assert mock_import.call_count == 2, "async_import_statistics should be called twice"
+                # Verify async_import_statistics was called for both statistics
+                assert mock_import.call_count == 2
 
-                    # Verify first statistic (counter.energy)
-                    first_call = mock_import.call_args_list[0]
-                    metadata_1 = first_call[0][1]
-                    statistics_1 = first_call[0][2]
-                    assert metadata_1["statistic_id"] in ["counter.energy", "counter.gas"]
-                    assert len(statistics_1) == 2, "counter.energy should have 2 statistics rows"
+                # Collect calls by statistic_id
+                calls_by_id = {}
+                for call_obj in mock_import.call_args_list:
+                    metadata = call_obj[0][1]
+                    statistics = call_obj[0][2]
+                    calls_by_id[metadata["statistic_id"]] = (metadata, statistics)
 
-                    # Verify second statistic (counter.gas)
-                    second_call = mock_import.call_args_list[1]
-                    metadata_2 = second_call[0][1]
-                    statistics_2 = second_call[0][2]
-                    assert metadata_2["statistic_id"] in ["counter.energy", "counter.gas"]
-                    assert len(statistics_2) == 2, "counter.gas should have 2 statistics rows"
+                # Verify counter.energy
+                assert "counter.energy" in calls_by_id
+                metadata_energy, stats_energy = calls_by_id["counter.energy"]
+                assert metadata_energy["unit_of_measurement"] == "kWh"
+                assert len(stats_energy) == 2
+                # Verify accumulated delta values: 100.0 + 10.5 = 110.5, then 110.5 + 5.2 = 115.7
+                assert pytest.approx(stats_energy[0]["sum"]) == pytest.approx(110.5)
+                assert pytest.approx(stats_energy[1]["sum"]) == pytest.approx(115.7)
+
+                # Verify counter.gas
+                assert "counter.gas" in calls_by_id
+                metadata_gas, stats_gas = calls_by_id["counter.gas"]
+                assert metadata_gas["unit_of_measurement"] == "m³"
+                assert len(stats_gas) == 2
+                # Verify accumulated delta values: 50.0 + 1.5 = 51.5, then 51.5 + 2.1 = 53.6
+                assert pytest.approx(stats_gas[0]["sum"]) == pytest.approx(51.5)
+                assert pytest.approx(stats_gas[1]["sum"]) == pytest.approx(53.6)
 
     @pytest.mark.asyncio
     async def test_import_delta_with_negative_values(self) -> None:
@@ -209,30 +224,30 @@ class TestDeltaImportIntegration:
             )
 
             # Mock the database query for oldest statistics
-            mock_reference = {
-                "counter.energy": {"start": None, "sum": 100.0, "state": 100.0}
-            }
+            mock_reference = {"counter.energy": {"start": None, "sum": 100.0, "state": 100.0}}
 
-            with patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest:
-                with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
-                    mock_get_oldest.return_value = mock_reference
-                    await import_handler(call)
+            with (
+                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
+                patch("custom_components.import_statistics.async_import_statistics") as mock_import,
+            ):
+                mock_get_oldest.return_value = mock_reference
+                await import_handler(call)
 
-                    # Verify async_import_statistics was called
-                    assert mock_import.called, "async_import_statistics should have been called"
+                # Verify async_import_statistics was called
+                assert mock_import.called, "async_import_statistics should have been called"
 
-                    # Extract the call arguments
-                    call_args = mock_import.call_args
-                    statistics = call_args[0][2]
-                    assert len(statistics) == 3, "Should have 3 statistics rows"
+                # Extract the call arguments
+                call_args = mock_import.call_args
+                statistics = call_args[0][2]
+                assert len(statistics) == 3
 
-                    # Verify accumulated values with negative deltas
-                    assert pytest.approx(statistics[0]["sum"]) == 89.5  # 100.0 + (-10.5)
-                    assert pytest.approx(statistics[0]["state"]) == 89.5
-                    assert pytest.approx(statistics[1]["sum"]) == 84.3  # 89.5 + (-5.2)
-                    assert pytest.approx(statistics[1]["state"]) == 84.3
-                    assert pytest.approx(statistics[2]["sum"]) == 87.4  # 84.3 + 3.1
-                    assert pytest.approx(statistics[2]["state"]) == 87.4
+                # Verify accumulated values with negative deltas
+                assert pytest.approx(statistics[0]["sum"]) == pytest.approx(89.5)
+                assert pytest.approx(statistics[0]["state"]) == pytest.approx(89.5)
+                assert pytest.approx(statistics[1]["sum"]) == pytest.approx(84.3)
+                assert pytest.approx(statistics[1]["state"]) == pytest.approx(84.3)
+                assert pytest.approx(statistics[2]["sum"]) == pytest.approx(87.4)
+                assert pytest.approx(statistics[2]["state"]) == pytest.approx(87.4)
 
     @pytest.mark.asyncio
     async def test_import_delta_external_statistic(self) -> None:
@@ -252,9 +267,7 @@ class TestDeltaImportIntegration:
             # Create test delta CSV file with external statistic
             test_file = Path(tmpdir) / "delta_external.csv"
             test_file.write_text(
-                "statistic_id\tstart\tunit\tdelta\n"
-                "custom:external_counter\t01.01.2022 00:00\tkWh\t10.5\n"
-                "custom:external_counter\t01.01.2022 01:00\tkWh\t5.2\n"
+                "statistic_id\tstart\tunit\tdelta\ncustom:external_counter\t01.01.2022 00:00\tkWh\t10.5\ncustom:external_counter\t01.01.2022 01:00\tkWh\t5.2\n"
             )
 
             call = ServiceCall(
@@ -270,51 +283,49 @@ class TestDeltaImportIntegration:
             )
 
             # Mock the database query for oldest statistics
-            mock_reference = {
-                "custom:external_counter": {"start": None, "sum": 200.0, "state": 200.0}
-            }
+            mock_reference = {"custom:external_counter": {"start": None, "sum": 200.0, "state": 200.0}}
 
-            with patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest:
-                with patch("custom_components.import_statistics.async_add_external_statistics") as mock_import:
-                    mock_get_oldest.return_value = mock_reference
-                    await import_handler(call)
+            with (
+                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
+                patch("custom_components.import_statistics.async_add_external_statistics") as mock_import,
+            ):
+                mock_get_oldest.return_value = mock_reference
+                await import_handler(call)
 
-                    # Verify async_add_external_statistics was called
-                    assert mock_import.called, "async_add_external_statistics should have been called"
+                # Verify async_add_external_statistics was called
+                assert mock_import.called, "async_add_external_statistics should have been called"
 
-                    # Extract the call arguments
-                    call_args = mock_import.call_args
-                    metadata = call_args[0][1]
-                    statistics = call_args[0][2]
+                # Extract the call arguments
+                call_args = mock_import.call_args
+                metadata = call_args[0][1]
+                statistics = call_args[0][2]
 
-                    # Verify metadata for external statistic
-                    assert metadata["statistic_id"] == "custom:external_counter"
-                    assert metadata["source"] == "custom"
-                    assert metadata["unit_of_measurement"] == "kWh"
-                    assert metadata["has_sum"] is True
+                # Verify metadata for external statistic
+                assert metadata["statistic_id"] == "custom:external_counter"
+                assert metadata["source"] == "custom"
+                assert metadata["unit_of_measurement"] == "kWh"
+                assert metadata["has_sum"] is True
 
-                    # Verify accumulated values
-                    assert len(statistics) == 2, "Should have 2 statistics rows"
-                    assert pytest.approx(statistics[0]["sum"]) == 210.5  # 200.0 + 10.5
-                    assert pytest.approx(statistics[0]["state"]) == 210.5
-                    assert pytest.approx(statistics[1]["sum"]) == 215.7  # 210.5 + 5.2
-                    assert pytest.approx(statistics[1]["state"]) == 215.7
+                # Verify accumulated values match the external counter ID
+                assert len(statistics) == 2
+                # 200.0 + 10.5 = 210.5, then 210.5 + 5.2 = 215.7
+                assert pytest.approx(statistics[0]["sum"]) == pytest.approx(210.5)
+                assert pytest.approx(statistics[0]["state"]) == pytest.approx(210.5)
+                assert pytest.approx(statistics[1]["sum"]) == pytest.approx(215.7)
+                assert pytest.approx(statistics[1]["state"]) == pytest.approx(215.7)
 
     @pytest.mark.asyncio
     async def test_import_delta_without_hass_fails(self) -> None:
         """Test that delta import without hass parameter raises error."""
-        from custom_components.import_statistics import prepare_data
-        from homeassistant.exceptions import HomeAssistantError
-
-        import pandas as pd
-
         # Create a delta dataframe
-        df = pd.DataFrame({
-            "statistic_id": ["counter.energy"],
-            "start": ["01.01.2022 00:00"],
-            "unit": ["kWh"],
-            "delta": [10.5],
-        })
+        df = pd.DataFrame(
+            {
+                "statistic_id": ["counter.energy"],
+                "start": ["01.01.2022 00:00"],
+                "unit": ["kWh"],
+                "delta": [10.5],
+            }
+        )
 
         # Should raise error when hass is None and delta is detected
         with pytest.raises(HomeAssistantError):
@@ -329,9 +340,6 @@ class TestDeltaImportIntegration:
     @pytest.mark.asyncio
     async def test_import_delta_data_accumulation(self) -> None:
         """Test that delta values are correctly accumulated to absolute sum/state values."""
-        from custom_components.import_statistics.prepare_data import convert_deltas_case_1
-        import datetime as dt
-
         # Create delta rows
         delta_rows = [
             {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=dt.UTC), "delta": 10.5},
@@ -418,17 +426,17 @@ class TestDeltaImportIntegration:
     async def test_delta_reference_validation_failure(self) -> None:
         """Test that missing database reference is properly handled."""
         # Create a delta dataframe
-        df = pd.DataFrame({
-            "statistic_id": ["counter.energy"],
-            "start": ["01.01.2022 00:00"],
-            "unit": ["kWh"],
-            "delta": [10.5],
-        })
+        df = pd.DataFrame(
+            {
+                "statistic_id": ["counter.energy"],
+                "start": ["01.01.2022 00:00"],
+                "unit": ["kWh"],
+                "delta": [10.5],
+            }
+        )
 
         # References with None for the statistic (no reference found)
-        references = {
-            "counter.energy": None
-        }
+        references = {"counter.energy": None}
 
         # Should raise error when reference is None
         with pytest.raises(HomeAssistantError):
@@ -443,30 +451,30 @@ class TestDeltaImportIntegration:
     @pytest.mark.asyncio
     async def test_delta_column_with_incompatible_columns(self) -> None:
         """Test that delta column cannot coexist with sum/state/mean columns."""
-        from homeassistant.exceptions import HomeAssistantError
-        from custom_components.import_statistics.helpers import are_columns_valid, UnitFrom
-        import pandas as pd
-
         # Test delta + sum
-        df_with_sum = pd.DataFrame({
-            "statistic_id": ["counter.energy"],
-            "start": ["01.01.2022 00:00"],
-            "unit": ["kWh"],
-            "delta": [10.5],
-            "sum": [100.0],
-        })
+        df_with_sum = pd.DataFrame(
+            {
+                "statistic_id": ["counter.energy"],
+                "start": ["01.01.2022 00:00"],
+                "unit": ["kWh"],
+                "delta": [10.5],
+                "sum": [100.0],
+            }
+        )
 
         with pytest.raises(HomeAssistantError):
             are_columns_valid(df_with_sum, UnitFrom.TABLE)
 
         # Test delta + mean
-        df_with_mean = pd.DataFrame({
-            "statistic_id": ["sensor.temp"],
-            "start": ["01.01.2022 00:00"],
-            "unit": ["°C"],
-            "delta": [1.5],
-            "mean": [20.5],
-        })
+        df_with_mean = pd.DataFrame(
+            {
+                "statistic_id": ["sensor.temp"],
+                "start": ["01.01.2022 00:00"],
+                "unit": ["°C"],
+                "delta": [1.5],
+                "mean": [20.5],
+            }
+        )
 
         with pytest.raises(HomeAssistantError):
             are_columns_valid(df_with_mean, UnitFrom.TABLE)

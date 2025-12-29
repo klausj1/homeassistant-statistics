@@ -67,12 +67,12 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
     assert "sensor.gas" in result
 
     # Check energy
-    energy_meta, energy_stats = result["sensor.energy"]
+    _energy_meta, energy_stats = result["sensor.energy"]
     assert len(energy_stats) == 2
     assert energy_stats[0]["sum"] == 110.5
 
     # Check gas
-    gas_meta, gas_stats = result["sensor.gas"]
+    _gas_meta, gas_stats = result["sensor.gas"]
     assert len(gas_stats) == 2
     assert gas_stats[0]["sum"] == 51.5
 
@@ -116,7 +116,7 @@ def test_convert_delta_dataframe_with_references_unit_from_entity() -> None:
     result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.ENTITY)
 
     assert len(result) == 1
-    metadata, stats = result["sensor.temperature"]
+    metadata, _stats = result["sensor.temperature"]
     assert metadata["unit_of_measurement"] == ""  # Empty for unit_from_entity
 
 
@@ -140,7 +140,7 @@ def test_convert_delta_dataframe_with_references_external_statistics() -> None:
     result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
 
     assert len(result) == 1
-    metadata, stats = result["custom:energy"]
+    metadata, _stats = result["custom:energy"]
     assert metadata["source"] == "custom"
     assert metadata["has_sum"] is True
 
@@ -165,6 +165,6 @@ def test_convert_delta_dataframe_with_references_invalid_rows_filtered() -> None
     result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
 
     # Only valid row should be included
-    metadata, stats = result["sensor.temperature"]
+    _metadata, stats = result["sensor.temperature"]
     assert len(stats) == 1
     assert stats[0]["sum"] == 105.2

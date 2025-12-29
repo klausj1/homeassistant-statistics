@@ -205,19 +205,28 @@ class TestStandardImportIntegration:
                 # Verify async_import_statistics was called for both statistics
                 assert mock_import.call_count == 2
 
-                # Verify first statistic (counter.energy)
-                first_call = mock_import.call_args_list[0]
-                metadata_1 = first_call[0][1]
-                statistics_1 = first_call[0][2]
-                assert metadata_1["statistic_id"] in ["counter.energy", "counter.gas"]
-                assert len(statistics_1) == 2
+                # Collect calls by statistic_id
+                calls_by_id = {}
+                for call_obj in mock_import.call_args_list:
+                    metadata = call_obj[0][1]
+                    statistics = call_obj[0][2]
+                    calls_by_id[metadata["statistic_id"]] = (metadata, statistics)
 
-                # Verify second statistic (counter.gas)
-                second_call = mock_import.call_args_list[1]
-                metadata_2 = second_call[0][1]
-                statistics_2 = second_call[0][2]
-                assert metadata_2["statistic_id"] in ["counter.energy", "counter.gas"]
-                assert len(statistics_2) == 2
+                # Verify counter.energy
+                assert "counter.energy" in calls_by_id
+                metadata_energy, stats_energy = calls_by_id["counter.energy"]
+                assert metadata_energy["unit_of_measurement"] == "kWh"
+                assert len(stats_energy) == 2
+                assert pytest.approx(stats_energy[0]["sum"]) == pytest.approx(100.0)
+                assert pytest.approx(stats_energy[1]["sum"]) == pytest.approx(105.2)
+
+                # Verify counter.gas
+                assert "counter.gas" in calls_by_id
+                metadata_gas, stats_gas = calls_by_id["counter.gas"]
+                assert metadata_gas["unit_of_measurement"] == "m³"
+                assert len(stats_gas) == 2
+                assert pytest.approx(stats_gas[0]["sum"]) == pytest.approx(50.0)
+                assert pytest.approx(stats_gas[1]["sum"]) == pytest.approx(52.1)
 
     @pytest.mark.asyncio
     async def test_import_external_statistic(self) -> None:
@@ -563,13 +572,15 @@ class TestStandardImportIntegration:
     async def test_import_mixed_sum_and_mean_fails(self) -> None:
         """Test that mixing sum and mean columns fails validation."""
         # Create a dataframe with both sum and mean
-        df = pd.DataFrame({
-            "statistic_id": ["counter.energy"],
-            "start": ["01.01.2022 00:00"],
-            "unit": ["kWh"],
-            "sum": [100.0],
-            "mean": [50.0],
-        })
+        df = pd.DataFrame(
+            {
+                "statistic_id": ["counter.energy"],
+                "start": ["01.01.2022 00:00"],
+                "unit": ["kWh"],
+                "sum": [100.0],
+                "mean": [50.0],
+            }
+        )
 
         # Should raise error when both sum and mean are present
         with pytest.raises(HomeAssistantError):
@@ -579,11 +590,13 @@ class TestStandardImportIntegration:
     async def test_import_missing_required_columns(self) -> None:
         """Test that missing required columns raises error."""
         # Create a dataframe missing start column
-        df = pd.DataFrame({
-            "statistic_id": ["counter.energy"],
-            "unit": ["kWh"],
-            "sum": [100.0],
-        })
+        df = pd.DataFrame(
+            {
+                "statistic_id": ["counter.energy"],
+                "unit": ["kWh"],
+                "sum": [100.0],
+            }
+        )
 
         # Should raise error when required columns are missing
         with pytest.raises(HomeAssistantError):
@@ -606,10 +619,7 @@ class TestStandardImportIntegration:
 
             # Create test CSV file
             test_file = Path(tmpdir) / "nonexistent.csv"
-            test_file.write_text(
-                "statistic_id\tstart\tunit\tsum\tstate\n"
-                "sensor.nonexistent\t01.01.2022 00:00\t°C\t20.5\t20.5\n"
-            )
+            test_file.write_text("statistic_id\tstart\tunit\tsum\tstate\nsensor.nonexistent\t01.01.2022 00:00\t°C\t20.5\t20.5\n")
 
             call = ServiceCall(
                 hass,
@@ -720,12 +730,27 @@ class TestStandardImportIntegration:
                 # Verify async_add_external_statistics was called for both external statistics
                 assert mock_external.call_count == 2
 
-                # Verify first external statistic
-                first_call = mock_external.call_args_list[0]
-                metadata_1 = first_call[0][1]
-                assert metadata_1["statistic_id"] in ["custom:external1", "integration:external2"]
+                # Collect calls by statistic_id
+                calls_by_id = {}
+                for call_obj in mock_external.call_args_list:
+                    metadata = call_obj[0][1]
+                    statistics = call_obj[0][2]
+                    calls_by_id[metadata["statistic_id"]] = (metadata, statistics)
 
-                # Verify second external statistic
-                second_call = mock_external.call_args_list[1]
-                metadata_2 = second_call[0][1]
-                assert metadata_2["statistic_id"] in ["custom:external1", "integration:external2"]
+                # Verify custom:external1
+                assert "custom:external1" in calls_by_id
+                metadata_ext1, stats_ext1 = calls_by_id["custom:external1"]
+                assert metadata_ext1["source"] == "custom"
+                assert metadata_ext1["unit_of_measurement"] == "kWh"
+                assert len(stats_ext1) == 2
+                assert pytest.approx(stats_ext1[0]["sum"]) == pytest.approx(100.0)
+                assert pytest.approx(stats_ext1[1]["sum"]) == pytest.approx(105.2)
+
+                # Verify integration:external2
+                assert "integration:external2" in calls_by_id
+                metadata_ext2, stats_ext2 = calls_by_id["integration:external2"]
+                assert metadata_ext2["source"] == "integration"
+                assert metadata_ext2["unit_of_measurement"] == "m³"
+                assert len(stats_ext2) == 2
+                assert pytest.approx(stats_ext2[0]["sum"]) == pytest.approx(50.0)
+                assert pytest.approx(stats_ext2[1]["sum"]) == pytest.approx(52.1)

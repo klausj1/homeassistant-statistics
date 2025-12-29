@@ -162,6 +162,8 @@ def test_are_columns_valid_delta_missing_unit_table() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"),
+        match=re.escape(
+            "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
+        ),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)

@@ -1,8 +1,6 @@
 """Test get_oldest_statistics_before function."""
 
 
-
-
 # Note: get_oldest_statistics_before is an async function that requires complex mocking
 # of the Home Assistant recorder infrastructure. For Phase 1, comprehensive unit testing
 # is achieved through test_convert_deltas_case_1 and test_convert_delta_dataframe_with_references

@@ -255,16 +255,12 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
         # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
         if "sum" in columns or "state" in columns or has_mean_min_max:
             handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)")
-    else:
-        # Non-delta: cannot mix mean/min/max with sum/state
-        if has_mean_min_max and has_sum_state:
-            handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
+    # Non-delta: cannot mix mean/min/max with sum/state
+    elif has_mean_min_max and has_sum_state:
+        handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
 
     # Define allowed columns based on data type and unit source
-    if has_delta:
-        allowed_columns = {"statistic_id", "start", "delta"}
-    else:
-        allowed_columns = {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
+    allowed_columns = {"statistic_id", "start", "delta"} if has_delta else {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
 
     if unit_from_where == UnitFrom.TABLE:
         allowed_columns.add("unit")

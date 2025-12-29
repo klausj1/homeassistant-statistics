@@ -116,8 +116,6 @@ def convert_delta_dataframe_with_references(
     """
     _LOGGER.info("Converting delta dataframe with references")
 
-    columns = df.columns
-
     # Group rows by statistic_id
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)

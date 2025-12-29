@@ -35,6 +35,9 @@ from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 # Use empty_config_schema because the component does not have any config options
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
+# Minimum tuple length for delta processing marker
+_DELTA_MARKER_TUPLE_LENGTH = 6
+
 
 async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: dict) -> dict:
     """
@@ -238,106 +241,116 @@ async def get_statistics_from_recorder(
     return statistics_dict, units_dict
 
 
+async def _handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Handle import_from_file service implementation."""
+    _LOGGER.info("Service handle_import_from_file called")
+    file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
+
+    hass.states.set("import_statistics.import_from_file", file_path)
+
+    _LOGGER.info("Peparing data for import")
+    stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_data_to_import(file_path, call, hass=hass))
+
+    # Handle delta processing marker (async operation required)
+    if isinstance(stats, tuple) and len(stats) >= _DELTA_MARKER_TUPLE_LENGTH and stats[0] == "_DELTA_PROCESSING_NEEDED":
+        _LOGGER.info("Delta processing detected, fetching references from database")
+        _marker, df, references_needed, timezone_identifier, datetime_format, unit_from_where = stats[:_DELTA_MARKER_TUPLE_LENGTH]
+
+        # Fetch references from database asynchronously
+        references = await get_oldest_statistics_before(hass, references_needed)
+
+        # Convert delta dataframe with references (run in executor)
+        stats = await hass.async_add_executor_job(
+            lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
+        )
+
+    import_stats(hass, stats, unit_from_entity)
+
+
+async def _handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Handle import_from_json service implementation."""
+    _LOGGER.info("Service handle_import_from_json called")
+    stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_json_data_to_import(call, hass=hass))
+
+    # Handle delta processing marker (async operation required)
+    if isinstance(stats, tuple) and len(stats) >= _DELTA_MARKER_TUPLE_LENGTH and stats[0] == "_DELTA_PROCESSING_NEEDED":
+        _LOGGER.info("Delta processing detected, fetching references from database")
+        _marker, df, references_needed, timezone_identifier, datetime_format, unit_from_where = stats[:_DELTA_MARKER_TUPLE_LENGTH]
+
+        # Fetch references from database asynchronously
+        references = await get_oldest_statistics_before(hass, references_needed)
+
+        # Convert delta dataframe with references (run in executor)
+        stats = await hass.async_add_executor_job(
+            lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
+        )
+
+    import_stats(hass, stats, unit_from_entity)
+
+
+async def _handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Handle export_statistics service implementation."""
+    filename = call.data.get(ATTR_FILENAME)
+    entities_input = call.data.get(ATTR_ENTITIES)
+    start_time_str = call.data.get(ATTR_START_TIME)
+    end_time_str = call.data.get(ATTR_END_TIME)
+
+    # Extract other parameters (with defaults matching services.yaml)
+    timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
+    delimiter = call.data.get(ATTR_DELIMITER, "\t")
+    decimal = call.data.get(ATTR_DECIMAL, False)
+    datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
+
+    _LOGGER.info("Service handle_export_statistics called")
+    _LOGGER.info("Exporting entities: %s", entities_input)
+    _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
+    _LOGGER.info("Output file: %s", filename)
+
+    # Validate filename and build safe file path
+    file_path = helpers.validate_filename(filename, hass.config.config_dir)
+
+    # Validate delimiter and set default
+    delimiter = helpers.validate_delimiter(delimiter)
+
+    # Get statistics from recorder API (using user's timezone for start/end times)
+    statistics_dict, units_dict = await get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str, timezone_identifier)
+
+    # Prepare data for export (HA-independent)
+    if filename.lower().endswith(".json"):
+        # Export as JSON - run in executor to avoid blocking I/O
+        json_data = await hass.async_add_executor_job(
+            lambda: prepare_data.prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict)
+        )
+        await hass.async_add_executor_job(lambda: prepare_data.write_export_json(file_path, json_data))
+    else:
+        # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
+        columns, rows = await hass.async_add_executor_job(
+            lambda: prepare_data.prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+        )
+        await hass.async_add_executor_job(lambda: prepare_data.write_export_file(file_path, columns, rows, delimiter))
+
+    hass.states.async_set("import_statistics.export_statistics", "OK")
+    _LOGGER.info("Export completed successfully")
+
+
 def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
     """Set up is called when Home Assistant is loading our component."""
 
     async def handle_import_from_file(call: ServiceCall) -> None:
-        """
-        Handle the service call.
-
-        This method is the only method which needs the hass object, all other methods are independent of it.
-        """
-        # Get the filename from the call data; done here, because the root path needs the hass object
-        _LOGGER.info("Service handle_import_from_file called")
-        file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
-
-        hass.states.set("import_statistics.import_from_file", file_path)
-
-        _LOGGER.info("Peparing data for import")
-        stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_data_to_import(file_path, call, hass=hass))
-
-        # Handle delta processing marker (async operation required)
-        if isinstance(stats, tuple) and len(stats) >= 6 and stats[0] == "_DELTA_PROCESSING_NEEDED":
-            _LOGGER.info("Delta processing detected, fetching references from database")
-            _marker, df, references_needed, timezone_identifier, datetime_format, unit_from_where = stats[:6]
-
-            # Fetch references from database asynchronously
-            references = await get_oldest_statistics_before(hass, references_needed)
-
-            # Convert delta dataframe with references (run in executor)
-            stats = await hass.async_add_executor_job(
-                lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
-            )
-
-        import_stats(hass, stats, unit_from_entity)
+        """Handle the service call."""
+        await _handle_import_from_file_impl(hass, call)
 
     hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
     async def handle_import_from_json(call: ServiceCall) -> None:
         """Handle the json service call."""
-        _LOGGER.info("Service handle_import_from_json called")
-        stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_json_data_to_import(call, hass=hass))
-
-        # Handle delta processing marker (async operation required)
-        if isinstance(stats, tuple) and len(stats) >= 6 and stats[0] == "_DELTA_PROCESSING_NEEDED":
-            _LOGGER.info("Delta processing detected, fetching references from database")
-            _marker, df, references_needed, timezone_identifier, datetime_format, unit_from_where = stats[:6]
-
-            # Fetch references from database asynchronously
-            references = await get_oldest_statistics_before(hass, references_needed)
-
-            # Convert delta dataframe with references (run in executor)
-            stats = await hass.async_add_executor_job(
-                lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
-            )
-
-        import_stats(hass, stats, unit_from_entity)
+        await _handle_import_from_json_impl(hass, call)
 
     hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
 
     async def handle_export_statistics(call: ServiceCall) -> None:
         """Handle the export statistics service call."""
-        filename = call.data.get(ATTR_FILENAME)
-        entities_input = call.data.get(ATTR_ENTITIES)
-        start_time_str = call.data.get(ATTR_START_TIME)
-        end_time_str = call.data.get(ATTR_END_TIME)
-
-        # Extract other parameters (with defaults matching services.yaml)
-        timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
-        delimiter = call.data.get(ATTR_DELIMITER, "\t")
-        decimal = call.data.get(ATTR_DECIMAL, False)
-        datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
-
-        _LOGGER.info("Service handle_export_statistics called")
-        _LOGGER.info("Exporting entities: %s", entities_input)
-        _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
-        _LOGGER.info("Output file: %s", filename)
-
-        # Validate filename and build safe file path
-        file_path = helpers.validate_filename(filename, hass.config.config_dir)
-
-        # Validate delimiter and set default
-        delimiter = helpers.validate_delimiter(delimiter)
-
-        # Get statistics from recorder API (using user's timezone for start/end times)
-        statistics_dict, units_dict = await get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str, timezone_identifier)
-
-        # Prepare data for export (HA-independent)
-        if filename.lower().endswith(".json"):
-            # Export as JSON - run in executor to avoid blocking I/O
-            json_data = await hass.async_add_executor_job(
-                lambda: prepare_data.prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict)
-            )
-            await hass.async_add_executor_job(lambda: prepare_data.write_export_json(file_path, json_data))
-        else:
-            # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
-            columns, rows = await hass.async_add_executor_job(
-                lambda: prepare_data.prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
-            )
-            await hass.async_add_executor_job(lambda: prepare_data.write_export_file(file_path, columns, rows, delimiter))
-
-        hass.states.async_set("import_statistics.export_statistics", "OK")
-        _LOGGER.info("Export completed successfully")
+        await _handle_export_statistics_impl(hass, call)
 
     hass.services.register(DOMAIN, "export_statistics", handle_export_statistics)
 
