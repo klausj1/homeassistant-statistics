@@ -107,7 +107,7 @@ def test_are_columns_valid_delta_plus_sum_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot coexist with 'sum' column"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -118,7 +118,7 @@ def test_are_columns_valid_delta_plus_state_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot coexist with 'state' column"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -129,7 +129,7 @@ def test_are_columns_valid_delta_plus_mean_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -140,7 +140,7 @@ def test_are_columns_valid_delta_plus_min_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -151,7 +151,7 @@ def test_are_columns_valid_delta_plus_max_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -162,6 +162,6 @@ def test_are_columns_valid_delta_missing_unit_table() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("The file must contain the column 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"),
+        match=re.escape("The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)

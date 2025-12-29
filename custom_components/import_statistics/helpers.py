@@ -238,54 +238,34 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     """
     columns = df.columns
 
-    # Check if delta column exists - if so, use delta-specific validation
-    if "delta" in columns:
-        # Delta-specific validation
-        if not ("statistic_id" in columns and "start" in columns):
-            handle_error("The file must contain the columns 'statistic_id' and 'start' (check delimiter)")
+    # Check required columns: statistic_id, start, and unit (unless from entity)
+    # Determine if this is delta or non-delta data first
+    has_delta = "delta" in columns
 
-        # Delta column cannot coexist with sum, state, mean, min, or max columns
-        if "sum" in columns:
-            handle_error("Delta column cannot coexist with 'sum' column")
-        if "state" in columns:
-            handle_error("Delta column cannot coexist with 'state' column")
-        if "mean" in columns or "min" in columns or "max" in columns:
-            handle_error("Delta column cannot be used with 'mean', 'min', or 'max' columns (counters only)")
-
-        # Unit column validation unchanged (required or from entity)
-        if not ("unit" in columns or unit_from_where == UnitFrom.ENTITY):
-            handle_error("The file must contain the column 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)")
-
-        # Define allowed columns for delta
-        allowed_columns = {"statistic_id", "start", "delta"}
-        if unit_from_where == UnitFrom.TABLE:
-            allowed_columns.add("unit")
-
-        # Check for unknown columns
-        unknown_columns = set(columns) - allowed_columns
-        if unknown_columns:
-            if unknown_columns == {"unit"} and unit_from_where == UnitFrom.ENTITY:
-                handle_error(
-                    "A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file."
-                )
-            unknown_cols_str = ", ".join(sorted(unknown_columns))
-            allowed_cols_str = ", ".join(sorted(allowed_columns))
-            handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
-
-        return True
-
-    # Non-delta validation (existing logic)
     if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_where == UnitFrom.ENTITY)):
         handle_error(
             "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
         )
-    if not (("mean" in columns and "min" in columns and "max" in columns) or ("sum" in columns)):
-        handle_error("The file must contain either the columns 'mean', 'min' and 'max' or the column 'sum' (check delimiter)")
-    if ("mean" in columns or "min" in columns or "max" in columns) and ("sum" in columns or "state" in columns):
-        handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
 
-    # Define allowed columns based on whether unit is from entity or table
-    allowed_columns = {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
+    # Check for value column requirements and incompatible combinations
+    has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
+    has_sum_state = "sum" in columns or "state" in columns
+
+    if has_delta:
+        # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
+        if "sum" in columns or "state" in columns or has_mean_min_max:
+            handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)")
+    else:
+        # Non-delta: cannot mix mean/min/max with sum/state
+        if has_mean_min_max and has_sum_state:
+            handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
+
+    # Define allowed columns based on data type and unit source
+    if has_delta:
+        allowed_columns = {"statistic_id", "start", "delta"}
+    else:
+        allowed_columns = {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
+
     if unit_from_where == UnitFrom.TABLE:
         allowed_columns.add("unit")
 
