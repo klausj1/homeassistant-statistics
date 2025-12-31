@@ -5,12 +5,16 @@ import zoneinfo
 from typing import Any
 
 from homeassistant.components.recorder import get_instance
+from homeassistant.util import dt as dt_util
+from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.statistics import (
+    _statistics_at_time,
     async_add_external_statistics,
     async_import_statistics,
     get_metadata,
     statistics_during_period,
 )
+from homeassistant.components.recorder.util import session_scope
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
@@ -96,45 +100,71 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
 
         try:
             # Query statistics for this specific ID up to its before_timestamp
+            def _get_reference_stats(mid: int, ts: dt.datetime, inst) -> tuple | None:
+                """Query database for reference statistics."""
+                with session_scope(session=inst.get_session(), read_only=True) as sess:
+                    result = _statistics_at_time(
+                        instance=inst,
+                        session=sess,
+                        metadata_ids={mid},
+                        table=Statistics,
+                        start_time=ts,
+                        types={"sum", "state"},
+                    )
+                    # Return the first row if it exists, otherwise None
+                    # Result is a Sequence[Row] or None
+                    if result and len(result) > 0:
+                        return result[0]
+                    return None
+
             statistics_at_time = await recorder_instance.async_add_executor_job(
-                lambda mid=metadata_id, ts=before_timestamp: recorder_instance._statistics_at_time(  # noqa: SLF001
-                    session=None,
-                    metadata_ids={mid},
-                    table=None,
-                    start_time=ts,
-                    types={"sum", "state"},
-                )
+                _get_reference_stats,
+                metadata_id,
+                before_timestamp,
+                recorder_instance,
             )
-        except AttributeError:
-            _LOGGER.warning("_statistics_at_time not available for %s, skipping", statistic_id)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.error("Failed to query statistics for %s: %s", statistic_id, exc)
             result[statistic_id] = None
             continue
-        except Exception as exc:  # noqa: BLE001
-            helpers.handle_error(f"Failed to query statistics for {statistic_id}: {exc}")
 
         # Extract the result for this statistic_id
         if statistics_at_time:
-            row = statistics_at_time[0]
-            # Validate: record must be at least 1 hour before target timestamp
-            if row.start < before_timestamp - dt.timedelta(hours=1):
-                result[statistic_id] = {
-                    "start": row.start,
-                    "sum": row.sum,
-                    "state": row.state,
-                }
-                _LOGGER.debug(
-                    "Found reference for %s: start=%s, sum=%s, state=%s",
-                    statistic_id,
-                    row.start,
-                    row.sum,
-                    row.state,
-                )
-            else:
+            row = statistics_at_time
+            try:
+                # Convert timestamp back to datetime for comparison
+                # Try different possible attribute names for timestamp
+                if hasattr(row, 'start_ts'):
+                    row_start_dt = dt_util.utc_from_timestamp(row.start_ts)
+                elif hasattr(row, 'start'):
+                    row_start_dt = dt_util.utc_from_timestamp(row.start)
+                else:
+                    # Try accessing as dict-like object
+                    row_start_dt = dt_util.utc_from_timestamp(row['start_ts'] if 'start_ts' in row else row['start'])
+
+                # Validate: record must be at least 1 hour before target timestamp
+                if row_start_dt < before_timestamp - dt.timedelta(hours=1):
+                    result[statistic_id] = {
+                        "start": row_start_dt,
+                        "sum": row.sum if hasattr(row, 'sum') else row['sum'],
+                        "state": row.state if hasattr(row, 'state') else row['state'],
+                    }
+                    _LOGGER.debug(
+                        "Found reference for %s: start=%s, sum=%s, state=%s",
+                        statistic_id,
+                        row_start_dt,
+                        row.sum if hasattr(row, 'sum') else row['sum'],
+                        row.state if hasattr(row, 'state') else row['state'],
+                    )
+                else:
+                    result[statistic_id] = None
+                    _LOGGER.debug(
+                        "Reference for %s exists but is too recent (not 1 hour before)",
+                        statistic_id,
+                    )
+            except (AttributeError, KeyError, TypeError) as exc:
+                _LOGGER.error("Error processing reference row for %s: %s", statistic_id, exc)
                 result[statistic_id] = None
-                _LOGGER.debug(
-                    "Reference for %s exists but is too recent (not 1 hour before)",
-                    statistic_id,
-                )
         else:
             result[statistic_id] = None
             _LOGGER.debug("No reference found for %s", statistic_id)
