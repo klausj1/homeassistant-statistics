@@ -246,7 +246,7 @@ async def _handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) 
     _LOGGER.info("Service handle_import_from_file called")
     file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
 
-    hass.states.set("import_statistics.import_from_file", file_path)
+    hass.states.async_set("import_statistics.import_from_file", file_path)
 
     _LOGGER.info("Peparing data for import")
     stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_data_to_import(file_path, call, hass=hass))

@@ -1,0 +1,26 @@
+{
+    "servers": {
+        "ha mcp prod": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": [
+                "hass-mcp"
+            ],
+            "env": {
+                "HA_URL": "http://ha:8123",
+                "HA_TOKEN": "token"
+            }
+        },
+        "ha mcp dev": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": [
+                "hass-mcp"
+            ],
+            "env": {
+                "HA_URL": "http://localhost:8123",
+                "HA_TOKEN": "token"
+            }
+        }
+    }
+}

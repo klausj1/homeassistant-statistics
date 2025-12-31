@@ -18,3 +18,6 @@ htmlcov/
 config/*
 !config/configuration.yaml
 !config/*.csv
+
+# mcp with secrets
+mcp.json

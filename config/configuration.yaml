@@ -8,3 +8,22 @@ logger:
   default: info
   logs:
     custom_components.import_statistics: debug
+
+template:
+  - sensor:
+      - name: esp32_bathroom_bathroomtempsensor
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: "{{ 1 }}"
+      - name: esp32_soundroom_soundroomtempsensor
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: "{{ 2 }}"
+      - name: solaredge_i2_ac_energy_kwh
+        state_class: total_increasing
+        unit_of_measurement: "kWh"
+        state: "{{ 43081 }}"
+      - name: go_echarger_238557_wh
+        state_class: total_increasing
+        unit_of_measurement: "kWh"
+        state: "{{ 8832 }}"
