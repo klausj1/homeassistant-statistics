@@ -5,7 +5,6 @@ import zoneinfo
 from typing import Any
 
 from homeassistant.components.recorder import get_instance
-from homeassistant.util import dt as dt_util
 from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.statistics import (
     _statistics_at_time,
@@ -19,6 +18,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 
 from custom_components.import_statistics import helpers, prepare_data
 from custom_components.import_statistics.const import (
@@ -43,6 +43,78 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 _DELTA_MARKER_TUPLE_LENGTH = 6
 
 
+def _get_reference_stats(mid: int, ts: dt.datetime, inst: Any) -> tuple | None:
+    """Query database for reference statistics."""
+    with session_scope(session=inst.get_session(), read_only=True) as sess:
+        result = _statistics_at_time(
+            instance=inst,
+            session=sess,
+            metadata_ids={mid},
+            table=Statistics,
+            start_time=ts,
+            types={"sum", "state"},
+        )
+        # Return the first row if it exists, otherwise None
+        # Result is a Sequence[Row] or None
+        if result and len(result) > 0:
+            return result[0]
+        return None
+
+
+def _extract_row_start_datetime(row: Any) -> dt.datetime:
+    """Extract start datetime from a statistics row."""
+    if hasattr(row, "start_ts"):
+        return dt_util.utc_from_timestamp(row.start_ts)
+    if hasattr(row, "start"):
+        return dt_util.utc_from_timestamp(row.start)
+    # Try accessing as dict-like object
+    return dt_util.utc_from_timestamp(row["start_ts"] if "start_ts" in row else row["start"])
+
+
+def _get_row_sum_value(row: Any) -> Any:
+    """Extract sum value from row."""
+    return row.sum if hasattr(row, "sum") else row["sum"]
+
+
+def _get_row_state_value(row: Any) -> Any:
+    """Extract state value from row."""
+    return row.state if hasattr(row, "state") else row["state"]
+
+
+def _process_reference_row(statistic_id: str, row: Any, before_timestamp: dt.datetime, result: dict) -> None:
+    """Process a reference row and update result dict."""
+    try:
+        # Convert timestamp back to datetime for comparison
+        row_start_dt = _extract_row_start_datetime(row)
+        row_sum = _get_row_sum_value(row)
+        row_state = _get_row_state_value(row)
+
+        # Validate: record must be strictly before the import start timestamp
+        # (i.e., earlier than the first delta to be imported)
+        if row_start_dt < before_timestamp:
+            result[statistic_id] = {
+                "start": row_start_dt,
+                "sum": row_sum,
+                "state": row_state,
+            }
+            _LOGGER.debug(
+                "Found reference for %s: start=%s, sum=%s, state=%s",
+                statistic_id,
+                row_start_dt,
+                row_sum,
+                row_state,
+            )
+        else:
+            result[statistic_id] = None
+            _LOGGER.debug(
+                "Reference for %s exists but is not before import start time",
+                statistic_id,
+            )
+    except (AttributeError, KeyError, TypeError) as exc:
+        _LOGGER.error("Error processing reference row for %s: %s", statistic_id, exc)
+        result[statistic_id] = None
+
+
 async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: dict) -> dict:
     """
     Query recorder for oldest statistics before given timestamps.
@@ -53,7 +125,7 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
     Args:
     ----
         hass: Home Assistant instance
-        references_needed: dict mapping {statistic_id: before_timestamp (datetime, UTC)}
+        references_needed: dict mapping {statistic_id: before_timestamp (datetime, UTC)} - MUST be UTC timezone
 
     Returns:
     -------
@@ -100,23 +172,6 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
 
         try:
             # Query statistics for this specific ID up to its before_timestamp
-            def _get_reference_stats(mid: int, ts: dt.datetime, inst) -> tuple | None:
-                """Query database for reference statistics."""
-                with session_scope(session=inst.get_session(), read_only=True) as sess:
-                    result = _statistics_at_time(
-                        instance=inst,
-                        session=sess,
-                        metadata_ids={mid},
-                        table=Statistics,
-                        start_time=ts,
-                        types={"sum", "state"},
-                    )
-                    # Return the first row if it exists, otherwise None
-                    # Result is a Sequence[Row] or None
-                    if result and len(result) > 0:
-                        return result[0]
-                    return None
-
             statistics_at_time = await recorder_instance.async_add_executor_job(
                 _get_reference_stats,
                 metadata_id,
@@ -130,41 +185,7 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
 
         # Extract the result for this statistic_id
         if statistics_at_time:
-            row = statistics_at_time
-            try:
-                # Convert timestamp back to datetime for comparison
-                # Try different possible attribute names for timestamp
-                if hasattr(row, 'start_ts'):
-                    row_start_dt = dt_util.utc_from_timestamp(row.start_ts)
-                elif hasattr(row, 'start'):
-                    row_start_dt = dt_util.utc_from_timestamp(row.start)
-                else:
-                    # Try accessing as dict-like object
-                    row_start_dt = dt_util.utc_from_timestamp(row['start_ts'] if 'start_ts' in row else row['start'])
-
-                # Validate: record must be at least 1 hour before target timestamp
-                if row_start_dt < before_timestamp - dt.timedelta(hours=1):
-                    result[statistic_id] = {
-                        "start": row_start_dt,
-                        "sum": row.sum if hasattr(row, 'sum') else row['sum'],
-                        "state": row.state if hasattr(row, 'state') else row['state'],
-                    }
-                    _LOGGER.debug(
-                        "Found reference for %s: start=%s, sum=%s, state=%s",
-                        statistic_id,
-                        row_start_dt,
-                        row.sum if hasattr(row, 'sum') else row['sum'],
-                        row.state if hasattr(row, 'state') else row['state'],
-                    )
-                else:
-                    result[statistic_id] = None
-                    _LOGGER.debug(
-                        "Reference for %s exists but is too recent (not 1 hour before)",
-                        statistic_id,
-                    )
-            except (AttributeError, KeyError, TypeError) as exc:
-                _LOGGER.error("Error processing reference row for %s: %s", statistic_id, exc)
-                result[statistic_id] = None
+            _process_reference_row(statistic_id, statistics_at_time, before_timestamp, result)
         else:
             result[statistic_id] = None
             _LOGGER.debug("No reference found for %s", statistic_id)

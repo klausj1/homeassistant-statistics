@@ -350,7 +350,9 @@ def handle_dataframe(
             except (ValueError, TypeError) as e:
                 helpers.handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
 
-            references_needed[statistic_id] = oldest_dt
+            # Convert to UTC for database query
+            oldest_dt_utc = oldest_dt.astimezone(datetime.UTC)
+            references_needed[statistic_id] = oldest_dt_utc
 
         _LOGGER.debug("Need references for %d statistics", len(references_needed))
 
