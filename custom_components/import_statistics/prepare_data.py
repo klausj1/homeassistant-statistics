@@ -471,7 +471,77 @@ def _process_statistic_record(
         if "state" not in all_columns:
             all_columns.append("state")
 
+    # Add delta column if present
+    if "delta" in stat_record:
+        row_dict["delta"] = _format_decimal(stat_record["delta"], use_comma=decimal_comma)
+        if "delta" not in all_columns:
+            all_columns.append("delta")
+
     return row_dict
+
+
+def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> list[dict]:
+    """
+    Calculate delta values from a list of records sorted by statistic_id and start.
+
+    For each statistic_id, calculates delta as the difference between consecutive sum/state values.
+    The first record of each statistic_id has an empty delta (no previous value).
+
+    Args:
+         rows: List of row dicts with statistic_id, start, sum, and/or state fields
+         decimal_comma: Use comma (True) or dot (False) as decimal separator for output
+
+    Returns:
+         list[dict]: Rows with delta column added (formatted as string)
+
+    """
+    if not rows:
+        return []
+
+    # Sort rows by statistic_id, then by start timestamp (assuming start is string in datetime format)
+    sorted_rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
+
+    result = []
+    previous_sum_by_id = {}
+
+    for row_dict in sorted_rows:
+        statistic_id = row_dict["statistic_id"]
+        new_row = dict(row_dict)
+
+        # Get previous sum for this statistic_id
+        prev_sum = previous_sum_by_id.get(statistic_id)
+
+        # Calculate delta if we have sum/state values and a previous value
+        if prev_sum is not None and "sum" in row_dict:
+            # sum is already a string (formatted), need to extract numeric value
+            sum_str = row_dict["sum"]
+            if sum_str:  # Only if sum is not empty
+                try:
+                    # Convert back to float for calculation
+                    decimal_sep = "," if decimal_comma else "."
+                    sum_value = float(sum_str.replace(decimal_sep, "."))
+                    delta_value = sum_value - prev_sum
+                    new_row["delta"] = _format_decimal(delta_value, use_comma=decimal_comma)
+                except (ValueError, AttributeError):
+                    new_row["delta"] = ""
+            else:
+                new_row["delta"] = ""
+        else:
+            # First record for this statistic_id has empty delta
+            new_row["delta"] = ""
+
+        # Update previous sum for next iteration
+        if row_dict.get("sum"):
+            try:
+                decimal_sep = "," if decimal_comma else "."
+                previous_sum_by_id[statistic_id] = float(row_dict["sum"].replace(decimal_sep, "."))
+            except (ValueError, AttributeError):
+                pass
+
+        result.append(new_row)
+
+    # Sort result by statistic_id and start to ensure consistent output order
+    return sorted(result, key=lambda r: (r["statistic_id"], r["start"]))
 
 
 def prepare_export_data(
@@ -510,6 +580,7 @@ def prepare_export_data(
     # Analyze what types of statistics we have (sensors vs counters)
     has_sensors = False  # mean/min/max
     has_counters = False  # sum/state
+    has_deltas = False  # will be set if we calculate deltas
 
     all_columns = ["statistic_id", "unit", "start"]
     rows = []
@@ -545,17 +616,27 @@ def prepare_export_data(
             )
             rows.append(row_dict)
 
+    # Calculate deltas for counter exports
+    if has_counters and rows:
+        rows = get_delta_from_stats(rows, decimal_comma=decimal_comma)
+        has_deltas = True
+
     # Validate if sensors and counters are mixed
     if has_sensors and has_counters:
         _LOGGER.info("Export contains both sensor (mean/min/max) and counter (sum/state) statistics. Sensor columns will be empty for counters and vice versa.")
 
     # Build column list: always include statistic_id, unit, start
-    # Then conditionally add sensor or counter columns
+    # Then conditionally add sensor or counter columns, and delta if present
     column_order = ["statistic_id", "unit", "start"]
     if has_sensors:
         column_order.extend(["min", "max", "mean"])
     if has_counters:
         column_order.extend(["sum", "state"])
+    if has_deltas:
+        column_order.append("delta")
+
+    # Sort rows by statistic_id to ensure consistent output order
+    rows = sorted(rows, key=lambda r: r["statistic_id"])
 
     # Convert row dicts to tuples in column order, filling empty cells
     data_rows = [tuple(row_dict.get(col, "") for col in column_order) for row_dict in rows]
@@ -616,6 +697,8 @@ def _format_decimal(value: float | None, *, use_comma: bool = False) -> str:
     """
     Format a numeric value with specified decimal separator.
 
+    Handles numeric values including min, max, mean, sum, state, and delta values.
+
     Args:
          value: Numeric value to format
          use_comma: Use comma (True) or dot (False) as decimal separator
@@ -662,7 +745,9 @@ def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetim
 
     export_entities = []
 
-    for statistic_id, data in statistics_dict.items():
+    # Sort statistic_ids for consistent output order
+    for statistic_id in sorted(statistics_dict.keys()):
+        data = statistics_dict[statistic_id]
         # Data format from recorder API: {"statistic_id": [...]}
         statistics_list = data
         unit = units_dict.get(statistic_id, "")  # Get unit from metadata
@@ -672,20 +757,32 @@ def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetim
 
         entity_obj = {"id": statistic_id, "unit": unit, "values": []}
 
+        # Detect if this is a counter (has non-None sum/state) to calculate deltas
+        is_counter = any((rec.get("sum") is not None or rec.get("state") is not None) for rec in statistics_list)
+        previous_sum = None
+
         for stat_record in statistics_list:
             value_obj = {"datetime": _format_datetime(stat_record["start"], timezone, datetime_format)}
 
-            # Add all available fields
-            if "mean" in stat_record:
+            # Add all available fields (only if not None)
+            if stat_record.get("mean") is not None:
                 value_obj["mean"] = stat_record["mean"]
-            if "min" in stat_record:
+            if stat_record.get("min") is not None:
                 value_obj["min"] = stat_record["min"]
-            if "max" in stat_record:
+            if stat_record.get("max") is not None:
                 value_obj["max"] = stat_record["max"]
-            if "sum" in stat_record:
+            if stat_record.get("sum") is not None:
                 value_obj["sum"] = stat_record["sum"]
-            if "state" in stat_record:
+            if stat_record.get("state") is not None:
                 value_obj["state"] = stat_record["state"]
+
+            # Calculate delta for counters (only if sum is not None)
+            if is_counter and stat_record.get("sum") is not None:
+                if previous_sum is not None:
+                    delta_value = stat_record["sum"] - previous_sum
+                    value_obj["delta"] = delta_value
+                # Note: first record has no delta (previous_sum is None)
+                previous_sum = stat_record["sum"]
 
             entity_obj["values"].append(value_obj)
 

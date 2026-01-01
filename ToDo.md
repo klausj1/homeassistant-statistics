@@ -11,6 +11,7 @@
 - Delta seems to be the change of the last hour, see graphs after importing "C:\Users\Klaus\source\repos\homeassistant-statistics\config\test_delta\test_case_1_sum_state.txt"
 - Check if with this it makes sense to need 1h before, or if same time is enough
 - Apart from that, it seems to work
+- Create unit test for the bug fix
 - Use summer time as well
 - Understand the negative value on the top right
 

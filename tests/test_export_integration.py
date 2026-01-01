@@ -189,6 +189,10 @@ class TestExportIntegration:
             export_file = Path(tmpdir) / "export_counter_data.csv"
             assert export_file.exists(), "Export file should be created"
 
+            # Verify delta column is present in the output
+            content = export_file.read_text()
+            assert "delta" in content, "Delta column should be present in counter exports"
+
             # Compare with reference file
             generated = self.normalize_file_content(str(export_file))
             reference = self.normalize_file_content("tests/testfiles/export_counter_data.csv")
@@ -260,6 +264,10 @@ class TestExportIntegration:
             # Verify file was created
             export_file = Path(tmpdir) / "export_mixed_data.tsv"
             assert export_file.exists(), "Export file should be created"
+
+            # Verify delta column is present in mixed exports
+            content = export_file.read_text()
+            assert "delta" in content, "Delta column should be present in mixed exports"
 
             # Compare with reference file
             generated = self.normalize_file_content(str(export_file))
@@ -347,7 +355,12 @@ class TestExportIntegration:
                         "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                         "sum": 10.5,
                         "state": 100.0,
-                    }
+                    },
+                    {
+                        "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
+                        "sum": 11.2,
+                        "state": 110.0,
+                    },
                 ]
             }
 
@@ -376,12 +389,16 @@ class TestExportIntegration:
 
             data = json.loads(export_file.read_text())
             assert isinstance(data, list), "JSON should be a list of records"
-            assert len(data) == 1, "Should have one record"
+            assert len(data) == 1, "Should have one entity record"
             assert data[0]["id"] == "counter.energy"
             assert "values" in data[0]
-            assert len(data[0]["values"]) == 1
+            assert len(data[0]["values"]) == 2, "Should have two value records"
             assert data[0]["values"][0]["sum"] == COUNTER_ENERGY_SUM
             assert data[0]["values"][0]["state"] == COUNTER_ENERGY_STATE
+            # First record should not have delta (no previous value)
+            assert "delta" not in data[0]["values"][0]
+            # Second record should have delta
+            assert "delta" in data[0]["values"][1]
 
             # Compare with reference file
             generated = self.normalize_file_content(str(export_file))
@@ -408,14 +425,25 @@ class TestExportIntegration:
                         "mean": 20.5,
                         "min": 20.0,
                         "max": 21.0,
-                    }
+                    },
+                    {
+                        "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
+                        "mean": 20.1,
+                        "min": 19.8,
+                        "max": 20.5,
+                    },
                 ],
                 "counter.energy": [
                     {
                         "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
                         "sum": 10.5,
                         "state": 100.0,
-                    }
+                    },
+                    {
+                        "start": 1706274000.0,  # 2024-01-26 13:00:00 UTC
+                        "sum": 11.2,
+                        "state": 110.0,
+                    },
                 ],
             }
 
@@ -444,9 +472,20 @@ class TestExportIntegration:
 
             data = json.loads(export_file.read_text())
             assert isinstance(data, list), "JSON should be a list of records"
-            assert len(data) == EXPECTED_RECORDS_COUNT, f"Should have {EXPECTED_RECORDS_COUNT} records"
+            assert len(data) == EXPECTED_RECORDS_COUNT, f"Should have {EXPECTED_RECORDS_COUNT} entity records"
             assert any(r["id"] == "sensor.temperature" for r in data)
             assert any(r["id"] == "counter.energy" for r in data)
+
+            # Verify delta is not in sensor data but structure is preserved for counter
+            sensor_record = next(r for r in data if r["id"] == "sensor.temperature")
+            assert len(sensor_record["values"]) == 2, "Should have 2 sensor records"
+            assert "delta" not in sensor_record["values"][0], "Sensor records should not have delta"
+            assert "delta" not in sensor_record["values"][1], "Sensor records should not have delta"
+
+            counter_record = next(r for r in data if r["id"] == "counter.energy")
+            assert len(counter_record["values"]) == 2, "Should have 2 counter records"
+            assert "delta" not in counter_record["values"][0], "First counter record should not have delta"
+            assert "delta" in counter_record["values"][1], "Second counter record should have delta"
 
             # Compare with reference file
             generated = self.normalize_file_content(str(export_file))

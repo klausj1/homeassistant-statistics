@@ -252,6 +252,7 @@ class TestPrepareExportData:
         assert "max" in columns
         assert "sum" not in columns
         assert "state" not in columns
+        assert "delta" not in columns  # Sensors do not have delta
         assert len(rows) == EXPECTED_ROWS_1
         assert rows[0][0] == "sensor.temperature"
         assert rows[0][1] == ""  # Unit is empty for raw format
@@ -272,6 +273,7 @@ class TestPrepareExportData:
 
         assert "sum" in columns
         assert "state" in columns
+        assert "delta" in columns
         assert "mean" not in columns
         assert "min" not in columns
         assert "max" not in columns
@@ -302,6 +304,7 @@ class TestPrepareExportData:
         # Should include both sensor and counter columns
         assert "mean" in columns
         assert "sum" in columns
+        assert "delta" in columns
         assert len(rows) == EXPECTED_ROWS_2
 
     def test_prepare_export_data_decimal_comma(self) -> None:
@@ -555,6 +558,8 @@ class TestPrepareExportJson:
         assert result[0]["id"] == "sensor.energy"
         assert result[0]["values"][0]["sum"] == EXPECTED_SUM_100_5
         assert result[0]["values"][0]["state"] == EXPECTED_STATE_100_5
+        # First record should not have delta (no previous value)
+        assert "delta" not in result[0]["values"][0]
 
     def test_prepare_export_json_multiple_entities(self) -> None:
         """Test JSON export with multiple entities."""
@@ -603,6 +608,9 @@ class TestPrepareExportJson:
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
         assert len(result[0]["values"]) == EXPECTED_ROWS_2
+        # Sensors do not have delta
+        assert "delta" not in result[0]["values"][0]
+        assert "delta" not in result[0]["values"][1]
 
     def test_prepare_export_json_timezone_conversion(self) -> None:
         """Test JSON export with timezone conversion."""
@@ -666,6 +674,32 @@ class TestPrepareExportJson:
         assert "sensor.temperature" in json_str
         assert "20.5" in json_str
 
+    def test_prepare_export_json_counter_multiple_records_with_delta(self) -> None:
+        """Test JSON export with multiple counter records to verify delta calculation."""
+        statistics_dict = {
+            "counter.energy": [
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26,  # 2024-01-26 12:00:00 UTC
+                    "sum": 10.5,  # First record
+                    "state": 100.0,  # First record state
+                },
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,  # 2024-01-26 13:00:00 UTC
+                    "sum": EXPECTED_SUM_11_2,
+                    "state": 110.0,
+                },
+            ]
+        }
+
+        result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
+
+        assert len(result[0]["values"]) == EXPECTED_ROWS_2
+        # First record should not have delta
+        assert "delta" not in result[0]["values"][0]
+        # Second record should have delta = 11.2 - 10.5 = 0.7
+        assert "delta" in result[0]["values"][1]
+        assert result[0]["values"][1]["delta"] == pytest.approx(0.7)
+
     def test_prepare_export_data_mixed_types_with_null_fields(self) -> None:
         """
         Test export with mixed sensor and counter data where all fields are present but some are None.
@@ -725,10 +759,22 @@ class TestPrepareExportJson:
         expected_rows = 4  # 2 sensor records + 2 counter records
         assert len(rows) == expected_rows
 
+        # Rows are sorted by statistic_id, so counter comes before sensor alphabetically
+        # Verify counter rows have counter values, empty sensor values
+        counter_rows = rows[:2]
+        for row in counter_rows:
+            # Row format: (statistic_id, unit, start, min, max, mean, sum, state, delta)
+            assert row[0] == "counter.energy"  # statistic_id
+            assert row[3] == ""  # min should be empty
+            assert row[4] == ""  # max should be empty
+            assert row[5] == ""  # mean should be empty
+            assert row[6] != ""  # sum should have value
+            assert row[7] != ""  # state should have value
+
         # Verify sensor rows have sensor values, empty counter values
-        sensor_rows = rows[:2]
+        sensor_rows = rows[2:]
         for row in sensor_rows:
-            # Row format: (statistic_id, unit, start, min, max, mean, sum, state)
+            # Row format: (statistic_id, unit, start, min, max, mean, sum, state, delta)
             assert row[0] == "sensor.temperature"  # statistic_id
             assert row[3] != ""  # min should have value
             assert row[4] != ""  # max should have value
@@ -736,13 +782,13 @@ class TestPrepareExportJson:
             assert row[6] == ""  # sum should be empty
             assert row[7] == ""  # state should be empty
 
-        # Verify counter rows have counter values, empty sensor values
-        counter_rows = rows[2:]
-        for row in counter_rows:
-            # Row format: (statistic_id, unit, start, min, max, mean, sum, state)
-            assert row[0] == "counter.energy"  # statistic_id
-            assert row[3] == ""  # min should be empty
-            assert row[4] == ""  # max should be empty
-            assert row[5] == ""  # mean should be empty
-            assert row[6] != ""  # sum should have value
-            assert row[7] != ""  # state should have value
+        # Verify delta column exists and is sparse (only populated for counters, second record onwards)
+        assert "delta" in columns
+        # First counter row should have empty delta (first record of that statistic_id)
+        assert rows[0][8] == ""
+        # Second counter row should have delta value
+        assert rows[1][8] != ""
+        # First sensor row should have empty delta
+        assert rows[2][8] == ""
+        # Second sensor row should have empty delta
+        assert rows[3][8] == ""
