@@ -498,7 +498,8 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
     if not rows:
         return []
 
-    # Sort rows by statistic_id, then by start timestamp (assuming start is string in datetime format)
+    # Sort rows by statistic_id first, then by start timestamp (sorted as string works if format is consistent)
+    # Start is in datetime format like "26.01.2024 12:00" - sort as string works if format is consistent
     sorted_rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
 
     result = []
@@ -602,7 +603,11 @@ def prepare_export_data(
         elif stat_type == "counter":
             has_counters = True
 
-        for stat_record in statistics_list:
+        # Sort statistics by start timestamp (chronological order) BEFORE formatting
+        # This ensures correct chronological order in output, not alphabetical
+        sorted_statistics_list = sorted(statistics_list, key=lambda rec: rec["start"])
+
+        for stat_record in sorted_statistics_list:
             row_dict = _process_statistic_record(
                 stat_record,
                 statistic_id,
@@ -635,8 +640,9 @@ def prepare_export_data(
     if has_deltas:
         column_order.append("delta")
 
-    # Sort rows by statistic_id to ensure consistent output order
-    rows = sorted(rows, key=lambda r: r["statistic_id"])
+    # Sort rows by statistic_id first (alphabetical), then by start timestamp (chronological)
+    # This ensures statistic_ids are grouped together and timestamps within each group are in chronological order
+    rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
 
     # Convert row dicts to tuples in column order, filling empty cells
     data_rows = [tuple(row_dict.get(col, "") for col in column_order) for row_dict in rows]
@@ -761,7 +767,10 @@ def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetim
         is_counter = any((rec.get("sum") is not None or rec.get("state") is not None) for rec in statistics_list)
         previous_sum = None
 
-        for stat_record in statistics_list:
+        # Sort records by start timestamp (ascending/chronological order)
+        sorted_statistics = sorted(statistics_list, key=lambda rec: rec["start"])
+
+        for stat_record in sorted_statistics:
             value_obj = {"datetime": _format_datetime(stat_record["start"], timezone, datetime_format)}
 
             # Add all available fields (only if not None)

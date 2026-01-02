@@ -21,21 +21,26 @@ template:
         state: "{{ 2 }}"
       - name: solaredge_i2_ac_energy_kwh
         state_class: total_increasing
+        device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 43081 }}"
       - name: go_echarger_238557_wh
         state_class: total_increasing
+        device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 8832 }}"
       - name: test_case_1
         state_class: total_increasing
+        device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 100 }}"
       - name: test_case_2
         state_class: total_increasing
+        device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 200 }}"
       - name: test_case_3
         state_class: total_increasing
+        device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 300 }}"
