@@ -47,27 +47,26 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Create unit test for the bug fix
 - Use summer time as well to test import / export with delta
 
 - Write a post export is working
-
-- Document mcp-server installation. In container use /home/vscode/.vscode-server/data/User/mcp.json
-  - See docs/mcp/mcp.json.
-  - For roo see https://docs.roocode.com/features/mcp/using-mcp-in-roo
-  - Worked only after pressing refresh servers a number of times (in roo / settings / mcp). Roo-config see docs/mcp/mcp.roo.json
-  - Try with input variables instead of fixed token
 
 - Setup test system
   - OK Export counters and sensors from real HA, or find already exported data
   - OK Create template sensors for counter and for sensor with the same name
   - OK Import does not work for counters, entity does not exist error (temperatures are OK)
   - OK Export hat erst ab September exportiert, obwohl das ganze Jahr angegeben wurde
-  - Test import functionality without delta (with "Verlauf" tab)
-  - Test import with delta
-  - Create integration test
+  - OK Test import functionality without delta (with "Verlauf" tab)
+  - OK Test import with delta
+  - Create integration test for testcase 1. Testfiles arelady exist, describe and let them be implemented
+
 - When 1 (older history available) is working, implement 2-4.
-- For MCP Server: Remove token from files. If possible, use env variable in host, and forward to container
+
+- Document mcp-server installation. In container use /home/vscode/.vscode-server/data/User/mcp.json
+  - See docs/mcp/mcp.json.
+  - For roo see https://docs.roocode.com/features/mcp/using-mcp-in-roo
+  - Worked only after pressing refresh servers a number of times (in roo / settings / mcp). Roo-config see docs/mcp/mcp.roo.json
+  - Try with input variables instead of fixed token
 
 ### Later
 - Setup a job to run the test in the pipeline as well, for pull requests

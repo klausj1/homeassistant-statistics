@@ -4,7 +4,6 @@ import datetime as dt
 from unittest.mock import MagicMock, patch
 
 import pytest
-import zoneinfo
 
 from custom_components.import_statistics import get_oldest_statistics_before
 
@@ -14,7 +13,8 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_with_utc_timezone_conversion(self) -> None:
-        """Test that reference records are found when timezone conversion is applied correctly.
+        """
+        Test that reference records are found when timezone conversion is applied correctly.
 
         This test validates the fix for timezone conversion in delta processing.
         The old buggy code would query the database with the user's local timezone,
@@ -25,8 +25,6 @@ class TestTimezoneReferenceLookup:
         3. The original timestamp passed to the query was in a non-UTC timezone
         4. The fixed code correctly converts to UTC before querying
         """
-        hass = MagicMock()
-
         # Setup: reference record at 2022-01-01 00:00 UTC
         # Import: delta data starts at 2022-01-01 01:00 UTC
         # User timezone: Europe/Vienna (UTC+1 in January)
@@ -64,7 +62,7 @@ class TestTimezoneReferenceLookup:
             mock_get_metadata.return_value = mock_metadata
 
             # Mock the executor job to return our reference row
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -85,13 +83,12 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_rejects_equal_timestamp(self) -> None:
-        """Test that reference records at exactly import start time are rejected.
+        """
+        Test that reference records at exactly import start time are rejected.
 
         Reference records must be strictly BEFORE the import start time.
         This test verifies that a record at exactly the import timestamp is rejected.
         """
-        hass = MagicMock()
-
         # Setup: reference record at 2022-01-01 01:00 UTC
         # Import: delta data starts at 2022-01-01 01:00 UTC (same timestamp)
         # This should be rejected because reference must be strictly BEFORE
@@ -122,7 +119,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -139,13 +136,12 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_with_different_timezones(self) -> None:
-        """Test reference lookup with multiple different timezone scenarios.
+        """
+        Test reference lookup with multiple different timezone scenarios.
 
         This validates that the timezone conversion works correctly with various
         offset timezones (positive, negative, and UTC).
         """
-        hass = MagicMock()
-
         # Test Case 1: Asia/Tokyo (UTC+9 in winter)
         # User enters: 2022-01-01 10:00 Tokyo time
         # Database stores: 2022-01-01 01:00 UTC (10:00 - 9 hours)
@@ -159,6 +155,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
 
         mock_reference_row = MagicMock()
         mock_reference_row.start_ts = reference_timestamp_utc.timestamp()
@@ -176,7 +173,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -185,7 +182,7 @@ class TestTimezoneReferenceLookup:
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 assert "counter.energy" in result
                 assert result["counter.energy"] is not None
@@ -194,8 +191,6 @@ class TestTimezoneReferenceLookup:
     @pytest.mark.asyncio
     async def test_reference_lookup_no_record_found(self) -> None:
         """Test reference lookup when no record exists before import start time."""
-        hass = MagicMock()
-
         import_start_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
 
         references_needed = {
@@ -203,6 +198,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
         mock_metadata = {
             "counter.energy": (1, {"unit_of_measurement": "kWh"}),
         }
@@ -214,7 +210,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -224,20 +220,19 @@ class TestTimezoneReferenceLookup:
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.return_value = None
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 assert "counter.energy" in result
                 assert result["counter.energy"] is None
 
     @pytest.mark.asyncio
     async def test_reference_lookup_multiple_statistics(self) -> None:
-        """Test reference lookup for multiple statistics with different timestamps.
+        """
+        Test reference lookup for multiple statistics with different timestamps.
 
         Each statistic can have its own import start time, requiring separate
         timezone conversions and database queries.
         """
-        hass = MagicMock()
-
         # Two statistics with different import start times
         energy_import_start = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
         gas_import_start = dt.datetime(2022, 1, 1, 2, 0, tzinfo=dt.UTC)
@@ -248,6 +243,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
 
         # Create mock rows for each statistic
         mock_energy_row = MagicMock()
@@ -272,25 +268,25 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
             mock_recorder.async_add_executor_job = mock_executor
 
             # Mock database queries to return different rows based on metadata_id
-            def mock_query_side_effect(metadata_id, ts, inst):
+            def mock_query_side_effect(metadata_id: object, _ts: object, _inst: object) -> object:
                 """Return different rows based on the metadata ID."""
                 if metadata_id == 1:
                     return mock_energy_row
-                elif metadata_id == 2:
+                if metadata_id == 2:
                     return mock_gas_row
                 return None
 
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.side_effect = mock_query_side_effect
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 # Both statistics should have references found
                 assert "counter.energy" in result
@@ -303,13 +299,12 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_utc_timezone_passthrough(self) -> None:
-        """Test that UTC timezone timestamps work correctly (no conversion needed).
+        """
+        Test that UTC timezone timestamps work correctly (no conversion needed).
 
         When user specifies UTC timezone, the timestamp should be used as-is.
         This validates that the fix doesn't break UTC timezone handling.
         """
-        hass = MagicMock()
-
         # Import start time in UTC (no conversion needed)
         import_start_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 0, 0, tzinfo=dt.UTC)
@@ -319,6 +314,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
 
         mock_reference_row = MagicMock()
         mock_reference_row.start_ts = reference_timestamp_utc.timestamp()
@@ -336,7 +332,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -345,7 +341,7 @@ class TestTimezoneReferenceLookup:
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 assert "counter.energy" in result
                 assert result["counter.energy"] is not None
@@ -353,13 +349,12 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_with_negative_timezone_offset(self) -> None:
-        """Test reference lookup with negative timezone offset (e.g., Americas).
+        """
+        Test reference lookup with negative timezone offset (e.g., Americas).
 
         Tests that the timezone conversion works correctly with negative UTC offsets
         like America/New_York (UTC-5 in winter).
         """
-        hass = MagicMock()
-
         # User timezone: America/New_York (UTC-5 in January)
         # User enters: 2022-01-01 08:00 ET (Eastern Time)
         # Database stores: 2022-01-01 13:00 UTC (8:00 + 5 hours)
@@ -373,6 +368,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
 
         mock_reference_row = MagicMock()
         mock_reference_row.start_ts = reference_timestamp_utc.timestamp()
@@ -390,7 +386,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -399,7 +395,7 @@ class TestTimezoneReferenceLookup:
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 assert "counter.energy" in result
                 assert result["counter.energy"] is not None
@@ -407,13 +403,12 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_rejects_after_timestamp(self) -> None:
-        """Test that reference records after import start time are rejected.
+        """
+        Test that reference records after import start time are rejected.
 
         Reference records must be strictly BEFORE the import start time.
         A record that comes after should be rejected.
         """
-        hass = MagicMock()
-
         # Reference record AFTER import start time
         import_start_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 2, 0, tzinfo=dt.UTC)  # 1 hour later
@@ -423,6 +418,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
 
         mock_reference_row = MagicMock()
         mock_reference_row.start_ts = reference_timestamp_utc.timestamp()
@@ -440,7 +436,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -449,7 +445,7 @@ class TestTimezoneReferenceLookup:
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 # Reference after import start should be rejected
                 assert "counter.energy" in result
@@ -457,13 +453,12 @@ class TestTimezoneReferenceLookup:
 
     @pytest.mark.asyncio
     async def test_reference_lookup_with_far_past_reference(self) -> None:
-        """Test that very old reference records are accepted if they're before import start.
+        """
+        Test that very old reference records are accepted if they're before import start.
 
         Reference records can be very old (days/weeks/months before) as long as they
         are strictly before the import start time.
         """
-        hass = MagicMock()
-
         # Import starts at 2022-01-01 01:00 UTC
         # Reference is from 30 days earlier
         import_start_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
@@ -474,6 +469,7 @@ class TestTimezoneReferenceLookup:
         }
 
         mock_recorder = MagicMock()
+        mock_hass = MagicMock()
 
         mock_reference_row = MagicMock()
         mock_reference_row.start_ts = reference_timestamp_utc.timestamp()
@@ -491,7 +487,7 @@ class TestTimezoneReferenceLookup:
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
 
-            async def mock_executor(func, *args):
+            async def mock_executor(func: object, *args: object) -> object:
                 """Mock executor that calls the function directly."""
                 return func(*args)
 
@@ -500,7 +496,7 @@ class TestTimezoneReferenceLookup:
             with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
-                result = await get_oldest_statistics_before(hass, references_needed)
+                result = await get_oldest_statistics_before(mock_hass, references_needed)
 
                 assert "counter.energy" in result
                 assert result["counter.energy"] is not None
