@@ -47,6 +47,8 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
+- Adapt test_cae 1 so that for the external sensor there is more than 1h timedifference for the oldest existing value
+
 - When 1 (older history available) is working, implement 2-4.
 
 - Write a post export is working

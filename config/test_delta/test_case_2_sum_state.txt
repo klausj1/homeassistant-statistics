@@ -1,0 +1,4 @@
+statistic_id	start	delta
+sensor.test_case_2	01.01.2024 00:00	10
+sensor.test_case_2	01.01.2024 01:00	20
+sensor.test_case_2	01.01.2024 02:00	30

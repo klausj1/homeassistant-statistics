@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.db_schema import Statistics
+from homeassistant.components.recorder.db_schema import Statistics as StatsTable
 from homeassistant.components.recorder.statistics import (
     _statistics_at_time,
     async_add_external_statistics,
@@ -115,7 +116,109 @@ def _process_reference_row(statistic_id: str, row: Any, before_timestamp: dt.dat
         result[statistic_id] = None
 
 
-async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: dict) -> dict:
+def _get_youngest_reference_stats(mid: int, ts: dt.datetime, inst: Any) -> tuple | None:
+    """Query database for youngest reference statistics after timestamp."""
+    with session_scope(session=inst.get_session(), read_only=True) as sess:
+        query = (
+            sess.query(StatsTable)
+            .filter(
+                StatsTable.metadata_id == mid,
+                StatsTable.start_ts >= ts.timestamp(),
+            )
+            .order_by(StatsTable.start_ts.asc())
+            .limit(1)
+        )
+
+        result = query.first()
+
+        # Validate that result is at least 1 hour after timestamp
+        if result:
+            result_dt = dt_util.utc_from_timestamp(result.start_ts if hasattr(result, "start_ts") else result.start)
+            time_diff = result_dt - ts
+            if time_diff >= dt.timedelta(hours=1):
+                return result
+
+        return None
+
+
+async def get_youngest_statistic_after(hass: HomeAssistant, statistic_id: str, timestamp: dt.datetime) -> dict | None:
+    """
+    Query database for first statistic record >= 1 hour after timestamp.
+
+    Args:
+    ----
+        hass: Home Assistant instance
+        statistic_id: The statistic ID to query
+        timestamp: The reference timestamp (UTC) - find records >= 1 hour after this
+
+    Returns:
+    -------
+        dict: {start: datetime, sum: float, state: float} or None if not found
+
+    Raises:
+    ------
+        HomeAssistantError: On database query failure or metadata lookup failure
+
+    """
+    _LOGGER.debug("Querying youngest statistic after %s for %s", timestamp, statistic_id)
+
+    recorder_instance = get_instance(hass)
+    if recorder_instance is None:
+        helpers.handle_error("Recorder component is not running")
+
+    # Get metadata for this statistic_id
+    try:
+        metadata_dict = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids={statistic_id}))
+    except Exception as exc:  # noqa: BLE001
+        helpers.handle_error(f"Failed to get metadata for {statistic_id}: {exc}")
+
+    if not metadata_dict or statistic_id not in metadata_dict:
+        _LOGGER.debug("No metadata found for %s", statistic_id)
+        return None
+
+    metadata_id, _meta_data = metadata_dict[statistic_id]
+
+    try:
+        # Query for youngest reference (at least 1 hour after timestamp)
+        youngest_stats = await recorder_instance.async_add_executor_job(
+            _get_youngest_reference_stats,
+            metadata_id,
+            timestamp,
+            recorder_instance,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.error("Failed to query youngest statistics for %s: %s", statistic_id, exc)
+        return None
+
+    if not youngest_stats:
+        _LOGGER.debug("No youngest reference found for %s at least 1 hour after %s", statistic_id, timestamp)
+        return None
+
+    # Extract values from the row
+    try:
+        result_dt = _extract_row_start_datetime(youngest_stats)
+        result_sum = _get_row_sum_value(youngest_stats)
+        result_state = _get_row_state_value(youngest_stats)
+
+        _LOGGER.debug(
+            "Found youngest reference for %s: start=%s, sum=%s, state=%s",
+            statistic_id,
+            result_dt,
+            result_sum,
+            result_state,
+        )
+    except (AttributeError, KeyError, TypeError) as exc:
+        _LOGGER.error("Error extracting values from youngest reference row for %s: %s", statistic_id, exc)
+        return None
+    else:
+        return {
+            "start": result_dt,
+            "sum": result_sum,
+            "state": result_state,
+        }
+
+
+async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: dict) -> dict:  # noqa: PLR0912
     """
     Query recorder for oldest statistics before given timestamps.
 
@@ -189,6 +292,22 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
         else:
             result[statistic_id] = None
             _LOGGER.debug("No reference found for %s", statistic_id)
+
+    # Second pass: for missing references, query for younger references (Case 2)
+    missing_refs = {k: v for k, v in references_needed.items() if result.get(k) is None}
+    if missing_refs:
+        _LOGGER.debug("Querying for younger references for %d missing statistics", len(missing_refs))
+        for statistic_id, before_timestamp in missing_refs.items():
+            try:
+                youngest_ref = await get_youngest_statistic_after(hass, statistic_id, before_timestamp)
+                if youngest_ref:
+                    result[statistic_id] = youngest_ref
+                    _LOGGER.debug("Found Case 2 (younger) reference for %s", statistic_id)
+                else:
+                    result[statistic_id] = None
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error("Error querying younger reference for %s: %s", statistic_id, exc)
+                result[statistic_id] = None
 
     _LOGGER.debug(
         "Query complete: found %d / %d references",

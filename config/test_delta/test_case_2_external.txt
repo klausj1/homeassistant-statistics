@@ -1,0 +1,4 @@
+statistic_id	start	unit	delta
+sensor:test_case_2_ext	01.01.2024 00:00	kWh	5
+sensor:test_case_2_ext	01.01.2024 01:00	kWh	15
+sensor:test_case_2_ext	01.01.2024 02:00	kWh	25
