@@ -371,7 +371,6 @@ def validate_filename(filename: str, config_dir: str) -> str:
     - The filename is a string
     - No absolute paths
     - No .. directory traversal sequences
-    - No path separators (/)
     - The resolved path stays within config_dir
 
     Args:
@@ -397,10 +396,6 @@ def validate_filename(filename: str, config_dir: str) -> str:
     # Reject absolute paths
     if filename.startswith("/"):
         handle_error(f"Filename cannot be an absolute path: {filename}")
-
-    # Reject path separators
-    if "/" in filename or "\\" in filename:
-        handle_error(f"Filename cannot contain path separators: {filename}")
 
     # Reject .. sequences
     if ".." in filename:

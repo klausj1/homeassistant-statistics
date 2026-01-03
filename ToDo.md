@@ -47,7 +47,12 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
+- Check begin and end time for exports in integration test
+
 - Use summer time as well to test import / export with delta
+
+- Add external statistics to integration test
+- Remove sqlite-db before testing
 
 - Write a post export is working
 
@@ -69,9 +74,11 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - Try with input variables instead of fixed token
 
 ### Later
+- Is it possible to wait until async import task is ready?
 - Setup a job to run the test in the pipeline as well, for pull requests
 - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import
   - Also in normal import an empty value is returned. I do not understand, maybe this is anyhow checked before already?
 - Code duplication between handle_import_from_file and json
   - JSON does not work anyhow
 - Check what should be in init and what not; own file for HA-dependent helpers
+- Allow import of counter and sensor in one file

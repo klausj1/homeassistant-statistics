@@ -3,6 +3,8 @@ default_config:
 
 import_statistics:
 
+http:
+api:
 # https://www.home-assistant.io/integrations/logger/
 logger:
   default: info
