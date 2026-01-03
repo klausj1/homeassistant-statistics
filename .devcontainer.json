@@ -36,32 +36,6 @@
                 "[python]": {
                     "editor.defaultFormatter": "charliermarsh.ruff"
                 }
-            },
-            "mcp": {
-                "servers": {
-                    "ha mcp prod": {
-                        "type": "stdio",
-                        "command": "uvx",
-                        "args": [
-                            "hass-mcp"
-                        ],
-                        "env": {
-                            "HA_URL": "http://ha:8123",
-                            "HA_TOKEN": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhNTg1ZjExMzdjNGE0NTIwODM1ZTE5MTMxOTk5N2FhOSIsImlhdCI6MTc2NzA3ODU2NiwiZXhwIjoyMDgyNDM4NTY2fQ.XQcxJ_dg4l5cWsoT_5FwnnhRcKBrm8JMUt4UinoddY8"
-                        }
-                    },
-                    "ha mcp dev": {
-                        "type": "stdio",
-                        "command": "uvx",
-                        "args": [
-                            "hass-mcp"
-                        ],
-                        "env": {
-                            "HA_URL": "http://localhost:8123",
-                            "HA_TOKEN": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI3YzM0MjNlMmQ4YWI0YTQ3OTc3NzU0Zjc1MTYyNTA2NSIsImlhdCI6MTc2NzEwNjg1NSwiZXhwIjoyMDgyNDY2ODU1fQ.v3WVOt-QZs2JmfitFrNJM0PriV2q6HbpL3AilA6xEJs"
-                        }
-                    }
-                }
             }
         }
     },

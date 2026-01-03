@@ -101,7 +101,6 @@ class TestIntegrationDeltaImports:
         attempt = 0
 
         print(f"\n[DEBUG] Starting HA startup wait: url={ha_url}, timeout={timeout_seconds}s")
-        print(f"[DEBUG] Token: {self.ha_token[:50]}...")
 
         # First, try to connect without starting
         while (time.time() - start_time) < max_wait:
@@ -186,7 +185,6 @@ class TestIntegrationDeltaImports:
         try:
             async with aiohttp.ClientSession() as session:
                 print(f"[DEBUG] Calling service {service_name} with data: {data}")
-                print(f"[DEBUG] Headers: {headers}")
                 async with session.post(
                     f"{ha_url}/api/services/{DOMAIN}/{service_name}",
                     json=data,
@@ -306,14 +304,14 @@ class TestIntegrationDeltaImports:
         assert success, "Failed to call import_from_file service for sum_state"
         await asyncio.sleep(2)  # Wait for import to complete
 
-        # Export and verify step 1
+        # Export and verify step 1 (both entities)
         export_file_1 = config_dir / "test_delta" / "export_after_step1.tsv"
         success = await self._call_service(
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step1.tsv",
-                "entities": ["sensor.test_case_1"],
-                "start_time": "2025-12-29 00:00:00",
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
+                "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
             },
@@ -343,14 +341,14 @@ class TestIntegrationDeltaImports:
         assert success, "Failed to call import_from_file service for delta_unchanged"
         await asyncio.sleep(2)  # Wait for import to complete
 
-        # Export and verify step 2
+        # Export and verify step 2 (both entities)
         export_file_2 = config_dir / "test_delta" / "export_after_step2.tsv"
         success = await self._call_service(
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step2.tsv",
-                "entities": ["sensor.test_case_1"],
-                "start_time": "2025-12-29 00:00:00",
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
+                "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
             },
@@ -380,14 +378,14 @@ class TestIntegrationDeltaImports:
         assert success, "Failed to call import_from_file service for delta_changed"
         await asyncio.sleep(2)  # Wait for import to complete
 
-        # Export and verify step 3
+        # Export and verify step 3 (both entities)
         export_file_3 = config_dir / "test_delta" / "export_after_step3.tsv"
         success = await self._call_service(
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step3.tsv",
-                "entities": ["sensor.test_case_1"],
-                "start_time": "2025-12-29 00:00:00",
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
+                "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
             },

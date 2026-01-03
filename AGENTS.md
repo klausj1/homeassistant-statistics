@@ -79,17 +79,17 @@ pytest -v tests/test_X.py # Run specific test file
 
 Delta conversion workflow (Case 1 - older database reference):
 1. [`handle_dataframe()`](custom_components/import_statistics/prepare_data.py:296) detects delta column and returns marker tuple
-2. [`get_oldest_statistics_before()`](custom_components/import_statistics/__init__.py:42) (async) queries recorder for reference records at least 1 hour before import start
+2. [`get_oldest_statistics_before()`](custom_components/import_statistics/__init__.py:118) (async) queries recorder for reference records at least 1 hour before import start
 3. [`convert_deltas_case_1()`](custom_components/import_statistics/prepare_data.py:27) (pure calculation) accumulates deltas to absolute sum/state values
 4. [`convert_delta_dataframe_with_references()`](custom_components/import_statistics/prepare_data.py:88) (pure calculation) groups by statistic_id and applies conversion
 - All reference fetching is async; conversions are pure/testable
 - Marker tuple format: `("_DELTA_PROCESSING_NEEDED", df, references_needed, timezone_identifier, datetime_format, unit_from_where)`
 
 ### Export Data Mixing
-[`prepare_export_data()`](custom_components/import_statistics/prepare_data.py:287) allows mixed sensor (mean/min/max) and counter (sum/state) statistics in one export. Columns remain sparse with empty strings for non-applicable types.
+[`prepare_export_data()`](custom_components/import_statistics/prepare_data.py:548) allows mixed sensor (mean/min/max) and counter (sum/state) statistics in one export. Columns remain sparse with empty strings for non-applicable types.
 
 ### Service Handler Pattern
-[`setup()`](custom_components/import_statistics/__init__.py:336) registers services synchronously, but:
+[`setup()`](custom_components/import_statistics/__init__.py:387) registers services synchronously, but:
 - Import handlers (`_handle_import_from_file_impl`, `_handle_import_from_json_impl`) are async for delta processing
 - Export handler (`_handle_export_statistics_impl`) is async with executor calls for blocking I/O
 - Data preparation (CSV/JSON parsing) is sync via executor to avoid blocking
