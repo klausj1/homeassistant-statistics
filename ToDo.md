@@ -47,12 +47,9 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Use summer time as well to test import / export with delta
-  - Use external statistics for this
+- When 1 (older history available) is working, implement 2-4.
 
 - Write a post export is working
-
-- When 1 (older history available) is working, implement 2-4.
 
 - Add non-delta imports to the integration test
 

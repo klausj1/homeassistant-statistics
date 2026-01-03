@@ -112,3 +112,11 @@ From `.ruff.toml`:
 - Import path: `from custom_components.import_statistics import ...` (PYTHONPATH set by develop script)
 - Mock Home Assistant dependencies using homeassistant framework
 - Test files follow naming convention: `test_*.py`
+
+### Integration test
+
+- There is an integration test: test_integration_delta_imports.py
+- This tests tests without mocks, with a running home assistance instance
+- The home assistance instance can be running before the test. If not, the test starts it und kills it at the end of the test
+- This tests needs the environment variable HA_TOKEN set
+- Before running this test, source .env to set HA_TOKEN

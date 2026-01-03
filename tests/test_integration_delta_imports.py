@@ -1,7 +1,7 @@
 """Integration test for delta column imports with running Home Assistant instance."""
 
 import asyncio
-from doctest import debug
+import logging
 import os
 import subprocess
 import time
@@ -13,6 +13,8 @@ import psutil
 import pytest
 
 from custom_components.import_statistics.const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.usefixtures("allow_socket_for_integration")
@@ -31,32 +33,32 @@ class TestIntegrationDeltaImports:
 
     @classmethod
     def setup_class(cls) -> None:
-        """Setup class - no HA startup here, will be done in _wait_for_ha_startup."""
-        print("\n" + "=" * 80)
-        print("Test class setup (HA startup will happen in test)")
-        print("=" * 80)
+        """Set up class - no HA startup here, will be done in _wait_for_ha_startup."""
+        _LOGGER.info("\n%s", "=" * 80)
+        _LOGGER.info("Test class setup (HA startup will happen in test)")
+        _LOGGER.info("%s", "=" * 80)
         cls.ha_process = None
         cls.ha_started_by_test = False
 
     @classmethod
     def teardown_class(cls) -> None:
         """Stop Home Assistant after tests complete (only if we started it)."""
-        print("\n" + "=" * 80)
-        print("Stopping Home Assistant...")
-        print("=" * 80)
+        _LOGGER.info("\n%s", "=" * 80)
+        _LOGGER.info("Stopping Home Assistant...")
+        _LOGGER.info("%s", "=" * 80)
         if cls.ha_started_by_test and cls.ha_process is not None:
             try:
-                print("Terminating Home Assistant process...")
-                print(f"HA process PID: {cls.ha_process.pid}")
+                _LOGGER.info("Terminating Home Assistant process...")
+                _LOGGER.info("HA process PID: %s", cls.ha_process.pid)
 
                 # Kill child processes (especially hass which is a child of the bash script)
                 try:
                     parent = psutil.Process(cls.ha_process.pid)
                     children = parent.children(recursive=True)
-                    print(f"Found {len(children)} child processes to terminate")
+                    _LOGGER.info("Found %s child processes to terminate", len(children))
                     for child in children:
                         try:
-                            print(f"Terminating child process: PID={child.pid}, name={child.name()}")
+                            _LOGGER.info("Terminating child process: PID=%s, name=%s", child.pid, child.name())
                             child.terminate()
                         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                             pass
@@ -67,16 +69,16 @@ class TestIntegrationDeltaImports:
                 cls.ha_process.terminate()
                 try:
                     cls.ha_process.wait(timeout=10)
-                    print("Home Assistant terminated successfully")
+                    _LOGGER.info("Home Assistant terminated successfully")
                 except subprocess.TimeoutExpired:
-                    print("Timeout waiting for process to terminate, killing...")
+                    _LOGGER.info("Timeout waiting for process to terminate, killing...")
                     cls.ha_process.kill()
                     cls.ha_process.wait()
-                    print("Home Assistant killed (timeout on terminate)")
-            except Exception as e:  # noqa: BLE001
-                print(f"Error stopping Home Assistant: {e}")
+                    _LOGGER.info("Home Assistant killed (timeout on terminate)")
+            except Exception:
+                _LOGGER.exception("Error stopping Home Assistant")
         else:
-            print("Home Assistant was already running, leaving it running")
+            _LOGGER.info("Home Assistant was already running, leaving it running")
 
     async def _wait_for_ha_startup(
         self,
@@ -100,7 +102,7 @@ class TestIntegrationDeltaImports:
         max_wait = timeout_seconds
         attempt = 0
 
-        print(f"\n[DEBUG] Starting HA startup wait: url={ha_url}, timeout={timeout_seconds}s")
+        _LOGGER.debug("Starting HA startup wait: url=%s, timeout=%ss", ha_url, timeout_seconds)
 
         # First, try to connect without starting
         while (time.time() - start_time) < max_wait:
@@ -108,54 +110,56 @@ class TestIntegrationDeltaImports:
             elapsed = time.time() - start_time
             try:
                 headers = {"Authorization": f"Bearer {self.ha_token}"}
-                print(f"[DEBUG] Attempt {attempt} (elapsed: {elapsed:.1f}s): Trying to connect to {ha_url}/api/")
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(f"{ha_url}/api/", headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                        print(f"[DEBUG] Got response: status={response.status}")
-                        if response.status in (200, 401):  # 401 means HA is up but needs token
-                            print(f"[DEBUG] ✓ HA is responsive! Status: {response.status}")
-                            if attempt > 1:
-                                await asyncio.sleep(2)  # Give it an extra second to be fully ready
-                                print("[DEBUG] ✓ Returning True after waiting 2 more seconds")
-                            return True
-                        print(f"[DEBUG] Unexpected status {response.status}, retrying...")
+                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Trying to connect to %s/api/", attempt, elapsed, ha_url)
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.get(f"{ha_url}/api/", headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as response,
+                ):
+                    _LOGGER.debug("Got response: status=%s", response.status)
+                    if response.status in (200, 401):  # 401 means HA is up but needs token
+                        _LOGGER.debug("✓ HA is responsive! Status: %s", response.status)
+                        if attempt > 1:
+                            await asyncio.sleep(2)  # Give it an extra second to be fully ready
+                            _LOGGER.debug("✓ Returning True after waiting 2 more seconds")
+                        return True
+                    _LOGGER.debug("Unexpected status %s, retrying...", response.status)
             except TimeoutError:
-                print(f"[DEBUG] Attempt {attempt} (elapsed: {elapsed:.1f}s): Timeout waiting for response")
+                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Timeout waiting for response", attempt, elapsed)
                 # If we've waited long enough without connection, start HA
                 if elapsed > 10 and self.__class__.ha_process is None:
                     await self._start_ha()
             except aiohttp.ClientConnectionError as e:
-                print(f"[DEBUG] Attempt {attempt} (elapsed: {elapsed:.1f}s): Connection error: {type(e).__name__} (HA may not be listening yet)")
+                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Connection error: %s (HA may not be listening yet)", attempt, elapsed, type(e).__name__)
                 # If we've waited long enough without connection, start HA
                 if elapsed > 10 and self.__class__.ha_process is None:
                     await self._start_ha()
             except aiohttp.ClientError as e:
-                print(f"[DEBUG] Attempt {attempt} (elapsed: {elapsed:.1f}s): Client error: {type(e).__name__}: {e}")
+                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Client error: %s: %s", attempt, elapsed, type(e).__name__, e)
             except Exception as e:  # noqa: BLE001
-                print(f"[DEBUG] Attempt {attempt} (elapsed: {elapsed:.1f}s): Unexpected error: {type(e).__name__}: {e}")
+                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Unexpected error: %s: %s", attempt, elapsed, type(e).__name__, e)
 
             await asyncio.sleep(1)
 
-        print(f"[DEBUG] ✗ Timeout after {timeout_seconds}s - HA did not start")
+        _LOGGER.warning("✗ Timeout after %ss - HA did not start", timeout_seconds)
         return False
 
     async def _start_ha(self) -> None:
         """Start Home Assistant if not already running."""
-        print("\n" + "=" * 80)
-        print("Starting Home Assistant...")
-        print("=" * 80)
+        _LOGGER.info("\n%s", "=" * 80)
+        _LOGGER.info("Starting Home Assistant...")
+        _LOGGER.info("%s", "=" * 80)
         try:
             script_path = Path(__file__).parent.parent / "scripts" / "develop"
-            self.__class__.ha_process = subprocess.Popen(
-                ["bash", str(script_path)],
+            self.__class__.ha_process = subprocess.Popen(  # noqa: S603, ASYNC220
+                ["/bin/bash", str(script_path)],
                 text=True,
             )
             self.__class__.ha_started_by_test = True
-            print(f"Home Assistant process started with PID: {self.__class__.ha_process.pid}")
-            print("(HA logs will appear below)\n")
+            _LOGGER.info("Home Assistant process started with PID: %s", self.__class__.ha_process.pid)
+            _LOGGER.info("(HA logs will appear below)\n")
             await asyncio.sleep(3)  # Give it time to start
-        except Exception as e:
-            print(f"Failed to start Home Assistant: {e}")
+        except Exception:
+            _LOGGER.exception("Failed to start Home Assistant")
             raise
 
     @staticmethod
@@ -184,7 +188,7 @@ class TestIntegrationDeltaImports:
 
         try:
             async with aiohttp.ClientSession() as session:
-                print(f"[DEBUG] Calling service {service_name} with data: {data}")
+                _LOGGER.debug("Calling service %s with data: %s", service_name, data)
                 async with session.post(
                     f"{ha_url}/api/services/{DOMAIN}/{service_name}",
                     json=data,
@@ -193,12 +197,12 @@ class TestIntegrationDeltaImports:
                 ) as response:
                     if response.status not in (200, 201):
                         error_text = await response.text()
-                        print(f"Service call failed: {service_name}, Status: {response.status}, Response: {error_text}")
+                        _LOGGER.error("Service call failed: %s, Status: %s, Response: %s", service_name, response.status, error_text)
                     else:
-                        print(f"Service call succeeded: {service_name}, Status: {response.status}")
+                        _LOGGER.debug("Service call succeeded: %s, Status: %s", service_name, response.status)
                     return response.status in (200, 201)
-        except Exception as e:  # noqa: BLE001
-            print(f"Error calling service: {e}")
+        except Exception:
+            _LOGGER.exception("Error calling service")
             return False
 
     @staticmethod
@@ -213,7 +217,7 @@ class TestIntegrationDeltaImports:
             List of rows with normalized whitespace
 
         """
-        with open(file_path, encoding="utf-8") as f:
+        with file_path.open(encoding="utf-8") as f:
             lines = f.read().strip().split("\n")
             return [line.split("\t") for line in lines]
 
@@ -235,13 +239,13 @@ class TestIntegrationDeltaImports:
         expected_rows = TestIntegrationDeltaImports._normalize_tsv_for_comparison(expected_path)
 
         if len(actual_rows) != len(expected_rows):
-            print(f"Row count mismatch: {len(actual_rows)} vs {len(expected_rows)}")
+            _LOGGER.error("Row count mismatch: %s vs %s", len(actual_rows), len(expected_rows))
             return False
 
         # Skip header row
         for i, (actual_row, expected_row) in enumerate(zip(actual_rows[1:], expected_rows[1:], strict=False), start=2):
             if len(actual_row) != len(expected_row):
-                print(f"Column count mismatch at row {i}: {len(actual_row)} vs {len(expected_row)}")
+                _LOGGER.error("Column count mismatch at row %s: %s vs %s", i, len(actual_row), len(expected_row))
                 return False
 
             for j, (actual_val, expected_val) in enumerate(zip(actual_row, expected_row, strict=False)):
@@ -250,12 +254,12 @@ class TestIntegrationDeltaImports:
                     actual_num = float(actual_val)
                     expected_num = float(expected_val)
                     if abs(actual_num - expected_num) > tolerance:
-                        print(f"Value mismatch at row {i}, col {j}: {actual_num} vs {expected_num}")
+                        _LOGGER.error("Value mismatch at row %s, col %s: %s vs %s", i, j, actual_num, expected_num)
                         return False
                 except ValueError:
                     # Non-numeric comparison
                     if actual_val != expected_val:
-                        print(f"Value mismatch at row {i}, col {j}: '{actual_val}' vs '{expected_val}'")
+                        _LOGGER.exception("Value mismatch at row %s, col %s: '%s' vs '%s'", i, j, actual_val, expected_val)
                         return False
 
         return True
