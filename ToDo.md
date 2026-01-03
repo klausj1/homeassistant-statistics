@@ -47,9 +47,31 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Adapt test_cae 1 so that for the external sensor there is more than 1h timedifference for the oldest existing value
+- Integration test for test case 2: AI did nonsense, create testdata on my own
+  - Still, primitive test could be done before.
+  - Internal: homeassistant.exceptions.HomeAssistantError: Failed to find database reference for: sensor.test_case_2 (no records at least 1 hour before import start)
+    - returned in UI, this is OK, the testdata is wrong
+  - External: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext']
+    - Could be returned as info to the UI, do not use delta when there is no reference at all
 
-- When 1 (older history available) is working, implement 2-4.
+- External statistics do not work, the query in _get_youngest_reference_stats does not work for them (no rows are returned, no matter of the timestamp), no idea why -> ignore for now
+- Understand the stuff with the youngest timestamp. Currently the query in _get_youngest_reference_stats uses the oldest timestamp in the imported file, and searches for younger (=larger) timestamps (start_ts >= ts.timestamp())
+- According to the case 2 description: "if a value in the HA long term statistics database exists, which is at least 1 hour younger than tImportYoungest"
+  - This is implemented wrongly, because it searches for tImportOldest
+- Also this has not been considered:
+    **For Case 2 (After Reference)**:
+    - Use `get_last_statistics()` - public API to get recent statistics
+    - Returns last N statistics, can filter for records after timestamp
+    - More straightforward than Case 1 but requires post-filtering
+Maybe there external statistics work ...
+
+
+- Rename integration test and methods and test files in the integration test, as they test all cases
+
+- When 1 (older history available) is working, implement 2-4. In work
+  - Whats the difference between 2 and 3? And 3 and 1? Isn't overriding 1? Understand before impementation
+
+- Check error messages
 
 - Write a post export is working
 

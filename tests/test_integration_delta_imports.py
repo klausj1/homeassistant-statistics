@@ -314,7 +314,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step1.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -351,7 +351,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step2.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -404,149 +404,3 @@ class TestIntegrationDeltaImports:
         assert reference_file_3.exists(), f"Reference file not found: {reference_file_3}"
         assert self._compare_tsv_files(export_file_3, reference_file_3), "Step 3 export does not match reference"
 
-    @pytest.mark.asyncio
-    async def test_import_case_2_younger_reference_internal(
-        self,
-    ) -> None:
-        """
-        Test Case 2 delta conversion with younger reference (internal statistics).
-
-        Prerequisites:
-        - Home Assistant is started by setup_class
-        - Test data files are in config directory
-
-        Scenario:
-        - Import deltas with NO older reference
-        - Younger reference data exists (at least 1 hour after last delta)
-        - Expected: deltas converted to absolute values via backward subtraction
-        - Verify in database: correct sum/state values
-        - Verify no spikes at import boundary
-
-        """
-        config_dir = Path(__file__).parent.parent / "config"
-
-        # Wait for HA to be fully started (up to 3 minutes)
-        is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
-        assert is_ready, "Home Assistant did not start within 3 minutes"
-
-        # ==================== Import Case 2 Internal (younger reference) ====================
-        success = await self._call_service(
-            "import_from_file",
-            {
-                "filename": "test_delta/test_case_2_sum_state.txt",
-                "timezone_identifier": "Europe/Vienna",
-                "delimiter": "\t",
-                "decimal": False,
-            },
-            ha_url=self.ha_url,
-            token=self.ha_token,
-        )
-        assert success, "Failed to call import_from_file service for test_case_2_sum_state"
-        await asyncio.sleep(2)  # Wait for import to complete
-
-        # Export and verify Case 2 internal statistics
-        export_file = config_dir / "test_delta" / "export_case_2_internal.tsv"
-        success = await self._call_service(
-            "export_statistics",
-            {
-                "filename": "test_delta/export_case_2_internal.tsv",
-                "entities": ["sensor.test_case_2"],
-                "start_time": "2024-01-01 00:00:00",
-                "end_time": "2024-01-02 00:00:00",
-                "timezone_identifier": "Europe/Vienna",
-            },
-            ha_url=self.ha_url,
-            token=self.ha_token,
-        )
-        assert success, "Failed to export statistics for Case 2 internal"
-        await asyncio.sleep(1)
-
-        # Verify export file exists
-        assert export_file.exists(), f"Export file not found: {export_file}"
-
-        # Verify file has expected structure (3 rows of data + header)
-        with export_file.open(encoding="utf-8") as f:
-            lines = f.readlines()
-            assert len(lines) >= 4, f"Expected at least 4 lines (header + 3 data rows), got {len(lines)}"
-
-        # Parse and verify values - deltas should be converted via backward subtraction
-        # For Case 2, with younger reference, deltas [10, 20, 30] convert backward
-        # This depends on what younger reference exists in the database
-        _LOGGER.info("Case 2 internal import completed successfully")
-
-    @pytest.mark.asyncio
-    async def test_import_case_2_younger_reference_external(
-        self,
-    ) -> None:
-        """
-        Test Case 2 delta conversion with younger reference (external statistics).
-
-        Prerequisites:
-        - Home Assistant is started by setup_class
-        - Test data files are in config directory
-
-        Scenario:
-        - Import deltas with external format (colon separator)
-        - NO older reference data exists
-        - Younger reference data exists (at least 1 hour after last delta)
-        - Unit column: kWh (required for external)
-        - Expected: deltas converted to absolute state values via backward subtraction
-        - Verify in database: correct state values with unit
-        - Verify external statistics metadata correct
-
-        """
-        config_dir = Path(__file__).parent.parent / "config"
-
-        # Wait for HA to be fully started (up to 3 minutes)
-        is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
-        assert is_ready, "Home Assistant did not start within 3 minutes"
-
-        # ==================== Import Case 2 External (younger reference) ====================
-        success = await self._call_service(
-            "import_from_file",
-            {
-                "filename": "test_delta/test_case_2_external.txt",
-                "timezone_identifier": "Europe/Vienna",
-                "delimiter": "\t",
-                "decimal": False,
-            },
-            ha_url=self.ha_url,
-            token=self.ha_token,
-        )
-        assert success, "Failed to call import_from_file service for test_case_2_external"
-        await asyncio.sleep(2)  # Wait for import to complete
-
-        # Export and verify Case 2 external statistics
-        export_file = config_dir / "test_delta" / "export_case_2_external.tsv"
-        success = await self._call_service(
-            "export_statistics",
-            {
-                "filename": "test_delta/export_case_2_external.tsv",
-                "entities": ["sensor:test_case_2_ext"],
-                "start_time": "2024-01-01 00:00:00",
-                "end_time": "2024-01-02 00:00:00",
-                "timezone_identifier": "Europe/Vienna",
-            },
-            ha_url=self.ha_url,
-            token=self.ha_token,
-        )
-        assert success, "Failed to export statistics for Case 2 external"
-        await asyncio.sleep(1)
-
-        # Verify export file exists
-        assert export_file.exists(), f"Export file not found: {export_file}"
-
-        # Verify file has expected structure (3 rows of data + header)
-        with export_file.open(encoding="utf-8") as f:
-            lines = f.readlines()
-            assert len(lines) >= 4, f"Expected at least 4 lines (header + 3 data rows), got {len(lines)}"
-
-        # Verify unit column is present in export
-        with export_file.open(encoding="utf-8") as f:
-            header = f.readline().strip().split("\t")
-            assert "unit" in header, f"Unit column not found in export header: {header}"
-
-        # Parse and verify values - deltas should be converted via backward subtraction
-        # For Case 2, with younger reference, deltas [5, 15, 25] convert backward
-        # This depends on what younger reference exists in the database
-        _LOGGER.info("Case 2 external import completed successfully")

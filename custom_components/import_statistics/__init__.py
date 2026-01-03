@@ -20,6 +20,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
+from sqlalchemy import select
 
 from custom_components.import_statistics import helpers, prepare_data
 from custom_components.import_statistics.const import (
@@ -119,20 +120,15 @@ def _process_reference_row(statistic_id: str, row: Any, before_timestamp: dt.dat
 def _get_youngest_reference_stats(mid: int, ts: dt.datetime, inst: Any) -> tuple | None:
     """Query database for youngest reference statistics after timestamp."""
     with session_scope(session=inst.get_session(), read_only=True) as sess:
-        query = (
-            sess.query(StatsTable)
-            .filter(
-                StatsTable.metadata_id == mid,
-                StatsTable.start_ts >= ts.timestamp(),
-            )
-            .order_by(StatsTable.start_ts.asc())
-            .limit(1)
-        )
+        stmt = select(StatsTable).filter(StatsTable.metadata_id == mid).filter(StatsTable.start_ts >= ts.timestamp()).order_by(StatsTable.start_ts.asc()).limit(1)
+        _LOGGER.debug("Executing query for youngest reference stats for metadata_id %d after %s, unix: %s", mid, ts, ts.timestamp())
+        _LOGGER.debug("Query: %s", str(stmt))
 
-        result = query.first()
+        result = sess.execute(stmt).scalars().first()
 
         # Validate that result is at least 1 hour after timestamp
         if result:
+            _LOGGER.debug("Youngest reference found in DB for metadata_id %d: %s", mid, result)
             result_dt = dt_util.utc_from_timestamp(result.start_ts if hasattr(result, "start_ts") else result.start)
             time_diff = result_dt - ts
             if time_diff >= dt.timedelta(hours=1):
@@ -295,6 +291,8 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
 
     # Second pass: for missing references, query for younger references (Case 2)
     missing_refs = {k: v for k, v in references_needed.items() if result.get(k) is None}
+    _LOGGER.debug("Missing references after first pass: %d", len(missing_refs))
+    _LOGGER.debug("Missing references details: %s", missing_refs)
     if missing_refs:
         _LOGGER.debug("Querying for younger references for %d missing statistics", len(missing_refs))
         for statistic_id, before_timestamp in missing_refs.items():
@@ -428,6 +426,7 @@ async def _handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) 
 
         # Fetch references from database asynchronously
         references = await get_oldest_statistics_before(hass, references_needed)
+        _LOGGER.debug("References fetched: %s", references)
 
         # Convert delta dataframe with references (run in executor)
         stats = await hass.async_add_executor_job(
