@@ -22,3 +22,6 @@ config/*
 
 # mcp with secrets
 mcp.json
+
+# environment variables
+.env

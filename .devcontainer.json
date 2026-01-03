@@ -1,7 +1,7 @@
 {
     "name": "klausj1/homeassistant-statistics",
     "image": "mcr.microsoft.com/devcontainers/python:3.13",
-    "postCreateCommand": "scripts/setup",
+    "postCreateCommand": "set -a && source .env && set +a && scripts/setup",
     "forwardPorts": [
         8123
     ],

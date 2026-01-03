@@ -53,6 +53,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 - Add external statistics to integration test
 - Remove sqlite-db before testing
+- update agents.md
 
 - Write a post export is working
 

@@ -1,12 +1,15 @@
 """Integration test for delta column imports with running Home Assistant instance."""
 
 import asyncio
+from doctest import debug
+import os
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
 
 import aiohttp
+import psutil
 import pytest
 
 from custom_components.import_statistics.const import DOMAIN
@@ -23,7 +26,7 @@ class TestIntegrationDeltaImports:
 
     ha_process: subprocess.Popen | None = None
     ha_url: str = "http://localhost:8123"
-    ha_token: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI3YzM0MjNlMmQ4YWI0YTQ3OTc3NzU0Zjc1MTYyNTA2NSIsImlhdCI6MTc2NzEwNjg1NSwiZXhwIjoyMDgyNDY2ODU1fQ.v3WVOt-QZs2JmfitFrNJM0PriV2q6HbpL3AilA6xEJs"
+    ha_token: str = os.getenv("HA_TOKEN", "")
     ha_started_by_test: bool = False
 
     @classmethod
@@ -43,11 +46,30 @@ class TestIntegrationDeltaImports:
         print("=" * 80)
         if cls.ha_started_by_test and cls.ha_process is not None:
             try:
+                print("Terminating Home Assistant process...")
+                print(f"HA process PID: {cls.ha_process.pid}")
+
+                # Kill child processes (especially hass which is a child of the bash script)
+                try:
+                    parent = psutil.Process(cls.ha_process.pid)
+                    children = parent.children(recursive=True)
+                    print(f"Found {len(children)} child processes to terminate")
+                    for child in children:
+                        try:
+                            print(f"Terminating child process: PID={child.pid}, name={child.name()}")
+                            child.terminate()
+                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                            pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
+                # Then terminate the parent bash process
                 cls.ha_process.terminate()
                 try:
                     cls.ha_process.wait(timeout=10)
                     print("Home Assistant terminated successfully")
                 except subprocess.TimeoutExpired:
+                    print("Timeout waiting for process to terminate, killing...")
                     cls.ha_process.kill()
                     cls.ha_process.wait()
                     print("Home Assistant killed (timeout on terminate)")

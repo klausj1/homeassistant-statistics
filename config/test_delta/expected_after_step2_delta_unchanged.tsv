@@ -1,5 +1,5 @@
 statistic_id	unit	start	sum	state	delta
-sensor.test_case_1	kWh	29.12.2025 08:00	0	10
+sensor.test_case_1	kWh	29.12.2025 08:00	0	10	
 sensor.test_case_1	kWh	29.12.2025 09:00	1	11	1
 sensor.test_case_1	kWh	29.12.2025 10:00	3	13	2
 sensor.test_case_1	kWh	29.12.2025 11:00	6	16	3
