@@ -444,22 +444,30 @@ def handle_dataframe(
         if hass is None:
             helpers.handle_error("hass parameter is required for delta column processing")
 
-        # Extract all unique statistic_ids and find oldest delta timestamp for each
+        # Extract all unique statistic_ids and find oldest and youngest delta timestamps for each
+        # For Case 1: oldest timestamp is needed (to query for reference 1 hour before)
+        # For Case 2: youngest timestamp is needed (to query for reference 1 hour after)
         references_needed = {}
         for statistic_id in df["statistic_id"].unique():
             group = df[df["statistic_id"] == statistic_id]
             oldest_timestamp_str = group["start"].min()
+            youngest_timestamp_str = group["start"].max()
 
-            # Parse the oldest timestamp to get a datetime object
+            # Parse the timestamps to get datetime objects
             timezone = zoneinfo.ZoneInfo(timezone_identifier)
             try:
                 oldest_dt = datetime.datetime.strptime(oldest_timestamp_str, datetime_format).replace(tzinfo=timezone)
+                youngest_dt = datetime.datetime.strptime(youngest_timestamp_str, datetime_format).replace(tzinfo=timezone)
             except (ValueError, TypeError) as e:
                 helpers.handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
 
             # Convert to UTC for database query
             oldest_dt_utc = oldest_dt.astimezone(datetime.UTC)
-            references_needed[statistic_id] = oldest_dt_utc
+            youngest_dt_utc = youngest_dt.astimezone(datetime.UTC)
+
+            # Store both timestamps: (oldest, youngest)
+            # The reference fetcher will use oldest for Case 1 and youngest for Case 2
+            references_needed[statistic_id] = (oldest_dt_utc, youngest_dt_utc)
 
         _LOGGER.debug("Need references for %d statistics", len(references_needed))
 

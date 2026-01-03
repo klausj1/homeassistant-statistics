@@ -54,17 +54,12 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - External: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext']
     - Could be returned as info to the UI, do not use delta when there is no reference at all
 
-- External statistics do not work, the query in _get_youngest_reference_stats does not work for them (no rows are returned, no matter of the timestamp), no idea why -> ignore for now
 - Understand the stuff with the youngest timestamp. Currently the query in _get_youngest_reference_stats uses the oldest timestamp in the imported file, and searches for younger (=larger) timestamps (start_ts >= ts.timestamp())
-- According to the case 2 description: "if a value in the HA long term statistics database exists, which is at least 1 hour younger than tImportYoungest"
-  - This is implemented wrongly, because it searches for tImportOldest
-- Also this has not been considered:
-    **For Case 2 (After Reference)**:
-    - Use `get_last_statistics()` - public API to get recent statistics
-    - Returns last N statistics, can filter for records after timestamp
-    - More straightforward than Case 1 but requires post-filtering
-Maybe there external statistics work ...
-
+- Expected files are wrong, because the case 2 import adds new entries -> repair (possibly filter the time range for export of 1 and 2? Will not help I assume ...)
+  - Or for now, always delete the sqlite db
+  - Or rather with the import at the beginning overwrite the changed values -> does not work, as the timestamp logic is incorrect then ...
+- Implemented, unit-tests OK, delta-import for case 2 does not work, the results are very strange. See comparison.
+- Problem: Working backward from the latest timestamp and the delta-rows. That does not make sense in this way. Must work backward from the nearest youngest timestamp, and consider every value in the database. Create a design description for this and let the AI work ... Also change the 1 hour timediff for the youngest timestamp
 
 - Rename integration test and methods and test files in the integration test, as they test all cases
 

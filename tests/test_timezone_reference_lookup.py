@@ -34,9 +34,10 @@ class TestTimezoneReferenceLookup:
         import_start_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 0, 0, tzinfo=dt.UTC)
 
-        # references_needed should contain the import_start_utc (after timezone conversion)
+        # references_needed should contain tuples: (oldest_timestamp, youngest_timestamp)
+        # For this test, both are the same since we're only testing Case 1 (older reference)
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         # Mock the recorder instance
@@ -96,7 +97,7 @@ class TestTimezoneReferenceLookup:
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
@@ -151,7 +152,7 @@ class TestTimezoneReferenceLookup:
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 0, 0, tzinfo=dt.UTC)
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
@@ -194,7 +195,7 @@ class TestTimezoneReferenceLookup:
         import_start_utc = dt.datetime(2022, 1, 1, 1, 0, tzinfo=dt.UTC)
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
@@ -238,8 +239,8 @@ class TestTimezoneReferenceLookup:
         gas_import_start = dt.datetime(2022, 1, 1, 2, 0, tzinfo=dt.UTC)
 
         references_needed = {
-            "counter.energy": energy_import_start,
-            "counter.gas": gas_import_start,
+            "counter.energy": (energy_import_start, energy_import_start),
+            "counter.gas": (gas_import_start, gas_import_start),
         }
 
         mock_recorder = MagicMock()
@@ -310,7 +311,7 @@ class TestTimezoneReferenceLookup:
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 0, 0, tzinfo=dt.UTC)
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
@@ -364,7 +365,7 @@ class TestTimezoneReferenceLookup:
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 12, 0, tzinfo=dt.UTC)
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
@@ -414,7 +415,7 @@ class TestTimezoneReferenceLookup:
         reference_timestamp_utc = dt.datetime(2022, 1, 1, 2, 0, tzinfo=dt.UTC)  # 1 hour later
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
@@ -465,7 +466,7 @@ class TestTimezoneReferenceLookup:
         reference_timestamp_utc = dt.datetime(2021, 12, 2, 1, 0, tzinfo=dt.UTC)  # 30 days earlier
 
         references_needed = {
-            "counter.energy": import_start_utc,
+            "counter.energy": (import_start_utc, import_start_utc),
         }
 
         mock_recorder = MagicMock()
