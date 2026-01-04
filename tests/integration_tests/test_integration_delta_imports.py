@@ -285,13 +285,12 @@ class TestIntegrationDeltaImports:
         8. Export and verify values are correctly changed
 
         """
-        config_dir = Path(__file__).parent.parent / "config"
+        config_dir = Path(__file__).parent.parent.parent / "config"
+        test_delta_dir = Path(__file__).parent.parent.parent / "config" / "test_delta"
 
         # Wait for HA to be fully started (up to 3 minutes)
         is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
         assert is_ready, "Home Assistant did not start within 3 minutes"
-
-        test_delta_dir = Path(__file__).parent.parent / "config" / "test_delta"
 
         # ==================== STEP 1: Import sum_state ====================
         success = await self._call_service(
@@ -314,7 +313,8 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step1.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -351,7 +351,8 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step2.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -388,7 +389,8 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step3.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",

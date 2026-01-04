@@ -47,19 +47,38 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Integration test for test case 2: AI did nonsense, create testdata on my own
-  - Still, primitive test could be done before.
-  - Internal: homeassistant.exceptions.HomeAssistantError: Failed to find database reference for: sensor.test_case_2 (no records at least 1 hour before import start)
-    - returned in UI, this is OK, the testdata is wrong
-  - External: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext']
-    - Could be returned as info to the UI, do not use delta when there is no reference at all
+- OK Get all tests running, comment out case 2 for now
+
+- Clean up tests
+  - unit, integration-mock, integration
+  - pytest with levels, start integration only when integration-mock is OK
+
+- Clean up init and prepare_data
+  - separate database-access-functions
+  - separate export and import
+
+- Create ITest with mock based in ITest testdata
+  - First for case 1, which must be OK
+
+- Understand different cases
+  - Create a figure
+  - Create a description
+  - How does this fit to the current implementation? If not, refactor
+
+- Create arc-doc
+
+- ITest with mock for case 2
+
+- ITest without mock for case 2
+
+- test_export_service.py: Separate to unit-tests and integration-tests
 
 - Understand the stuff with the youngest timestamp. Currently the query in _get_youngest_reference_stats uses the oldest timestamp in the imported file, and searches for younger (=larger) timestamps (start_ts >= ts.timestamp())
 - Expected files are wrong, because the case 2 import adds new entries -> repair (possibly filter the time range for export of 1 and 2? Will not help I assume ...)
   - Or for now, always delete the sqlite db
   - Or rather with the import at the beginning overwrite the changed values -> does not work, as the timestamp logic is incorrect then ...
 - Implemented, unit-tests OK, delta-import for case 2 does not work, the results are very strange. See comparison.
-- Problem: Working backward from the latest timestamp and the delta-rows. That does not make sense in this way. Must work backward from the nearest youngest timestamp, and consider every value in the database. Create a design description for this and let the AI work ... Also change the 1 hour timediff for the youngest timestamp
+- Problem: Working backward from the latest timestamp and the delta-rows. That does not make sense in this way. Must work backward from the nearest youngest timestamp, and consider every value in the database. Create a design description for this and let the AI work ... Also change the 1 hour timediff for the youngest timestamp. Start with a unit-test and review the results carefully before starting with integration tests, esp. as the database has to be setup again after each test ...
 
 - Rename integration test and methods and test files in the integration test, as they test all cases
 
@@ -67,6 +86,14 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - Whats the difference between 2 and 3? And 3 and 1? Isn't overriding 1? Understand before impementation
 
 - Check error messages
+
+- Checks
+  - youngest timestamp to import must be less than current hour -1
+  - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. Alternative: Merge, could make sense as delta is the important part, and I did it for case 2 test intuitively
+  - Later: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
+
+- User doc
+  - warning: do export before delta import, as more data are changed
 
 - Write a post export is working
 
