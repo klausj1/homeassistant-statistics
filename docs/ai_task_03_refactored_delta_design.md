@@ -19,8 +19,7 @@ This document describes the refactored delta import architecture that separates 
 |--------|---------|-----------|
 | `prepare_data_to_import()` | Calls `handle_dataframe()`, returns stats or marker tuple | Returns `(df, timezone_id, datetime_format, unit_from_entity, is_delta)` |
 | HA Dependency | In data preparation | Only in async service handlers |
-| Delta Marker | `("_DELTA_PROCESSING_NEEDED", ...)` tuple hack | Boolean flag in return value |
-| Database Query Orchestration | In `import_service.py` (async) | New `prepare_delta_handling()` method |
+| Delta Marker | `("_DELTA_PROCESSING_NEEDED", ...)` tuple hack | Boolean flag in return value || Reference Type Indicator | Case 1/Case 2 integers | `DeltaReferenceType` enum (OLDER_REFERENCE, YOUNGER_REFERENCE) || Database Query Orchestration | In `import_service.py` (async) | New `prepare_delta_handling()` method |
 | Delta Conversion | In `import_service_delta_helper.py` | Renamed to `handle_dataframe_delta()` |
 | Non-delta Processing | Via `handle_dataframe()` | New method `handle_dataframe_no_delta()` |
 
@@ -118,6 +117,7 @@ def handle_dataframe_no_delta(
 - No HA dependencies
 - No delta column detection or handling
 - Validates unit columns based on `unit_from_where`
+- Calls `helpers.are_columns_valid()` to ensure non-delta specific column structure
 
 ---
 
@@ -146,7 +146,7 @@ def handle_dataframe_delta(
                    Format: {
                        statistic_id: {
                            "reference": {"start": datetime, "sum": float, "state": float},
-                           "case": 1 or 2  # Which conversion case to use
+                           "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE
                        } or None
                    }
 
@@ -157,9 +157,10 @@ def handle_dataframe_delta(
         HomeAssistantError: On validation errors or missing references
     """
     # Renamed from convert_delta_dataframe_with_references()
-    # Same logic, but references dict structure may be adjusted
+    # Same logic, but references dict structure uses DeltaReferenceType enum
+    # Calls helpers.are_columns_valid() to validate delta column structure
     # Groups by statistic_id
-    # Calls convert_deltas_case_1() or convert_deltas_case_2()
+    # Calls convert_deltas_with_older_reference() or convert_deltas_with_younger_reference()
     # Builds metadata and returns stats dict
 ```
 
@@ -168,6 +169,7 @@ def handle_dataframe_delta(
 - Pure calculation: no HA dependency
 - All references are pre-fetched and passed in
 - Returns same stats dict format as `handle_dataframe_no_delta()`
+- Calls `helpers.are_columns_valid()` with special delta validation (delta column required, no min/max/mean/sum)
 
 ---
 
@@ -225,7 +227,7 @@ async def prepare_delta_handling(
     #        ERROR: "imported timerange completely overlaps timerange in DB"
     #               if not found
     #
-    # Step 3: Return structured reference data with case indicators
+    # Step 3: Return structured reference data with DeltaReferenceType indicators
 
     # This method replaces the get_oldest_statistics_before() call in service handlers
 ```
@@ -234,8 +236,8 @@ async def prepare_delta_handling(
 - All database queries are async
 - Comprehensive error checking for time range compatibility
 - Includes entity ID in error messages for clarity
-- Returns structured data ready for `handle_dataframe_delta()`
-- Validates distance of references (1+ hour away for t_oldest_db_time_after_youngest_import, equal also possible for t_youngest_db_time_before_youngest_import)
+- Returns structured data ready for `handle_dataframe_delta()` with `DeltaReferenceType` enum values
+- Validates distance of references (1+ hour away for OLDER_REFERENCE, 0+ hours for YOUNGER_REFERENCE)
 
 ---
 
@@ -306,12 +308,13 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
 
 ---
 
-### Modified: [`delta_import.py`](../custom_components/import_statistics/delta_import.py)
+### New/Modified: [`delta_import.py`](../custom_components/import_statistics/delta_import.py)
 
-**Deprecated Methods** (still exist for backward compatibility, but may be removed):
-- `get_oldest_statistics_before()`: Functionality split into `prepare_delta_handling()`
+**Removed**:
+- `get_oldest_statistics_before()`: Functionality moved into `prepare_delta_handling()`
+- `get_youngest_statistic_after()`: Functionality merged into helper methods
 
-**New Methods** (extracted from current `get_oldest_statistics_before()` and refactored):
+**New/Helper Methods** (to support `prepare_delta_handling()`):
 ```python
 async def _get_youngest_db_statistic(
     hass: HomeAssistant,
@@ -375,12 +378,23 @@ async def _get_reference_at_or_after_timestamp(
 
 **Implementation Notes**:
 - Helper methods are extracted from current logic
-- May remain private (`_*` prefix) if only used by `prepare_delta_handling()`
-- Can be kept public for testing purposes
+- Remain private (`_*` prefix) and only used internally by `prepare_delta_handling()`
 
 ---
 
 ## Data Structures
+
+### Delta Reference Type Enum
+
+Definition in `helpers.py`:
+```python
+from enum import Enum
+
+class DeltaReferenceType(Enum):
+    """Type of reference used for delta conversion."""
+    OLDER_REFERENCE = "older"    # Reference is 1+ hour before oldest import
+    YOUNGER_REFERENCE = "younger" # Reference is at or after youngest import
+```
 
 ### Return Value of Refactored Preparation Methods
 
@@ -408,7 +422,7 @@ references: dict[str, dict | None] = {
             "sum": 42.5,
             "state": 42.5,
         },
-        "case": 1,  # or 2 for Case 2 (younger reference)
+        "ref_type": DeltaReferenceType.OLDER_REFERENCE,  # or YOUNGER_REFERENCE
     },
     "sensor.power": None,  # No valid reference found
 }
@@ -421,7 +435,7 @@ Same as output from `prepare_delta_handling()`:
 references: dict[str, dict | None] = {
     statistic_id: {
         "reference": {"start": datetime, "sum": float, "state": float},
-        "case": 1 or 2,
+        "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE,
     } or None
 }
 ```
@@ -448,8 +462,8 @@ All errors use `helpers.handle_error()` for consistency.
 4. **No reference before youngest import AND no reference at/after youngest import**
    - Error: `"Entity '<entity_id>': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"`
 
-5. **Implementation Error (neither case found after validation)**
-   - Error: `"Internal error: Neither Case 1 nor Case 2 reference found for '<entity_id>' despite validation passing"`
+5. **Implementation Error (neither OLDER_REFERENCE nor YOUNGER_REFERENCE found after validation)**
+   - Error: `"Internal error: Neither OLDER_REFERENCE nor YOUNGER_REFERENCE found for '<entity_id>' despite validation passing"`
 
 **Error Message Format**:
 - Always include `<entity_id>` in message
@@ -475,9 +489,10 @@ handle_import_from_file_impl() [async]
   │   │   └─ _get_reference_at_or_after_timestamp() [async]
   │   │
   │   └─ handle_dataframe_delta() [executor]
+  │       ├─ helpers.are_columns_valid() (with delta validation)
   │       ├─ helpers.get_delta_stat()
-  │       ├─ convert_deltas_case_1()
-  │       └─ convert_deltas_case_2()
+  │       ├─ convert_deltas_with_older_reference()
+  │       └─ convert_deltas_with_younger_reference()
   │
   └─ IF NOT is_delta:
       └─ handle_dataframe_no_delta() [executor]
@@ -493,41 +508,31 @@ handle_import_from_file_impl() [async]
 
 ---
 
-## Dependency Analysis: Methods No Longer Needed
+## Methods Removed
 
-### Methods to Deprecate/Remove
+The following methods are removed and replaced:
 
 1. **`get_oldest_statistics_before()` in `delta_import.py`**
-   - **Current Role**: Orchestrates all database queries for delta processing
-   - **New Role**: Replaced by `prepare_delta_handling()` (better structure and validation)
-   - **Status**: Can be deprecated after refactor completes
-   - **Removal Impact**: Only used in current `import_service.py` handler; no tests call it directly
+   - Functionality replaced by `prepare_delta_handling()` in `import_service.py`
+   - All database orchestration is now in `prepare_delta_handling()`
 
 2. **`get_youngest_statistic_after()` in `delta_import.py`**
-   - **Current Role**: Queries for Case 2 reference (younger than import range)
-   - **New Role**: Logic moved into `_get_reference_at_or_after_timestamp()` (more general)
-   - **Status**: Can be deprecated after refactor completes
-   - **Removal Impact**: Only called by `get_oldest_statistics_before()`; refactor eliminates need
+   - Functionality merged into helper methods used by `prepare_delta_handling()`
 
-3. **Current `convert_delta_dataframe_with_references()` in `import_service_delta_helper.py`**
-   - **Current Role**: Processes delta DataFrame with pre-fetched references
-   - **New Role**: Renamed to `handle_dataframe_delta()` (no logic change)
-   - **Status**: Keep both names during transition; `convert_delta_dataframe_with_references()` becomes wrapper calling `handle_dataframe_delta()`
-   - **Removal Impact**: Tests call it directly; tests should migrate to `handle_dataframe_delta()`
+3. **`handle_dataframe()` in `import_service_helper.py`**
+   - Logic split into `handle_dataframe_no_delta()` and `handle_dataframe_delta()`
+   - Marker tuple detection removed
 
-4. **`handle_dataframe()` in `import_service_helper.py`**
-   - **Current Role**: Detects delta vs non-delta, dispatches to appropriate logic
-   - **New Role**: Split into `handle_dataframe_no_delta()` and `handle_dataframe_delta()` (separation of concerns)
-   - **Status**: Can be removed entirely after refactor
-   - **Removal Impact**: Tests call it; tests should call split methods directly
+4. **`convert_delta_dataframe_with_references()` in `import_service_delta_helper.py`**
+   - Renamed to `handle_dataframe_delta()` with updated reference structure
+   - Method names `convert_deltas_case_1()` and `convert_deltas_case_2()` renamed to `convert_deltas_with_older_reference()` and `convert_deltas_with_younger_reference()`
 
-### Methods to Keep (Unchanged)
+## Methods to Keep (Unchanged)
 
 1. **`check_all_entities_exists()` in `import_service.py`** - Still needed
 2. **`add_unit_for_all_entities()` in `import_service.py`** - Still needed
 3. **`import_stats()` in `import_service.py`** - Still needed
 4. **All helpers in `helpers.py`** - Core validation, still needed
-5. **`convert_deltas_case_1()` and `convert_deltas_case_2()` in `import_service_delta_helper.py`** - Still needed (pure calculations)
 
 ---
 
@@ -541,18 +546,17 @@ Tests for the new `prepare_delta_handling()` method in `import_service.py`.
 **Test Scenarios** (comprehensive):
 
 **Success Scenarios**:
-- ✓ Case 1: Reference exists 1+ hour BEFORE oldest import
-- ✓ Case 2: Reference exists AFTER youngest import or at the same time
-- ✓ Multiple entities: Mix of Case 1 and Case 2 references
+- ✓ OLDER_REFERENCE: Reference exists 1+ hour BEFORE oldest import
+- ✓ YOUNGER_REFERENCE: Reference exists AT or AFTER youngest import
+- ✓ Multiple entities: Mix of OLDER_REFERENCE and YOUNGER_REFERENCE
 - ✓ Multiple entities: Some with references, some without (partial valid)
 
 **Error Scenarios**:
 - ✗ t_youngest_import < t_youngest_db: "Importing values younger..."
-- ✗ t_youngest_db <= t_oldest_import (no Case 1 ref): "completely newer than timerange..."
-- ✗ No reference before youngest import (no Case 2 ref): "completely older than timerange..."
+- ✗ t_youngest_db <= t_oldest_import (no OLDER_REFERENCE): "completely newer than timerange..."
+- ✗ No reference before youngest import (no YOUNGER_REFERENCE): "completely older than timerange..."
 - ✗ No reference before or after youngest import: "completely overlaps timerange..."
-- ✗ Reference is exactly 0 hours away (not 1+ hour): Should reject
-- ✗ Reference is 59 minutes away (not 1+ hour): Should reject
+- ✗ OLDER_REFERENCE is less than 1 hour away: Should reject
 
 **Edge Cases**:
 - Empty DataFrame (no entities)
@@ -560,108 +564,61 @@ Tests for the new `prepare_delta_handling()` method in `import_service.py`.
 - Multiple entities with non-overlapping time ranges
 - Database has no statistics for an entity
 
-#### 2. **`test_handle_dataframe_delta.py`** (new file, or merge with existing)
-Tests for the new `handle_dataframe_delta()` method (renamed from `convert_delta_dataframe_with_references`).
+#### 2. **`test_handle_dataframe_delta.py`** (new file)
+Tests for the new `handle_dataframe_delta()` method.
 
-**Can Reuse Existing Tests**:
-- Current tests for `convert_delta_dataframe_with_references()` should migrate to `handle_dataframe_delta()`
-- Update method name and reference structure in assertions
-
-**New Tests** (specific to refactoring):
-- ✓ Handles new reference data structure with "case" indicator
-- ✓ Correctly detects Case 1 vs Case 2 from reference timestamp
+**Tests**:
+- ✓ Calls `helpers.are_columns_valid()` with delta validation
+- ✓ Handles reference data structure with `DeltaReferenceType` enum
+- ✓ Correctly routes to `convert_deltas_with_older_reference()` for OLDER_REFERENCE
+- ✓ Correctly routes to `convert_deltas_with_younger_reference()` for YOUNGER_REFERENCE
 - ✓ Works with partial references (some entities have refs, some don't)
+- ✓ Builds metadata and returns stats dict in correct format
 
 #### 3. **`test_handle_dataframe_no_delta.py`** (new file)
-Tests for the new `handle_dataframe_no_delta()` method (extracted from current `handle_dataframe`).
+Tests for the new `handle_dataframe_no_delta()` method.
 
-**Can Reuse Existing Tests**:
-- Current non-delta tests from `test_import_service_helper.py` should work unchanged
-- Just ensure they call `handle_dataframe_no_delta()` instead of `handle_dataframe()`
-
-**Tests to Migrate**:
-- Mean/min/max statistics extraction
-- Sum/state statistics extraction
-- Unit column handling (TABLE and ENTITY modes)
-- Column validation
-- Error handling for invalid columns
+**Tests**:
+- ✓ Calls `helpers.are_columns_valid()` with non-delta validation
+- ✓ Mean/min/max statistics extraction
+- ✓ Sum/state statistics extraction
+- ✓ Unit column handling (TABLE and ENTITY modes)
+- ✓ Error handling for invalid columns
+- ✓ Builds metadata and returns stats dict in correct format
 
 #### 4. **`test_prepare_data_to_import.py`** (modify existing)
 Tests for the refactored `prepare_data_to_import()` and `prepare_json_data_to_import()`.
 
-**New Test Aspects**:
+**Test Aspects**:
 - ✓ Returns tuple of (df, timezone_id, datetime_format, unit_from_where, is_delta)
 - ✓ Correctly detects delta mode (is_delta=True if delta column present)
 - ✓ Correctly detects non-delta mode (is_delta=False if no delta column)
-- ✓ No HA dependency (can be called without hass instance)
-- ✓ Returns DataFrame with all rows intact (no filtering by `handle_dataframe()`)
-
-**Tests to Remove**:
-- Tests that expected marker tuple return (those tested `_DELTA_PROCESSING_NEEDED`)
+- ✓ Returns DataFrame with all rows intact
+- ✓ Validates basic column structure (existence and naming)
 
 ### Existing Tests That Need Updates
 
 #### 1. **`test_import_service_helper.py`**
-- Update tests calling `handle_dataframe()` to call either:
+- Rename tests or update to call:
   - `handle_dataframe_no_delta()` for non-delta tests
   - `handle_dataframe_delta()` for delta tests (with reference data)
 - Remove tests checking for marker tuple `_DELTA_PROCESSING_NEEDED`
 - Add test verifying new return tuple structure
 
 #### 2. **`test_import_service_delta_helper.py`**
-- `convert_delta_dataframe_with_references()` → Migrate to test `handle_dataframe_delta()`
-- Keep all Case 1 and Case 2 conversion tests (logic unchanged)
-- Update reference data structure in test inputs/assertions
+- Rename method: `test_convert_delta_dataframe_with_references()` → `test_handle_dataframe_delta()`
+- Update method names in test cases:
+  - `convert_deltas_case_1()` → `convert_deltas_with_older_reference()`
+  - `convert_deltas_case_2()` → `convert_deltas_with_younger_reference()`
+- Update reference data structure in test inputs/assertions (use `DeltaReferenceType` enum)
 
 #### 3. **`test_delta_import.py`**
-- Tests for `get_oldest_statistics_before()` and `get_youngest_statistic_after()` may be deprecated
-- Move logic testing to new `test_prepare_delta_handling.py`
-- Keep any tests for low-level helpers (if they're kept public)
+- Remove tests for `get_oldest_statistics_before()` and `get_youngest_statistic_after()` (methods removed)
+- Keep/update tests for low-level helpers if they remain public
 
 #### 4. **Integration Test: `test_integration_delta_imports.py`**
-- **Status**: Should still work unchanged (tests service behavior, not internal structure)
-- **Validation**: Run after refactoring to ensure end-to-end behavior is preserved
-
-### Tests No Longer Needed
-
-1. **Tests that check for marker tuple**
-   - Any test that verified `stats[0] == "_DELTA_PROCESSING_NEEDED"`
-   - Any test that expected 6-element tuple in specific order
-
-2. **Tests that tested marker tuple extraction logic**
-   - Logic moved to `is_delta` boolean in new tuple structure
-
----
-
-## Migration Path
-
-### Phase 1: Create New Infrastructure
-1. Create `handle_dataframe_no_delta()` in `import_service_helper.py`
-2. Create `handle_dataframe_delta()` (renamed from `convert_delta_dataframe_with_references()`)
-3. Create `prepare_delta_handling()` in `import_service.py`
-4. Create new test files for validation
-
-### Phase 2: Refactor Service Handlers
-1. Update `handle_import_from_file_impl()` to use new `prepare_data_to_import()` return tuple
-2. Update `handle_import_from_json_impl()` similarly
-3. Switch from marker tuple detection to `is_delta` boolean check
-4. Call new `prepare_delta_handling()` method
-
-### Phase 3: Update Preparation Methods
-1. Refactor `prepare_data_to_import()` to return tuple
-2. Refactor `prepare_json_data_to_import()` to return tuple
-3. Remove marker tuple construction
-4. Remove HA dependency (hass parameter can be removed if not needed)
-
-### Phase 4: Deprecate Old Methods
-1. Keep `get_oldest_statistics_before()` as deprecated wrapper (for backward compatibility)
-2. Keep old `handle_dataframe()` as deprecated wrapper if tests still need it
-3. Update CHANGELOG with deprecation notice
-
-### Phase 5: Cleanup (Optional, later)
-1. Remove deprecated methods after sufficient time period
-2. Remove old test cases
-3. Update documentation
+- Should work unchanged (tests service behavior, not internal structure)
+- Validate after refactoring to ensure end-to-end behavior is preserved
 
 ---
 
@@ -708,9 +665,10 @@ Tests for the refactored `prepare_data_to_import()` and `prepare_json_data_to_im
 
 | File | Changes |
 |------|---------|
-| `import_service_helper.py` | Split `handle_dataframe()` into `handle_dataframe_no_delta()` + new return tuple from `prepare_data_to_import()` |
-| `import_service_delta_helper.py` | Rename `convert_delta_dataframe_with_references()` to `handle_dataframe_delta()` |
-| `import_service.py` | Add new `prepare_delta_handling()` method, update service handlers with boolean flag logic |
-| `delta_import.py` | Add helper methods for `prepare_delta_handling()` (may extract from existing logic) |
-| Tests | Create 4 new test files, update 4 existing test files |
+| `helpers.py` | Add `DeltaReferenceType` enum with OLDER_REFERENCE and YOUNGER_REFERENCE values |
+| `import_service_helper.py` | Split `handle_dataframe()` → `handle_dataframe_no_delta()`, update `prepare_data_to_import()`/`prepare_json_data_to_import()` to return tuple |
+| `import_service_delta_helper.py` | Rename `convert_delta_dataframe_with_references()` → `handle_dataframe_delta()`, rename `convert_deltas_case_1()` → `convert_deltas_with_older_reference()`, rename `convert_deltas_case_2()` → `convert_deltas_with_younger_reference()` |
+| `import_service.py` | Add `prepare_delta_handling()` async method, update service handlers to use `is_delta` boolean flag |
+| `delta_import.py` | Remove `get_oldest_statistics_before()` and `get_youngest_statistic_after()`, add private helper methods for `prepare_delta_handling()` |
+| Tests | Create 4 new test files (`test_prepare_delta_handling.py`, `test_handle_dataframe_delta.py`, `test_handle_dataframe_no_delta.py`, update `test_prepare_data_to_import.py`), update 4 existing test files |
 
