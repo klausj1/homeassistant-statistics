@@ -26,6 +26,59 @@ async def mock_async_add_executor_job(func: Callable[..., Any], *args: Any) -> A
 def pytest_configure(config: Any) -> None:
     """Configure pytest."""
     config.addinivalue_line("markers", "integration: mark test as an integration test that requires sockets")
+    config.addinivalue_line("markers", "unit_tests: mark test as a unit test")
+    config.addinivalue_line("markers", "integration_tests_mock: mark test as an integration test with mocks")
+    config.addinivalue_line("markers", "integration_tests: mark test as a full integration test")
+
+
+def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
+    """Enforce sequential test execution: unit_tests → integration_tests_mock → integration_tests."""
+    test_order = {"tests/unit_tests": 0, "tests/integration_tests_mock": 1, "tests/integration_tests": 2}
+
+    def get_test_order(item: Any) -> tuple[int, str]:
+        """Get the execution order of a test based on its location."""
+        for test_path, order in test_order.items():
+            if test_path in str(item.fspath):
+                return (order, str(item.fspath))
+        return (999, str(item.fspath))
+
+    items.sort(key=get_test_order)
+
+
+def pytest_runtest_makereport(item: Any, call: Any) -> None:
+    """Stop test execution if any test in earlier suites fail."""
+    if call.when == "call" and call.excinfo is not None:
+        # A test failed
+        current_suite = None
+        suite_order = {"tests/unit_tests": 0, "tests/integration_tests_mock": 1, "tests/integration_tests": 2}
+
+        for test_path, order in suite_order.items():
+            if test_path in str(item.fspath):
+                current_suite = order
+                break
+
+        if current_suite is not None:
+            # Mark that this suite has failed
+            if not hasattr(item.config, "_test_suite_failed"):
+                item.config._test_suite_failed = {}  # type: ignore[attr-defined]
+            item.config._test_suite_failed[current_suite] = True  # type: ignore[attr-defined]
+
+
+def pytest_runtest_setup(item: Any) -> None:
+    """Skip tests in later suites if earlier suites have failed."""
+    suite_order = {"tests/unit_tests": 0, "tests/integration_tests_mock": 1, "tests/integration_tests": 2}
+
+    current_suite = None
+    for test_path, order in suite_order.items():
+        if test_path in str(item.fspath):
+            current_suite = order
+            break
+
+    if current_suite is not None and hasattr(item.config, "_test_suite_failed"):
+        failed_suites = item.config._test_suite_failed  # type: ignore[attr-defined]
+        for suite_order_num in range(current_suite):
+            if failed_suites.get(suite_order_num, False):
+                pytest.skip(f"Skipped because earlier test suite (order {suite_order_num}) failed")
 
 
 @pytest.fixture
