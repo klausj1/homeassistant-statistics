@@ -57,15 +57,17 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - separate database-access-functions
   - separate export and import
 
-- Create ITest with mock based in ITest testdata
+- OK Create ITest with mock based in ITest testdata
   - First for case 1, which must be OK
 
-- Understand different cases
+- OK When checking the mock calculation in the mocked ITest, does it make sense to have a method for this in production, when all values needed from the database have been queries before? Or is such a method there already?
+
+- OK Understand different cases
   - Create a figure
   - Create a description
   - How does this fit to the current implementation? If not, refactor
 
-- When checking the mock calculation in the mocked ITest, does it make sense to have a method for this in production, when all values needed from the database have been queries before? Or is such a method there already?
+- Refactoring in progress
 
 - Create arc-doc
 
