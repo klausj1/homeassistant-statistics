@@ -10,7 +10,8 @@ import pytest
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics import get_statistics_from_recorder, setup
+from custom_components.import_statistics import setup
+from custom_components.import_statistics.export import get_statistics_from_recorder
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -56,7 +57,7 @@ class TestGetStatisticsFromRecorder:
         # Side effect returns metadata on first call, statistics on second call
         mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
+        with patch("custom_components.import_statistics.export.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
             result = await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
@@ -94,7 +95,7 @@ class TestGetStatisticsFromRecorder:
         # Side effect returns metadata on first call, statistics on second call
         mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
+        with patch("custom_components.import_statistics.export.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
             # User provides times in Europe/Vienna timezone
@@ -173,7 +174,7 @@ class TestGetStatisticsFromRecorder:
         hass.config.config_dir = "/config"
         hass.async_add_executor_job = AsyncMock()
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
+        with patch("custom_components.import_statistics.export.get_instance") as mock_get_instance:
             mock_get_instance.return_value = None
 
             with pytest.raises(HomeAssistantError, match="Recorder component is not running"):
@@ -193,7 +194,7 @@ class TestGetStatisticsFromRecorder:
         # Side effect returns metadata on first call, statistics on second call
         mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
+        with patch("custom_components.import_statistics.export.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
             result = await get_statistics_from_recorder(hass, ["sensor.temperature", "sensor.humidity"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
@@ -217,7 +218,7 @@ class TestGetStatisticsFromRecorder:
         # Side effect returns metadata on first call, statistics on second call
         mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
+        with patch("custom_components.import_statistics.export.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
             result = await get_statistics_from_recorder(hass, ["custom:my_metric"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
@@ -250,7 +251,7 @@ class TestGetStatisticsFromRecorder:
         # Side effect returns metadata on first call, statistics on second call
         mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
 
-        with patch("custom_components.import_statistics.get_instance") as mock_get_instance:
+        with patch("custom_components.import_statistics.export.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
             await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
@@ -311,7 +312,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
@@ -363,7 +364,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
@@ -404,7 +405,7 @@ class TestHandleExportStatistics:
                 },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
                 error_msg = "Invalid timezone_identifier"
 
                 async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
@@ -440,7 +441,7 @@ class TestHandleExportStatistics:
                 },
             )
 
-            with patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
                 error_msg = "Recorder component is not running"
 
                 async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
@@ -488,7 +489,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)
@@ -542,7 +543,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)
@@ -603,7 +604,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
@@ -656,7 +657,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
@@ -713,7 +714,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
@@ -770,7 +771,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
                 patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
             ):
@@ -826,7 +827,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
@@ -878,7 +879,7 @@ class TestHandleExportStatistics:
             )
 
             with (
-                patch("custom_components.import_statistics.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
                 patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)

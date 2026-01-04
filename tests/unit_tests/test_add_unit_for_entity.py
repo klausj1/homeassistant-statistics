@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from homeassistant.core import State
 
-from custom_components.import_statistics import add_unit_for_entity
+from custom_components.import_statistics.import_service import add_unit_for_entity
 
 
 def test_add_unit_for_entity_no_unit_of_measurement() -> None:
@@ -70,7 +70,7 @@ def test_add_unit_for_entity_with_unit_of_measurement() -> None:
     }
 
     # Call the function
-    with patch("custom_components.import_statistics._LOGGER"):
+    with patch("custom_components.import_statistics.import_service._LOGGER"):
         add_unit_for_entity(hass, metadata)
 
     # Verify the unit was added to metadata

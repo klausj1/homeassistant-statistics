@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from custom_components.import_statistics import get_oldest_statistics_before
+from custom_components.import_statistics.delta_import import get_oldest_statistics_before
 
 
 class TestTimezoneReferenceLookup:
@@ -56,8 +56,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -70,7 +70,7 @@ class TestTimezoneReferenceLookup:
             mock_recorder.async_add_executor_job = mock_executor
 
             # Mock the database query function
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 # Call the function being tested
@@ -114,8 +114,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -126,7 +126,7 @@ class TestTimezoneReferenceLookup:
 
             mock_recorder.async_add_executor_job = mock_executor
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -168,8 +168,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -180,7 +180,7 @@ class TestTimezoneReferenceLookup:
 
             mock_recorder.async_add_executor_job = mock_executor
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -205,8 +205,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -218,7 +218,7 @@ class TestTimezoneReferenceLookup:
             mock_recorder.async_add_executor_job = mock_executor
 
             # Database query returns None (no record found)
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = None
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -263,8 +263,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -284,7 +284,7 @@ class TestTimezoneReferenceLookup:
                     return mock_gas_row
                 return None
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.side_effect = mock_query_side_effect
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -327,8 +327,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -339,7 +339,7 @@ class TestTimezoneReferenceLookup:
 
             mock_recorder.async_add_executor_job = mock_executor
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -381,8 +381,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -393,7 +393,7 @@ class TestTimezoneReferenceLookup:
 
             mock_recorder.async_add_executor_job = mock_executor
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -431,8 +431,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -443,7 +443,7 @@ class TestTimezoneReferenceLookup:
 
             mock_recorder.async_add_executor_job = mock_executor
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)
@@ -482,8 +482,8 @@ class TestTimezoneReferenceLookup:
         }
 
         with (
-            patch("custom_components.import_statistics.get_instance") as mock_get_instance,
-            patch("custom_components.import_statistics.get_metadata") as mock_get_metadata,
+            patch("custom_components.import_statistics.delta_import.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.delta_import.get_metadata") as mock_get_metadata,
         ):
             mock_get_instance.return_value = mock_recorder
             mock_get_metadata.return_value = mock_metadata
@@ -494,7 +494,7 @@ class TestTimezoneReferenceLookup:
 
             mock_recorder.async_add_executor_job = mock_executor
 
-            with patch("custom_components.import_statistics._get_reference_stats") as mock_query:
+            with patch("custom_components.import_statistics.delta_import._get_reference_stats") as mock_query:
                 mock_query.return_value = mock_reference_row
 
                 result = await get_oldest_statistics_before(mock_hass, references_needed)

@@ -63,7 +63,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -133,7 +133,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -199,7 +199,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called for both statistics
@@ -263,7 +263,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_add_external_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_add_external_statistics was called
@@ -327,7 +327,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -375,7 +375,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await json_handler(call)
 
                 # Verify async_import_statistics was called
@@ -444,7 +444,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await json_handler(call)
 
                 # Verify async_import_statistics was called
@@ -501,7 +501,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -550,7 +550,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -673,7 +673,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -724,7 +724,7 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_add_external_statistics") as mock_external:
+            with patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_external:
                 await import_handler(call)
 
                 # Verify async_add_external_statistics was called for both external statistics

@@ -3,7 +3,7 @@
 import datetime as dt
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -72,8 +72,8 @@ class TestDeltaImportIntegration:
             }
 
             with (
-                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
-                patch("custom_components.import_statistics.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             ):
                 mock_get_oldest.return_value = mock_reference
                 await import_handler(call)
@@ -153,8 +153,8 @@ class TestDeltaImportIntegration:
             }
 
             with (
-                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
-                patch("custom_components.import_statistics.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             ):
                 mock_get_oldest.return_value = mock_reference
                 await import_handler(call)
@@ -227,8 +227,8 @@ class TestDeltaImportIntegration:
             mock_reference = {"counter.energy": {"start": None, "sum": 100.0, "state": 100.0}}
 
             with (
-                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
-                patch("custom_components.import_statistics.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             ):
                 mock_get_oldest.return_value = mock_reference
                 await import_handler(call)
@@ -286,8 +286,8 @@ class TestDeltaImportIntegration:
             mock_reference = {"custom:external_counter": {"start": None, "sum": 200.0, "state": 200.0}}
 
             with (
-                patch("custom_components.import_statistics.get_oldest_statistics_before") as mock_get_oldest,
-                patch("custom_components.import_statistics.async_add_external_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import,
             ):
                 mock_get_oldest.return_value = mock_reference
                 await import_handler(call)
@@ -398,7 +398,7 @@ class TestDeltaImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.async_import_statistics") as mock_import:
+            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
                 await json_handler(call)
 
                 # Verify async_import_statistics was called
