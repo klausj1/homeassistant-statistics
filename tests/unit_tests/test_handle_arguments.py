@@ -15,7 +15,7 @@ from custom_components.import_statistics.const import (
     DATETIME_DEFAULT_FORMAT,
 )
 from custom_components.import_statistics.helpers import UnitFrom
-from custom_components.import_statistics.prepare_data import handle_arguments
+from custom_components.import_statistics.import_service_helper import handle_arguments
 
 
 def test_handle_arguments_all_valid() -> None:

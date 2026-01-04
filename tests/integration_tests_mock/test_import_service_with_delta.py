@@ -11,7 +11,7 @@ from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics import prepare_data, setup
+from custom_components.import_statistics import setup
 from custom_components.import_statistics.const import (
     ATTR_DECIMAL,
     ATTR_DELIMITER,
@@ -19,7 +19,8 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
 )
 from custom_components.import_statistics.helpers import UnitFrom, are_columns_valid
-from custom_components.import_statistics.prepare_data import convert_deltas_case_1
+from custom_components.import_statistics.import_service_delta_helper import convert_delta_dataframe_with_references, convert_deltas_case_1
+from custom_components.import_statistics.import_service_helper import handle_dataframe
 from tests.conftest import mock_async_add_executor_job
 
 
@@ -329,11 +330,11 @@ class TestDeltaImportIntegration:
 
         # Should raise error when hass is None and delta is detected
         with pytest.raises(HomeAssistantError):
-            prepare_data.handle_dataframe(
+            handle_dataframe(
                 df,
                 "UTC",
                 "%d.%m.%Y %H:%M",
-                prepare_data.UnitFrom.TABLE,
+                UnitFrom.TABLE,
                 hass=None,
             )
 
@@ -440,7 +441,7 @@ class TestDeltaImportIntegration:
 
         # Should raise error when reference is None
         with pytest.raises(HomeAssistantError):
-            prepare_data.convert_delta_dataframe_with_references(
+            convert_delta_dataframe_with_references(
                 df,
                 references,
                 "UTC",

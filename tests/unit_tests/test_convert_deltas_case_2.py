@@ -5,7 +5,7 @@ import datetime as dt
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.prepare_data import convert_deltas_case_2
+from custom_components.import_statistics.import_service_delta_helper import convert_deltas_case_2
 
 
 def test_convert_deltas_case_2_basic() -> None:

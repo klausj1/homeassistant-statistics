@@ -6,9 +6,8 @@ import zoneinfo
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import get_metadata, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.util import dt as dt_util
 
-from custom_components.import_statistics import helpers, prepare_data
+from custom_components.import_statistics import helpers
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -21,6 +20,7 @@ from custom_components.import_statistics.const import (
     DATETIME_DEFAULT_FORMAT,
     DATETIME_INPUT_FORMAT,
 )
+from custom_components.import_statistics.export_service_helper import prepare_export_data, prepare_export_json, write_export_file, write_export_json
 from custom_components.import_statistics.helpers import _LOGGER
 
 
@@ -147,16 +147,14 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Prepare data for export (HA-independent)
     if filename.lower().endswith(".json"):
         # Export as JSON - run in executor to avoid blocking I/O
-        json_data = await hass.async_add_executor_job(
-            lambda: prepare_data.prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict)
-        )
-        await hass.async_add_executor_job(lambda: prepare_data.write_export_json(file_path, json_data))
+        json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
+        await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
     else:
         # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
         columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_data.prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+            lambda: prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
         )
-        await hass.async_add_executor_job(lambda: prepare_data.write_export_file(file_path, columns, rows, delimiter))
+        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
     _LOGGER.info("Export completed successfully")

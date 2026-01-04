@@ -10,7 +10,7 @@ from homeassistant.components.recorder.util import session_scope
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from custom_components.import_statistics.helpers import _LOGGER
+from custom_components.import_statistics.helpers import _LOGGER, handle_error
 
 
 def _get_reference_stats(mid: int, ts: dt.datetime, inst: Any) -> tuple | None:
@@ -200,9 +200,7 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
 
     recorder_instance = get_instance(hass)
     if recorder_instance is None:
-        from custom_components.import_statistics import helpers
-
-        helpers.handle_error("Recorder component is not running")
+        handle_error("Recorder component is not running")
 
     # Get metadata for all statistic_ids in one call
     statistic_ids = list(references_needed.keys())
@@ -211,14 +209,10 @@ async def get_oldest_statistics_before(hass: HomeAssistant, references_needed: d
     try:
         metadata_dict = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=set(statistic_ids)))
     except Exception as exc:  # noqa: BLE001
-        from custom_components.import_statistics import helpers
-
-        helpers.handle_error(f"Failed to get metadata: {exc}")
+        handle_error(f"Failed to get metadata: {exc}")
 
     if not metadata_dict:
-        from custom_components.import_statistics import helpers
-
-        helpers.handle_error(f"No metadata found for statistics: {statistic_ids}")
+        handle_error(f"No metadata found for statistics: {statistic_ids}")
 
     # Query each statistic_id separately with its own timestamps
     result = {}

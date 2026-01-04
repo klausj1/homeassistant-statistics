@@ -9,9 +9,9 @@ import pytest
 from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics import prepare_data
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 from custom_components.import_statistics.helpers import UnitFrom
+from custom_components.import_statistics.import_service_helper import handle_dataframe
 
 
 def test_handle_dataframe_mean() -> None:
@@ -60,7 +60,7 @@ def test_handle_dataframe_mean() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Check the output
     assert stats == expected_stats
@@ -114,7 +114,7 @@ def test_handle_dataframe_mean_other_datetime_format() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", datetime_format, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", datetime_format, UnitFrom.TABLE)
 
     # Check the output
     assert stats == expected_stats
@@ -156,7 +156,7 @@ def test_handle_dataframe_sum_state() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Check the output
     assert stats == expected_stats
@@ -200,7 +200,7 @@ def test_handle_dataframe_sum_state_other_format() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", datetime_format, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", datetime_format, UnitFrom.TABLE)
 
     # Check the output
     assert stats == expected_stats
@@ -241,7 +241,7 @@ def test_handle_dataframe_sum() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Check the output
     assert stats == expected_stats
@@ -361,7 +361,7 @@ def test_handle_dataframe_multiple_mean() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Check the output
     assert stats == expected_stats
@@ -387,7 +387,7 @@ def test_handle_dataframe_mean_sum() -> None:
         HomeAssistantError,
         match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)"),
     ):
-        _stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+        _stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
 
 def test_handle_dataframe_mean_unit_from_entity() -> None:
@@ -436,7 +436,7 @@ def test_handle_dataframe_mean_unit_from_entity() -> None:
     }
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.ENTITY)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.ENTITY)
 
     # Check the output
     assert stats == expected_stats

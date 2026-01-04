@@ -6,7 +6,7 @@ import zoneinfo
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.prepare_data import convert_deltas_case_1
+from custom_components.import_statistics.import_service_delta_helper import convert_deltas_case_1
 
 
 def test_convert_deltas_case_1_single_delta() -> None:

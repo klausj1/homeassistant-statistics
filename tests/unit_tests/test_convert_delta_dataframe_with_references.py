@@ -8,7 +8,7 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.helpers import UnitFrom
-from custom_components.import_statistics.prepare_data import convert_delta_dataframe_with_references
+from custom_components.import_statistics.import_service_delta_helper import convert_delta_dataframe_with_references
 
 
 def test_convert_delta_dataframe_with_references_single_statistic() -> None:

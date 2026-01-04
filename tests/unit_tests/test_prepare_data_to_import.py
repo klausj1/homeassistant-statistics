@@ -20,7 +20,7 @@ from custom_components.import_statistics.const import (
     DATETIME_DEFAULT_FORMAT,
 )
 from custom_components.import_statistics.helpers import UnitFrom
-from custom_components.import_statistics.prepare_data import prepare_data_to_import
+from custom_components.import_statistics.import_service_helper import prepare_data_to_import
 
 
 def test_prepare_data_to_import_valid_file_dot() -> None:

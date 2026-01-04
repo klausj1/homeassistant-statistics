@@ -11,7 +11,6 @@ from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import setup
-from custom_components.import_statistics.export import get_statistics_from_recorder
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -22,6 +21,7 @@ from custom_components.import_statistics.const import (
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
+from custom_components.import_statistics.export import get_statistics_from_recorder
 from tests.conftest import mock_async_add_executor_job
 
 # Test constants
@@ -313,7 +313,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
+                patch("custom_components.import_statistics.export.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -365,7 +365,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
+                patch("custom_components.import_statistics.export.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -490,7 +490,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.export.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -544,7 +544,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.export.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -605,7 +605,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
+                patch("custom_components.import_statistics.export.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
@@ -658,8 +658,8 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
-                patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
+                patch("custom_components.import_statistics.export.write_export_file"),
+                patch("custom_components.import_statistics.export.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -715,8 +715,8 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
-                patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
+                patch("custom_components.import_statistics.export.write_export_file"),
+                patch("custom_components.import_statistics.export.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -772,8 +772,8 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
-                patch("custom_components.import_statistics.prepare_data.prepare_export_data") as mock_prepare,
+                patch("custom_components.import_statistics.export.write_export_file"),
+                patch("custom_components.import_statistics.export.prepare_export_data") as mock_prepare,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -828,7 +828,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file"),
+                patch("custom_components.import_statistics.export.write_export_file"),
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
@@ -880,7 +880,7 @@ class TestHandleExportStatistics:
 
             with (
                 patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats,
-                patch("custom_components.import_statistics.prepare_data.write_export_file") as mock_write,
+                patch("custom_components.import_statistics.export.write_export_file") as mock_write,
             ):
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}

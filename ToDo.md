@@ -53,7 +53,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - unit, integration-mock, integration
   - pytest with levels, start integration only when integration-mock is OK
 
-- Clean up init and prepare_data
+- init done, prepare_data todo: Clean up init and prepare_data
   - separate database-access-functions
   - separate export and import
 

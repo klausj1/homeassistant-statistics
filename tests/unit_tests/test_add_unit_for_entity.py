@@ -100,7 +100,7 @@ def test_add_unit_for_entity_entity_does_not_exist() -> None:
     }
 
     # Call the function and expect handle_error to be called
-    with patch("custom_components.import_statistics.helpers.handle_error") as mock_error:
+    with patch("custom_components.import_statistics.import_service.handle_error") as mock_error:
         add_unit_for_entity(hass, metadata)
         mock_error.assert_called_once_with("Entity does not exist: 'sensor.non_existent'")
 

@@ -5,11 +5,11 @@ from typing import Any
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics
 from homeassistant.core import HomeAssistant, ServiceCall
 
-from custom_components.import_statistics import prepare_data
-from custom_components.import_statistics.const import ATTR_FILENAME, DATETIME_DEFAULT_FORMAT
+from custom_components.import_statistics.const import ATTR_FILENAME
 from custom_components.import_statistics.delta_import import get_oldest_statistics_before
-from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
-
+from custom_components.import_statistics.helpers import _LOGGER, UnitFrom, handle_error
+from custom_components.import_statistics.import_service_delta_helper import convert_delta_dataframe_with_references
+from custom_components.import_statistics.import_service_helper import prepare_data_to_import, prepare_json_data_to_import
 
 # Minimum tuple length for delta processing marker
 _DELTA_MARKER_TUPLE_LENGTH = 6
@@ -23,7 +23,7 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
     hass.states.async_set("import_statistics.import_from_file", file_path)
 
     _LOGGER.info("Peparing data for import")
-    stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_data_to_import(file_path, call, hass=hass))
+    stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, hass=hass))
 
     # Handle delta processing marker (async operation required)
     if isinstance(stats, tuple) and len(stats) >= _DELTA_MARKER_TUPLE_LENGTH and stats[0] == "_DELTA_PROCESSING_NEEDED":
@@ -36,7 +36,7 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 
         # Convert delta dataframe with references (run in executor)
         stats = await hass.async_add_executor_job(
-            lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
+            lambda: convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
         )
 
     import_stats(hass, stats, unit_from_entity)
@@ -45,7 +45,7 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
     """Handle import_from_json service implementation."""
     _LOGGER.info("Service handle_import_from_json called")
-    stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_data.prepare_json_data_to_import(call, hass=hass))
+    stats, unit_from_entity = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, hass=hass))
 
     # Handle delta processing marker (async operation required)
     if isinstance(stats, tuple) and len(stats) >= _DELTA_MARKER_TUPLE_LENGTH and stats[0] == "_DELTA_PROCESSING_NEEDED":
@@ -57,7 +57,7 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
 
         # Convert delta dataframe with references (run in executor)
         stats = await hass.async_add_executor_job(
-            lambda: prepare_data.convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
+            lambda: convert_delta_dataframe_with_references(df, references, timezone_identifier, datetime_format, unit_from_where)
         )
 
     import_stats(hass, stats, unit_from_entity)
@@ -134,12 +134,10 @@ def check_entity_exists(hass: HomeAssistant, entity_id: Any) -> bool:
         HomeAssistantError: If entity does not exist
 
     """
-    from custom_components.import_statistics import helpers
-
     entity_exists = hass.states.get(entity_id) is not None
 
     if not entity_exists:
-        helpers.handle_error(f"Entity does not exist: '{entity_id}'")
+        handle_error(f"Entity does not exist: '{entity_id}'")
         return False
 
     return True
@@ -193,9 +191,7 @@ def add_unit_for_entity(hass: HomeAssistant, metadata: dict) -> None:
     entity = hass.states.get(entity_id)
 
     if entity is None:
-        from custom_components.import_statistics import helpers
-
-        helpers.handle_error(f"Entity does not exist: '{entity_id}'")
+        handle_error(f"Entity does not exist: '{entity_id}'")
     elif metadata.get("unit_of_measurement", "") == "":
         uom = None
         if hasattr(entity, "attributes") and isinstance(entity.attributes, dict):

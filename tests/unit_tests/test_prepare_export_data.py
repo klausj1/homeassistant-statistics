@@ -10,14 +10,13 @@ from pathlib import Path
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.prepare_data import (
+from custom_components.import_statistics.export_service_helper import (
     _detect_statistic_type,
-    _format_datetime,
-    _format_decimal,
     prepare_export_data,
     prepare_export_json,
     write_export_file,
 )
+from custom_components.import_statistics.helpers import format_datetime, format_decimal
 
 # Constants for test values
 EXPECTED_ROWS_2 = 2
@@ -46,7 +45,7 @@ class TestFormatDatetime:
         """Test converting UTC datetime to Vienna timezone."""
         dt_obj = UNIX_TIMESTAMP_2024_01_26  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
-        result = _format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
+        result = format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
 
     def test_format_datetime_unix_timestamp(self) -> None:
@@ -54,7 +53,7 @@ class TestFormatDatetime:
         # 2024-01-26 12:00:00 UTC = 1706270400.0
         unix_timestamp = UNIX_TIMESTAMP_2024_01_26
         timezone = zoneinfo.ZoneInfo("UTC")
-        result = _format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
+        result = format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 12:00"
 
     def test_format_datetime_unix_timestamp_with_timezone(self) -> None:
@@ -62,35 +61,35 @@ class TestFormatDatetime:
         # 2024-01-26 12:00:00 UTC = 1706270400.0
         unix_timestamp = UNIX_TIMESTAMP_2024_01_26
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
-        result = _format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
+        result = format_datetime(unix_timestamp, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
 
     def test_format_datetime_naive_assumed_utc(self) -> None:
         """Test that naive datetime is assumed to be UTC."""
         dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=datetime.UTC)
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
-        result = _format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
+        result = format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
 
     def test_format_datetime_different_format(self) -> None:
         """Test datetime formatting with different format string."""
         dt_obj = UNIX_TIMESTAMP_2024_01_26  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("UTC")
-        result = _format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
+        result = format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
         assert result == "2024-01-26 12:00"
 
     def test_format_datetime_us_format(self) -> None:
         """Test datetime formatting with US format."""
         dt_obj = UNIX_TIMESTAMP_2024_01_26  # 2024-01-26 12:00:00 UTC
         timezone = zoneinfo.ZoneInfo("UTC")
-        result = _format_datetime(dt_obj, timezone, "%m/%d/%Y %H:%M")
+        result = format_datetime(dt_obj, timezone, "%m/%d/%Y %H:%M")
         assert result == "01/26/2024 12:00"
 
     def test_format_datetime_timezone_aware_conversion(self) -> None:
         """Test converting between different timezones."""
         dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("America/New_York"))
         timezone = zoneinfo.ZoneInfo("Asia/Tokyo")
-        result = _format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
+        result = format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
         # 12:00 EST = 02:00 JST (next day)
         assert result == "2024-01-27 02:00"
 
@@ -100,37 +99,37 @@ class TestFormatDecimal:
 
     def test_format_decimal_dot_separator(self) -> None:
         """Test decimal with dot separator."""
-        result = _format_decimal(DECIMAL_VALUE_1234_567, use_comma=False)
+        result = format_decimal(DECIMAL_VALUE_1234_567, use_comma=False)
         assert result == "1234.567"
 
     def test_format_decimal_comma_separator(self) -> None:
         """Test decimal with comma separator."""
-        result = _format_decimal(DECIMAL_VALUE_1234_567, use_comma=True)
+        result = format_decimal(DECIMAL_VALUE_1234_567, use_comma=True)
         assert result == "1234,567"
 
     def test_format_decimal_integer(self) -> None:
         """Test formatting integer value."""
-        result = _format_decimal(42, use_comma=False)
+        result = format_decimal(42, use_comma=False)
         assert result == "42"
 
     def test_format_decimal_none_value(self) -> None:
         """Test formatting None value returns empty string."""
-        result = _format_decimal(None, use_comma=False)
+        result = format_decimal(None, use_comma=False)
         assert result == ""
 
     def test_format_decimal_small_value(self) -> None:
         """Test formatting small decimal value."""
-        result = _format_decimal(0.001, use_comma=False)
+        result = format_decimal(0.001, use_comma=False)
         assert result == "0.001"
 
     def test_format_decimal_trailing_zeros_removed(self) -> None:
         """Test that trailing zeros are removed."""
-        result = _format_decimal(1.0, use_comma=False)
+        result = format_decimal(1.0, use_comma=False)
         assert result == "1"
 
     def test_format_decimal_zero(self) -> None:
         """Test formatting zero."""
-        result = _format_decimal(0, use_comma=False)
+        result = format_decimal(0, use_comma=False)
         assert result == "0"
 
 

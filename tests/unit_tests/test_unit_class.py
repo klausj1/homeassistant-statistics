@@ -3,9 +3,9 @@
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
-from custom_components.import_statistics import prepare_data
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 from custom_components.import_statistics.helpers import UnitFrom
+from custom_components.import_statistics.import_service_helper import handle_dataframe
 
 
 def test_unit_class_present_in_metadata_mean() -> None:
@@ -24,7 +24,7 @@ def test_unit_class_present_in_metadata_mean() -> None:
     )
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Get the metadata for the statistic
     metadata = stats["stat1.temp"][0]
@@ -60,7 +60,7 @@ def test_unit_class_present_in_metadata_sum() -> None:
     )
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Get the metadata for the statistic
     metadata = stats["stat2.energy"][0]
@@ -98,7 +98,7 @@ def test_unit_class_multiple_statistics() -> None:
     )
 
     # Call the function
-    stats = prepare_data.handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
 
     # Verify all statistics have unit_class set to None
     for stat_id in ["sensor.temperature", "sensor.humidity", "sensor.pressure"]:

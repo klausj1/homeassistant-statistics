@@ -1,6 +1,7 @@
 """Helpers for the import_statistics integration."""
 
 import datetime as dt
+import datetime as dt_module
 import logging
 import zoneinfo
 from enum import Enum
@@ -412,3 +413,54 @@ def validate_filename(filename: str, config_dir: str) -> str:
         handle_error(f"Filename would resolve outside config directory: {filename}")
 
     return str(file_path)
+
+
+def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, format_str: str) -> str:
+    """
+    Format a datetime object to string in specified timezone and format.
+
+    Args:
+         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
+         timezone: Target timezone
+         format_str: Format string
+
+    Returns:
+         str: Formatted datetime string
+
+    """
+    # Handle Unix timestamp (float) from recorder API
+    if isinstance(dt_obj, float):
+        dt_obj = dt_module.datetime.fromtimestamp(dt_obj, tz=dt.UTC)
+    elif dt_obj.tzinfo is None:
+        # Assume UTC if naive
+        dt_obj = dt_obj.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+
+    # Convert to target timezone
+    local_dt = dt_obj.astimezone(timezone)
+
+    return local_dt.strftime(format_str)
+
+
+def format_decimal(value: float | None, *, use_comma: bool = False) -> str:
+    """
+    Format a numeric value with specified decimal separator.
+
+    Handles numeric values including min, max, mean, sum, state, and delta values.
+
+    Args:
+         value: Numeric value to format
+         use_comma: Use comma (True) or dot (False) as decimal separator
+
+    Returns:
+         str: Formatted number string
+
+    """
+    if value is None:
+        return ""
+
+    formatted = f"{float(value):.10g}"  # Avoid scientific notation, remove trailing zeros
+
+    if use_comma:
+        formatted = formatted.replace(".", ",")
+
+    return formatted
