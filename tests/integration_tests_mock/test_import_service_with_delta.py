@@ -479,3 +479,177 @@ class TestDeltaImportIntegration:
 
         with pytest.raises(HomeAssistantError):
             are_columns_valid(df_with_mean, UnitFrom.TABLE)
+
+    @pytest.mark.asyncio
+    async def test_import_delta_with_configurable_mock_data(self) -> None:
+        """Test importing delta data using configurable mock data from files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+            hass.states.set = MagicMock()
+            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+
+            setup(hass, {})
+            import_handler = hass.services.register.call_args_list[0][0][2]
+
+            # Read import data from file
+            import_file_path = Path(__file__).parent.parent.parent / "config" / "test_delta" / "test_case_1_sum_delta_changed.txt"
+            import_data = import_file_path.read_text()
+
+            # Read database reference data from file
+            db_file_path = Path(__file__).parent.parent.parent / "config" / "test_delta" / "test_case_1_sum_state.txt"
+            db_data = db_file_path.read_text()
+
+            # Read expected output from file
+            expected_file_path = Path(__file__).parent.parent.parent / "config" / "test_delta" / "expected_after_step3_delta_changed.tsv"
+            expected_data = expected_file_path.read_text()
+
+            # Parse expected data to get reference values
+            expected_df = pd.read_csv(expected_file_path, sep="\t")
+
+            # Parse database reference data - filter for test_case_1 only
+            db_df = pd.read_csv(db_file_path, sep="\t")
+            db_test_case_1 = db_df[db_df["statistic_id"].str.contains("test_case_1")]
+
+            # Parse import data - filter for test_case_1 only
+            import_df = pd.read_csv(import_file_path, sep="\t")
+            import_test_case_1 = import_df[import_df["statistic_id"].str.contains("test_case_1")]
+
+            # Create test delta file with filtered data
+            test_file = Path(tmpdir) / "delta_test_case_1.csv"
+            import_test_case_1.to_csv(test_file, sep="\t", index=False)
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "delta_test_case_1.csv",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DELIMITER: "\t",
+                    ATTR_DECIMAL: False,
+                },
+            )
+
+            # Build mock_reference based on oldest timestamp per entity from import data
+            # For each entity in import data, get the oldest timestamp, then find the previous timestamp in db data
+            mock_reference = {}
+
+            for entity_id in import_test_case_1["statistic_id"].unique():
+                import_entity = import_test_case_1[import_test_case_1["statistic_id"] == entity_id]
+                db_entity = db_test_case_1[db_test_case_1["statistic_id"] == entity_id]
+
+                if len(import_entity) > 0 and len(db_entity) > 0:
+                    # Get oldest timestamp from import data
+                    oldest_import_start = import_entity["start"].iloc[0]
+
+                    # Find the entry in db_entity that has timestamp older than oldest_import_start
+                    # Parse timestamps to compare
+                    import_time = pd.to_datetime(oldest_import_start, format="%d.%m.%Y %H:%M")
+                    db_entity_with_time = db_entity.copy()
+                    db_entity_with_time["datetime"] = pd.to_datetime(db_entity["start"], format="%d.%m.%Y %H:%M")
+
+                    # Get records before the oldest import timestamp
+                    older_records = db_entity_with_time[db_entity_with_time["datetime"] < import_time]
+
+                    if len(older_records) > 0:
+                        # Get the most recent record that is still older than import time
+                        reference_record = older_records.iloc[-1]
+                        mock_reference[entity_id] = {
+                            "start": None,
+                            "sum": float(reference_record["sum"]),
+                            "state": float(reference_record["state"]),
+                        }
+
+            with (
+                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import_ext,
+            ):
+                mock_get_oldest.return_value = mock_reference
+                await import_handler(call)
+
+                # Verify async_import_statistics/async_add_external_statistics was called
+                assert mock_import.called or mock_import_ext.called, "Import methods should have been called"
+
+                # Verify calls for both test_case_1 entities
+                calls_by_id = {}
+
+                # Collect calls from async_import_statistics
+                for call_obj in mock_import.call_args_list:
+                    metadata = call_obj[0][1]
+                    statistics = call_obj[0][2]
+                    calls_by_id[metadata["statistic_id"]] = (metadata, statistics)
+
+                # Collect calls from async_add_external_statistics
+                for call_obj in mock_import_ext.call_args_list:
+                    metadata = call_obj[0][1]
+                    statistics = call_obj[0][2]
+                    calls_by_id[metadata["statistic_id"]] = (metadata, statistics)
+
+                # Verify sensor.test_case_1
+                assert "sensor.test_case_1" in calls_by_id
+                metadata_internal, stats_internal = calls_by_id["sensor.test_case_1"]
+                assert metadata_internal["unit_of_measurement"] == "kWh"
+                assert metadata_internal["source"] == "recorder"
+
+                # Verify the statistics values match expected output
+                # Expected data includes the reference record, so skip the first row
+                expected_internal = expected_df[expected_df["statistic_id"] == "sensor.test_case_1"]
+                expected_internal_skip_ref = expected_internal.iloc[1:]  # Skip reference record
+                assert len(stats_internal) == len(expected_internal_skip_ref)
+
+                for i, stat in enumerate(stats_internal):
+                    expected_stat = expected_internal_skip_ref.iloc[i]
+                    # Verify timestamp
+                    expected_timestamp_str = expected_stat["start"]
+                    expected_timestamp = pd.to_datetime(expected_timestamp_str, format="%d.%m.%Y %H:%M")
+                    assert stat["start"].year == expected_timestamp.year
+                    assert stat["start"].month == expected_timestamp.month
+                    assert stat["start"].day == expected_timestamp.day
+                    assert stat["start"].hour == expected_timestamp.hour
+                    assert stat["start"].minute == expected_timestamp.minute
+                    # Verify sum and state
+                    if not pd.isna(expected_stat.get("sum")):
+                        assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"]))
+                    if not pd.isna(expected_stat.get("state")):
+                        assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"]))
+
+                # Verify sensor:test_case_1_ext (external)
+                assert "sensor:test_case_1_ext" in calls_by_id
+                metadata_external, stats_external = calls_by_id["sensor:test_case_1_ext"]
+                assert metadata_external["unit_of_measurement"] == "kWh"
+                assert metadata_external["source"] == "sensor"
+
+                # Verify the statistics values match expected output for external
+                # Expected data includes the reference record and more historical data, so skip to match import start time
+                expected_external = expected_df[expected_df["statistic_id"] == "sensor:test_case_1_ext"]
+                # The import data for external starts at 12:00, so find that index and skip everything before it
+                # First, find the row that matches the first imported record's timestamp
+                first_external_import = import_test_case_1[import_test_case_1["statistic_id"] == "sensor:test_case_1_ext"]["start"].iloc[0]
+                expected_external_match = expected_external[expected_external["start"] == first_external_import]
+                if len(expected_external_match) > 0:
+                    start_idx = expected_external.index.get_loc(expected_external_match.index[0])
+                    expected_external_skip_ref = expected_external.iloc[start_idx:]
+                else:
+                    expected_external_skip_ref = expected_external.iloc[1:]  # Fallback to skipping first row
+                assert len(stats_external) == len(expected_external_skip_ref)
+
+                for i, stat in enumerate(stats_external):
+                    expected_stat = expected_external_skip_ref.iloc[i]
+                    # Verify timestamp
+                    expected_timestamp_str = expected_stat["start"]
+                    expected_timestamp = pd.to_datetime(expected_timestamp_str, format="%d.%m.%Y %H:%M")
+                    assert stat["start"].year == expected_timestamp.year
+                    assert stat["start"].month == expected_timestamp.month
+                    assert stat["start"].day == expected_timestamp.day
+                    assert stat["start"].hour == expected_timestamp.hour
+                    assert stat["start"].minute == expected_timestamp.minute
+                    # Verify sum and state
+                    if not pd.isna(expected_stat.get("sum")):
+                        assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"]))
+                    if not pd.isna(expected_stat.get("state")):
+                        assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"]))

@@ -53,7 +53,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - unit, integration-mock, integration
   - pytest with levels, start integration only when integration-mock is OK
 
-- init done, prepare_data todo: Clean up init and prepare_data
+- OK Clean up init and prepare_data
   - separate database-access-functions
   - separate export and import
 
@@ -65,11 +65,15 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - Create a description
   - How does this fit to the current implementation? If not, refactor
 
+- When checking the mock calculation in the mocked ITest, does it make sense to have a method for this in production, when all values needed from the database have been queries before? Or is such a method there already?
+
 - Create arc-doc
 
 - ITest with mock for case 2
 
 - ITest without mock for case 2
+
+- get_oldest_statistics_before: name and description are not correct anymore
 
 - test_export_service.py: Separate to unit-tests and integration-tests
 
