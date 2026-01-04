@@ -49,7 +49,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 - OK Get all tests running, comment out case 2 for now
 
-- Clean up tests
+- OK Clean up tests
   - unit, integration-mock, integration
   - pytest with levels, start integration only when integration-mock is OK
 
