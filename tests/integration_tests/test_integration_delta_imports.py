@@ -313,7 +313,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step1.tsv",
-                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"], # noqa: ERA001
                 "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
@@ -351,7 +351,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step2.tsv",
-                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"], # noqa: ERA001
                 "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
@@ -389,7 +389,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step3.tsv",
-                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                # "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"], # noqa: ERA001
                 "entities": ["sensor.test_case_1", "sensor:test_case_1_ext"],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
@@ -405,4 +405,3 @@ class TestIntegrationDeltaImports:
         assert export_file_3.exists(), f"Export file not found: {export_file_3}"
         assert reference_file_3.exists(), f"Reference file not found: {reference_file_3}"
         assert self._compare_tsv_files(export_file_3, reference_file_3), "Step 3 export does not match reference"
-

@@ -4,10 +4,8 @@ import datetime as dt
 import zoneinfo
 from typing import Any
 
-from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder import get_instance, statistics
 from homeassistant.components.recorder.db_schema import Statistics
-from homeassistant.components.recorder.db_schema import Statistics as StatsTable
-from homeassistant.components.recorder import statistics
 from homeassistant.components.recorder.statistics import (
     _statistics_at_time,
     async_add_external_statistics,
@@ -21,7 +19,6 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
-from sqlalchemy import select
 
 from custom_components.import_statistics import helpers, prepare_data
 from custom_components.import_statistics.const import (

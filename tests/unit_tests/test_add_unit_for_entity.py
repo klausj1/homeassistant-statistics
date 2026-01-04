@@ -41,6 +41,7 @@ def test_add_unit_for_entity_no_unit_of_measurement() -> None:
     # Verify hass.states.get was called with the correct entity_id
     hass.states.get.assert_called_once_with("sensor.test_entity")
 
+
 def test_add_unit_for_entity_with_unit_of_measurement() -> None:
     """
     Test add_unit_for_entity when entity_id has a unit_of_measurement.

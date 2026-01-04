@@ -31,7 +31,7 @@ def pytest_configure(config: Any) -> None:
     config.addinivalue_line("markers", "integration_tests: mark test as a full integration test")
 
 
-def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
+def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:  # noqa: ARG001
     """Enforce sequential test execution: unit_tests → integration_tests_mock → integration_tests."""
     test_order = {"tests/unit_tests": 0, "tests/integration_tests_mock": 1, "tests/integration_tests": 2}
 
@@ -60,8 +60,8 @@ def pytest_runtest_makereport(item: Any, call: Any) -> None:
         if current_suite is not None:
             # Mark that this suite has failed
             if not hasattr(item.config, "_test_suite_failed"):
-                item.config._test_suite_failed = {}  # type: ignore[attr-defined]
-            item.config._test_suite_failed[current_suite] = True  # type: ignore[attr-defined]
+                item.config._test_suite_failed = {}  # noqa: SLF001 type: ignore[attr-defined]
+            item.config._test_suite_failed[current_suite] = True  # noqa: SLF001 type: ignore[attr-defined]
 
 
 def pytest_runtest_setup(item: Any) -> None:
@@ -75,7 +75,7 @@ def pytest_runtest_setup(item: Any) -> None:
             break
 
     if current_suite is not None and hasattr(item.config, "_test_suite_failed"):
-        failed_suites = item.config._test_suite_failed  # type: ignore[attr-defined]
+        failed_suites = item.config._test_suite_failed  # noqa: SLF001 type: ignore[attr-defined]
         for suite_order_num in range(current_suite):
             if failed_suites.get(suite_order_num, False):
                 pytest.skip(f"Skipped because earlier test suite (order {suite_order_num}) failed")
