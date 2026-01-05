@@ -1,4 +1,4 @@
-"""Test convert_delta_dataframe_with_references function."""
+"""Test handle_dataframe_delta function."""
 
 import datetime as dt
 import zoneinfo
@@ -7,12 +7,12 @@ import pandas as pd
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.helpers import UnitFrom
-from custom_components.import_statistics.import_service_delta_helper import convert_delta_dataframe_with_references
+from custom_components.import_statistics.helpers import DeltaReferenceType, UnitFrom
+from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 
 
 def test_convert_delta_dataframe_with_references_single_statistic() -> None:
-    """Test convert_delta_dataframe_with_references with single statistic."""
+    """Test handle_dataframe_delta with single statistic."""
     tz_id = "Europe/Vienna"
     tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
@@ -26,9 +26,14 @@ def test_convert_delta_dataframe_with_references_single_statistic() -> None:
         }
     )
 
-    references = {"sensor.temperature": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0}}
+    references = {
+        "sensor.temperature": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        }
+    }
 
-    result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
+    result = handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
 
     assert len(result) == 1
     assert "sensor.temperature" in result
@@ -41,7 +46,7 @@ def test_convert_delta_dataframe_with_references_single_statistic() -> None:
 
 
 def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
-    """Test convert_delta_dataframe_with_references with multiple statistics."""
+    """Test handle_dataframe_delta with multiple statistics."""
     tz_id = "Europe/Vienna"
     tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
@@ -56,11 +61,17 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
     )
 
     references = {
-        "sensor.energy": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
-        "sensor.gas": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 50.0, "state": 50.0},
+        "sensor.energy": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        },
+        "sensor.gas": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 50.0, "state": 50.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        },
     }
 
-    result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
+    result = handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
 
     assert len(result) == 2
     assert "sensor.energy" in result
@@ -78,7 +89,7 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
 
 
 def test_convert_delta_dataframe_with_references_missing_reference() -> None:
-    """Test convert_delta_dataframe_with_references raises error for missing reference."""
+    """Test handle_dataframe_delta raises error for missing reference."""
     tz_id = "Europe/Vienna"
     datetime_format = "%d.%m.%Y %H:%M"
 
@@ -94,11 +105,11 @@ def test_convert_delta_dataframe_with_references_missing_reference() -> None:
     references = {"sensor.temperature": None}
 
     with pytest.raises(HomeAssistantError, match="Failed to find database reference"):
-        convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
+        handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
 
 
 def test_convert_delta_dataframe_with_references_unit_from_entity() -> None:
-    """Test convert_delta_dataframe_with_references with unit_from_entity."""
+    """Test handle_dataframe_delta with unit_from_entity."""
     tz_id = "Europe/Vienna"
     tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
@@ -111,9 +122,14 @@ def test_convert_delta_dataframe_with_references_unit_from_entity() -> None:
         }
     )
 
-    references = {"sensor.temperature": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0}}
+    references = {
+        "sensor.temperature": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        }
+    }
 
-    result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.ENTITY)
+    result = handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.ENTITY, references)
 
     assert len(result) == 1
     metadata, _stats = result["sensor.temperature"]
@@ -121,7 +137,7 @@ def test_convert_delta_dataframe_with_references_unit_from_entity() -> None:
 
 
 def test_convert_delta_dataframe_with_references_external_statistics() -> None:
-    """Test convert_delta_dataframe_with_references with external (colon-format) statistic."""
+    """Test handle_dataframe_delta with external (colon-format) statistic."""
     tz_id = "Europe/Vienna"
     tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
@@ -135,9 +151,14 @@ def test_convert_delta_dataframe_with_references_external_statistics() -> None:
         }
     )
 
-    references = {"custom:energy": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0}}
+    references = {
+        "custom:energy": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        }
+    }
 
-    result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
+    result = handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
 
     assert len(result) == 1
     metadata, _stats = result["custom:energy"]
@@ -146,7 +167,7 @@ def test_convert_delta_dataframe_with_references_external_statistics() -> None:
 
 
 def test_convert_delta_dataframe_with_references_invalid_rows_filtered() -> None:
-    """Test convert_delta_dataframe_with_references silently filters invalid rows."""
+    """Test handle_dataframe_delta silently filters invalid rows."""
     tz_id = "Europe/Vienna"
     tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
@@ -160,9 +181,14 @@ def test_convert_delta_dataframe_with_references_invalid_rows_filtered() -> None
         }
     )
 
-    references = {"sensor.temperature": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0}}
+    references = {
+        "sensor.temperature": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        }
+    }
 
-    result = convert_delta_dataframe_with_references(df, references, tz_id, datetime_format, UnitFrom.TABLE)
+    result = handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
 
     # Only valid row should be included
     _metadata, stats = result["sensor.temperature"]

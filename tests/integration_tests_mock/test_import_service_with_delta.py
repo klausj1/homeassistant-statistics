@@ -18,9 +18,8 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from custom_components.import_statistics.helpers import UnitFrom, are_columns_valid
-from custom_components.import_statistics.import_service_delta_helper import convert_delta_dataframe_with_references, convert_deltas_case_1
-from custom_components.import_statistics.import_service_helper import handle_dataframe
+from custom_components.import_statistics.helpers import DeltaReferenceType, UnitFrom, are_columns_valid
+from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_older_reference, handle_dataframe_delta
 from tests.conftest import mock_async_add_executor_job
 
 
@@ -66,17 +65,20 @@ class TestDeltaImportIntegration:
             # Mock the database query for oldest statistics
             mock_reference = {
                 "counter.energy": {
-                    "start": None,  # Not used in this test
-                    "sum": 100.0,  # Reference sum value
-                    "state": 200.0,  # Reference state value
+                    "reference": {
+                        "start": None,  # Not used in this test
+                        "sum": 100.0,  # Reference sum value
+                        "state": 200.0,  # Reference state value
+                    },
+                    "ref_type": DeltaReferenceType.OLDER_REFERENCE,
                 }
             }
 
             with (
-                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             ):
-                mock_get_oldest.return_value = mock_reference
+                mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -149,15 +151,15 @@ class TestDeltaImportIntegration:
 
             # Mock the database query for oldest statistics
             mock_reference = {
-                "counter.energy": {"start": None, "sum": 100.0, "state": 100.0},
-                "counter.gas": {"start": None, "sum": 50.0, "state": 50.0},
+                "counter.energy": {"reference": {"start": None, "sum": 100.0, "state": 100.0}, "ref_type": DeltaReferenceType.OLDER_REFERENCE},
+                "counter.gas": {"reference": {"start": None, "sum": 50.0, "state": 50.0}, "ref_type": DeltaReferenceType.OLDER_REFERENCE},
             }
 
             with (
-                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             ):
-                mock_get_oldest.return_value = mock_reference
+                mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
 
                 # Verify async_import_statistics was called for both statistics
@@ -225,13 +227,13 @@ class TestDeltaImportIntegration:
             )
 
             # Mock the database query for oldest statistics
-            mock_reference = {"counter.energy": {"start": None, "sum": 100.0, "state": 100.0}}
+            mock_reference = {"counter.energy": {"reference": {"start": None, "sum": 100.0, "state": 100.0}, "ref_type": DeltaReferenceType.OLDER_REFERENCE}}
 
             with (
-                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             ):
-                mock_get_oldest.return_value = mock_reference
+                mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -284,13 +286,15 @@ class TestDeltaImportIntegration:
             )
 
             # Mock the database query for oldest statistics
-            mock_reference = {"custom:external_counter": {"start": None, "sum": 200.0, "state": 200.0}}
+            mock_reference = {
+                "custom:external_counter": {"reference": {"start": None, "sum": 200.0, "state": 200.0}, "ref_type": DeltaReferenceType.OLDER_REFERENCE}
+            }
 
             with (
-                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import,
             ):
-                mock_get_oldest.return_value = mock_reference
+                mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
 
                 # Verify async_add_external_statistics was called
@@ -317,7 +321,7 @@ class TestDeltaImportIntegration:
 
     @pytest.mark.asyncio
     async def test_import_delta_without_hass_fails(self) -> None:
-        """Test that delta import without hass parameter raises error."""
+        """Test that delta import with missing references raises error."""
         # Create a delta dataframe
         df = pd.DataFrame(
             {
@@ -328,14 +332,17 @@ class TestDeltaImportIntegration:
             }
         )
 
-        # Should raise error when hass is None and delta is detected
+        # References with None for the statistic (no reference found)
+        references = {"counter.energy": None}
+
+        # Should raise error when reference is None for delta data
         with pytest.raises(HomeAssistantError):
-            handle_dataframe(
+            handle_dataframe_delta(
                 df,
                 "UTC",
                 "%d.%m.%Y %H:%M",
                 UnitFrom.TABLE,
-                hass=None,
+                references,
             )
 
     @pytest.mark.asyncio
@@ -353,7 +360,7 @@ class TestDeltaImportIntegration:
         state_oldest = 100.0
 
         # Convert
-        result = convert_deltas_case_1(delta_rows, sum_oldest, state_oldest)
+        result = convert_deltas_with_older_reference(delta_rows, sum_oldest, state_oldest)
 
         # Verify accumulation
         assert len(result) == 3
@@ -441,12 +448,12 @@ class TestDeltaImportIntegration:
 
         # Should raise error when reference is None
         with pytest.raises(HomeAssistantError):
-            convert_delta_dataframe_with_references(
+            handle_dataframe_delta(
                 df,
-                references,
                 "UTC",
                 "%d.%m.%Y %H:%M",
                 UnitFrom.TABLE,
+                references,
             )
 
     @pytest.mark.asyncio
@@ -527,11 +534,11 @@ class TestDeltaImportIntegration:
             mock_reference = self._build_mock_reference(import_test_case_1, db_test_case_1)
 
             with (
-                patch("custom_components.import_statistics.import_service.get_oldest_statistics_before", new_callable=AsyncMock) as mock_get_oldest,
+                patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
                 patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import_ext,
             ):
-                mock_get_oldest.return_value = mock_reference
+                mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
 
                 assert mock_import.called or mock_import_ext.called, "Import methods should have been called"
@@ -561,9 +568,12 @@ class TestDeltaImportIntegration:
                 if len(older_records) > 0:
                     reference_record = older_records.iloc[-1]
                     mock_reference[entity_id] = {
-                        "start": None,
-                        "sum": float(reference_record["sum"]),
-                        "state": float(reference_record["state"]),
+                        "reference": {
+                            "start": None,
+                            "sum": float(reference_record["sum"]),
+                            "state": float(reference_record["state"]),
+                        },
+                        "ref_type": DeltaReferenceType.OLDER_REFERENCE,
                     }
 
         return mock_reference

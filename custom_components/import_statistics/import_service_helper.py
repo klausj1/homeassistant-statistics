@@ -1,9 +1,7 @@
-"""Helper functions for import service - data preparation from files/JSON."""
+"""Helper functions for import service - data preparation from files/JSON. No hass object needed"""
 
-import datetime
 import zoneinfo
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import pytz
@@ -22,24 +20,23 @@ from custom_components.import_statistics.const import (
 from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 
 
-def prepare_data_to_import(file_path: str, call: ServiceCall, hass: Any = None) -> tuple:
+def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     """
-    Prepare data to import statistics from a file.
+    Load and prepare data from CSV/TSV file for import.
 
     Args:
     ----
         file_path: Path to the file with the data to be imported.
         call: The call data containing the necessary information.
-        hass: Home Assistant instance (optional, required for delta processing)
 
     Returns:
     -------
-        A dictionary containing the imported statistics.
+        Tuple of (df, timezone_identifier, datetime_format, unit_from_entity, is_delta)
 
     Raises:
     ------
         FileNotFoundError: If the specified file does not exist.
-        ValueError: If there is an implementation error.
+        HomeAssistantError: If there is a validation error.
 
     """
     decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
@@ -50,12 +47,36 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, hass: Any = None) 
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
 
-    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity, hass=hass)
-    return stats, unit_from_entity
+    _LOGGER.debug("Columns: %s", my_df.columns)
+
+    if not helpers.are_columns_valid(my_df, unit_from_entity):
+        helpers.handle_error(
+            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
+        )
+
+    # Detect if this is delta mode (presence of delta column)
+    is_delta = "delta" in my_df.columns
+
+    return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
 
-def prepare_json_data_to_import(call: ServiceCall, hass: Any = None) -> tuple:
-    """Parse json data to import statistics from."""
+def prepare_json_data_to_import(call: ServiceCall) -> tuple:
+    """
+    Prepare data from JSON service call for import.
+
+    Args:
+    ----
+        call: The service call data containing entities.
+
+    Returns:
+    -------
+        Tuple of (df, timezone_identifier, datetime_format, unit_from_entity, is_delta)
+
+    Raises:
+    ------
+        HomeAssistantError: If there is a validation error.
+
+    """
     _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call)
 
     valid_columns = ["state", "sum", "min", "max", "mean"]
@@ -82,8 +103,18 @@ def prepare_json_data_to_import(call: ServiceCall, hass: Any = None) -> tuple:
             data.append(tuple([value_dict[column] for column in columns]))
 
     my_df = pd.DataFrame(data, columns=columns)
-    stats = handle_dataframe(my_df, timezone_identifier, datetime_format, unit_from_entity, hass=hass)
-    return stats, unit_from_entity
+
+    _LOGGER.debug("Columns: %s", my_df.columns)
+
+    if not helpers.are_columns_valid(my_df, unit_from_entity):
+        helpers.handle_error(
+            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
+        )
+
+    # Detect if this is delta mode (presence of delta column)
+    is_delta = "delta" in my_df.columns
+
+    return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
 
 def handle_arguments(call: ServiceCall) -> tuple:
@@ -100,7 +131,7 @@ def handle_arguments(call: ServiceCall) -> tuple:
 
     Raises:
     ------
-        ValueError: If the timezone identifier is invalid.
+        HomeAssistantError: If the timezone identifier is invalid.
 
     """
     decimal = "," if call.data.get(ATTR_DECIMAL, True) else "."
@@ -126,37 +157,31 @@ def handle_arguments(call: ServiceCall) -> tuple:
     return decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity
 
 
-def handle_dataframe(
+def handle_dataframe_no_delta(
     df: pd.DataFrame,
     timezone_identifier: str,
     datetime_format: str,
     unit_from_where: UnitFrom,
-    hass: Any = None,
 ) -> dict:
     """
-    Process a dataframe and extract statistics based on the specified columns and timezone.
-
-    Supports both regular (mean/sum) and delta column formats.
+    Process non-delta statistics from DataFrame.
 
     Args:
     ----
-        df (pandas.DataFrame): The input dataframe containing the statistics data.
-        timezone_identifier (str): The timezone identifier to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
-        unit_from_where: ENTITY if the unit is taken from the entity, TABLE if taken from input file.
-        hass: Home Assistant instance (required if delta column detected, optional otherwise)
+        df: DataFrame with statistic_id, start, and value columns
+        timezone_identifier: IANA timezone string
+        datetime_format: Format string for parsing timestamps
+        unit_from_where: Source of unit values (TABLE or ENTITY)
 
     Returns:
     -------
-        dict: A dictionary containing the extracted statistics, organized by statistic_id.
+        Dictionary mapping statistic_id to (metadata, statistics_list)
 
     Raises:
     ------
-        HomeAssistantError: If delta detected but hass is None, or on validation failure
+        HomeAssistantError: On validation errors
 
     """
-    # Import here to avoid circular import
-
     columns = df.columns
     _LOGGER.debug("Columns: %s", columns)
 
@@ -165,48 +190,11 @@ def handle_dataframe(
             "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
         )
 
-    # Check if delta column exists - if so, use delta conversion path
-    if "delta" in columns:
-        _LOGGER.info("Delta column detected, using delta conversion path")
-
-        if hass is None:
-            helpers.handle_error("hass parameter is required for delta column processing")
-
-        # Extract all unique statistic_ids and find oldest and youngest delta timestamps for each
-        # For Case 1: oldest timestamp is needed (to query for reference 1 hour before)
-        # For Case 2: youngest timestamp is needed (to query for reference 1 hour after)
-        references_needed = {}
-        for statistic_id in df["statistic_id"].unique():
-            group = df[df["statistic_id"] == statistic_id]
-            oldest_timestamp_str = group["start"].min()
-            youngest_timestamp_str = group["start"].max()
-
-            # Parse the timestamps to get datetime objects
-            timezone = zoneinfo.ZoneInfo(timezone_identifier)
-            try:
-                oldest_dt = datetime.datetime.strptime(oldest_timestamp_str, datetime_format).replace(tzinfo=timezone)
-                youngest_dt = datetime.datetime.strptime(youngest_timestamp_str, datetime_format).replace(tzinfo=timezone)
-            except (ValueError, TypeError) as e:
-                helpers.handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
-
-            # Convert to UTC for database query
-            oldest_dt_utc = oldest_dt.astimezone(datetime.UTC)
-            youngest_dt_utc = youngest_dt.astimezone(datetime.UTC)
-
-            # Store both timestamps: (oldest, youngest)
-            # The reference fetcher will use oldest for Case 1 and youngest for Case 2
-            references_needed[statistic_id] = (oldest_dt_utc, youngest_dt_utc)
-
-        _LOGGER.debug("Need references for %d statistics", len(references_needed))
-
-        # Return special marker for async handling in prepare_data_to_import
-        return ("_DELTA_PROCESSING_NEEDED", df, references_needed, timezone_identifier, datetime_format, unit_from_where)
-
-    # Non-delta path (existing logic)
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
     has_mean = "mean" in columns
     has_sum = "sum" in columns
+
     for _index, row in df.iterrows():
         statistic_id = row["statistic_id"]
         if statistic_id not in stats:  # New statistic id found
@@ -229,4 +217,5 @@ def handle_dataframe(
             new_stat = helpers.get_sum_stat(row, timezone, datetime_format)
         if new_stat:
             stats[statistic_id][1].append(new_stat)
+
     return stats

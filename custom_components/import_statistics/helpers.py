@@ -24,6 +24,13 @@ class UnitFrom(Enum):
     ENTITY = 2
 
 
+class DeltaReferenceType(Enum):
+    """Type of reference used for delta conversion."""
+
+    OLDER_REFERENCE = "older"  # Reference is 1+ hour before oldest import
+    YOUNGER_REFERENCE = "younger"  # Reference is at or after youngest import
+
+
 def get_source(statistic_id: str) -> str:
     """
     Get the source of a statistic based on the given statistic_id.

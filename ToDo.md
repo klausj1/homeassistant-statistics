@@ -47,27 +47,15 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- OK Get all tests running, comment out case 2 for now
+- OK Refactoring in progress
 
-- OK Clean up tests
-  - unit, integration-mock, integration
-  - pytest with levels, start integration only when integration-mock is OK
-
-- OK Clean up init and prepare_data
-  - separate database-access-functions
-  - separate export and import
-
-- OK Create ITest with mock based in ITest testdata
-  - First for case 1, which must be OK
-
-- OK When checking the mock calculation in the mocked ITest, does it make sense to have a method for this in production, when all values needed from the database have been queries before? Or is such a method there already?
-
-- OK Understand different cases
-  - Create a figure
-  - Create a description
-  - How does this fit to the current implementation? If not, refactor
-
-- Refactoring in progress
+- Review refactoring changes, tests; required unit-tests done?
+  - I think _process_delta_references_for_statistic does the younger reference can be equal wrong - wait for tests
+  - _process_delta_references_for_statistic seems to miss the check for imported timerange completely overlaps timerange in DB
+  - Rename export to export_service (symmetry)
+  - Rename delta_import.py to something which makes it clear that its database access
+  - new tests for custom_components/import_statistics/delta_import.py
+  - new tests for _process_delta_references_for_statistic; separate or with tests for prepare_delta_handling
 
 - Create arc-doc
 
@@ -106,6 +94,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 - Add non-delta imports to the integration test
 
 ### Later
+- Test repo in other local storage, create developer documentation
 - Is it possible to wait until async import task is ready?
 - Setup a job to run the test in the pipeline as well, for pull requests
 - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import
@@ -114,3 +103,4 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - JSON does not work anyhow
 - Check what should be in init and what not; own file for HA-dependent helpers
 - Allow import of counter and sensor in one file
+- Why isn't pandas directly used to read json? prepare_json_data_to_import does some manual stuff, necessary?

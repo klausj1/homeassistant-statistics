@@ -1,20 +1,19 @@
-"""Helper functions for delta conversion in import service."""
+"""Helper functions for import service in delta case. No hass object needed"""
 
-import datetime
 import zoneinfo
 
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.helpers import _LOGGER, UnitFrom, format_decimal
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal
 
 
-def convert_deltas_case_1(delta_rows: list[dict], sum_oldest: float, state_oldest: float) -> list[dict]:
+def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float, state_oldest: float) -> list[dict]:
     """
     Convert delta rows to absolute sum/state values.
 
-    Uses Case 1 reference (older database record) to accumulate deltas.
+    Uses older database record reference to accumulate deltas forward in time.
 
     Args:
     ----
@@ -71,7 +70,7 @@ def convert_deltas_case_1(delta_rows: list[dict], sum_oldest: float, state_oldes
     return converted_rows
 
 
-def convert_deltas_case_2(
+def convert_deltas_with_younger_reference(
     delta_rows: list[dict],
     sum_reference: float,
     state_reference: float,
@@ -79,7 +78,7 @@ def convert_deltas_case_2(
     """
     Convert delta rows to absolute sum/state values using younger reference data.
 
-    Case 2: Works backward from younger data using subtraction.
+    Works backward in time from younger reference record using subtraction.
 
     Args:
     ----
@@ -96,7 +95,7 @@ def convert_deltas_case_2(
         HomeAssistantError: If rows are not sorted by timestamp
 
     """
-    _LOGGER.debug("Converting %d delta rows to absolute values (Case 2 - younger reference)", len(delta_rows))
+    _LOGGER.debug("Converting %d delta rows to absolute values (younger reference)", len(delta_rows))
     _LOGGER.debug("Starting from sum=%s, state=%s (working backward)", sum_reference, state_reference)
 
     if not delta_rows:
@@ -136,35 +135,39 @@ def convert_deltas_case_2(
     converted_rows.reverse()
 
     _LOGGER.debug(
-        "Case 2 conversion complete: final oldest sum=%s, state=%s",
+        "Younger reference conversion complete: final oldest sum=%s, state=%s",
         converted_rows[0]["sum"] if converted_rows else None,
         converted_rows[0]["state"] if converted_rows else None,
     )
     return converted_rows
 
 
-def convert_delta_dataframe_with_references(  # noqa: PLR0913
+def handle_dataframe_delta(
     df: pd.DataFrame,
-    references: dict,
     timezone_identifier: str,
     datetime_format: str,
     unit_from_where: UnitFrom,
-    case_2_conversion_enabled: bool = True,  # noqa: FBT001, FBT002
+    references: dict,
 ) -> dict:
     """
-    Convert DataFrame with delta column using pre-fetched reference data.
+    Process delta statistics from DataFrame using pre-fetched references.
 
     Pure calculation function - no HA dependency (all references pre-fetched).
-    Supports both Case 1 (older reference) and Case 2 (younger reference) conversion.
+    Supports both OLDER_REFERENCE and YOUNGER_REFERENCE conversion.
 
     Args:
     ----
         df: DataFrame with delta column
-        references: {statistic_id: {start, sum, state} or None}
         timezone_identifier: User's timezone
         datetime_format: Datetime format string
         unit_from_where: UnitFrom.ENTITY or UnitFrom.TABLE
-        case_2_conversion_enabled: Enable Case 2 (younger reference) conversion (default True)
+        references: Dict mapping statistic_id to reference data:
+                   {
+                       statistic_id: {
+                           "reference": {"start": datetime, "sum": float, "state": float},
+                           "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE
+                       } or None
+                   }
 
     Returns:
     -------
@@ -188,13 +191,18 @@ def convert_delta_dataframe_with_references(  # noqa: PLR0913
         if statistic_id not in references:
             helpers.handle_error(f"No reference found for statistic_id: {statistic_id}")
 
-        reference = references[statistic_id]
-        if reference is None:
+        ref_data = references[statistic_id]
+        if ref_data is None:
             helpers.handle_error(f"Failed to find database reference for: {statistic_id} (no records at least 1 hour before/after import start)")
+
+        reference = ref_data.get("reference")
+        ref_type = ref_data.get("ref_type")
+
+        if reference is None or ref_type is None:
+            helpers.handle_error(f"Invalid reference data structure for {statistic_id}")
 
         sum_ref = reference.get("sum", 0)
         state_ref = reference.get("state", 0)
-        ref_start = reference.get("start")
 
         # Extract delta rows using get_delta_stat
         delta_rows = []
@@ -211,39 +219,15 @@ def convert_delta_dataframe_with_references(  # noqa: PLR0913
         source = helpers.get_source(statistic_id)
         unit = helpers.add_unit_to_dataframe(source, unit_from_where, group.iloc[0].get("unit", ""), statistic_id)
 
-        # Detect which case to use based on reference timestamp
-        # Case 1: reference is at least 1 hour before first delta (oldest statistic)
-        # Case 2: reference is at least 1 hour after last delta (youngest statistic)
-        first_delta_time = delta_rows[0]["start"]
-        last_delta_time = delta_rows[-1]["start"]
-        min_ref_distance = datetime.timedelta(hours=1)
-
-        # If reference timestamp is available, validate 1-hour distance and detect case
-        if ref_start is not None:
-            time_before_first = first_delta_time - ref_start
-            time_after_last = ref_start - last_delta_time
-
-            if ref_start < first_delta_time and time_before_first >= min_ref_distance:
-                # Case 1: Older reference (at least 1 hour before) - accumulate deltas forward
-                _LOGGER.debug("Using Case 1 conversion (older reference) for %s", statistic_id)
-                converted = convert_deltas_case_1(delta_rows, sum_ref, state_ref)
-            elif case_2_conversion_enabled and ref_start > last_delta_time and time_after_last >= min_ref_distance:
-                # Case 2: Younger reference (at least 1 hour after) - subtract deltas backward
-                _LOGGER.debug("Using Case 2 conversion (younger reference) for %s", statistic_id)
-                converted = convert_deltas_case_2(delta_rows, sum_ref, state_ref)
-            else:
-                # Reference is not 1 hour away (between first and last deltas or within 1 hour)
-                error_msg = (
-                    f"Invalid reference for {statistic_id}: reference timestamp {ref_start} must be "
-                    f"at least 1 hour before (Case 1) or after (Case 2) the import data range "
-                    f"({first_delta_time} to {last_delta_time})"
-                )
-                helpers.handle_error(error_msg)
+        # Route to appropriate conversion method based on reference type
+        if ref_type == DeltaReferenceType.OLDER_REFERENCE:
+            _LOGGER.debug("Using OLDER_REFERENCE conversion for %s", statistic_id)
+            converted = convert_deltas_with_older_reference(delta_rows, sum_ref, state_ref)
+        elif ref_type == DeltaReferenceType.YOUNGER_REFERENCE:
+            _LOGGER.debug("Using YOUNGER_REFERENCE conversion for %s", statistic_id)
+            converted = convert_deltas_with_younger_reference(delta_rows, sum_ref, state_ref)
         else:
-            # Reference timestamp is unavailable (None) - skip distance validation
-            # Default to Case 1 when timestamp is unavailable
-            _LOGGER.debug("Using Case 1 conversion (older reference, timestamp unavailable) for %s", statistic_id)
-            converted = convert_deltas_case_1(delta_rows, sum_ref, state_ref)
+            helpers.handle_error(f"Internal error: Unknown reference type {ref_type} for {statistic_id}")
 
         # Build metadata
         metadata = {

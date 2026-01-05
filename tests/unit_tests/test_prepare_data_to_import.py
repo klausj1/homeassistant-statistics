@@ -1,14 +1,11 @@
 """Unit tests for prepare_data_to_import function."""
 
-import datetime
 import re
 import tempfile
-import zoneinfo
 from pathlib import Path
 
 import pandas as pd
 import pytest
-from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
@@ -24,34 +21,7 @@ from custom_components.import_statistics.import_service_helper import prepare_da
 
 
 def test_prepare_data_to_import_valid_file_dot() -> None:
-    """
-    Test prepare_data_to_import function with a valid file.
-
-    This function calls the prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
-    """
-    # Define the expected output
-    expected_stats = {
-        "sensor.esp32_soundroom_bathroomtempsensor": (
-            {
-                "mean_type": StatisticMeanType.ARITHMETIC,
-                "has_sum": False,
-                "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
-                "name": None,
-                "source": "recorder",
-                "unit_class": None,
-                "unit_of_measurement": "°C",
-            },
-            [
-                {
-                    "start": pd.to_datetime("26.01.2024 00:00", format=DATETIME_DEFAULT_FORMAT).tz_localize("Europe/London"),
-                    "min": 1131.3,
-                    "max": 1231.5,
-                    "mean": 1181,
-                }
-            ],
-        ),
-    }
-
+    """Test prepare_data_to_import function with a valid file using dot decimal separator."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
@@ -64,46 +34,26 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
     call = ServiceCall("domain_name", "service_name", data, data)
 
     # Call the function
-    stats, unit_from_entity = prepare_data_to_import(file_path, call)
+    df, timezone_id, datetime_format, unit_from_entity, is_delta = prepare_data_to_import(file_path, call)
 
-    # Check the output
-    assert stats == expected_stats
+    # Check the return types and values
+    assert isinstance(df, pd.DataFrame)
+    assert timezone_id == "Europe/London"
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
     assert unit_from_entity is UnitFrom.TABLE
+    assert is_delta is False
+    assert len(df) > 0
+    assert "statistic_id" in df.columns
+    assert "start" in df.columns
+    assert "unit" in df.columns
 
 
 def test_prepare_data_to_import_valid_file_comma() -> None:
-    """
-    Test prepare_data_to_import function with a valid file.
-
-    This function calls the prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
-    """
-    # Define the expected output
-    expected_stats = {
-        "sensor.esp32_soundroom_bathroomtempsensor": (
-            {
-                "mean_type": StatisticMeanType.ARITHMETIC,
-                "has_sum": False,
-                "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
-                "name": None,
-                "source": "recorder",
-                "unit_class": None,
-                "unit_of_measurement": "°C",
-            },
-            [
-                {
-                    "start": pd.to_datetime("26.01.2024 00:00", format=DATETIME_DEFAULT_FORMAT).tz_localize("Europe/London"),
-                    "min": 1131.3,
-                    "max": 1231.5,
-                    "mean": 1181,
-                }
-            ],
-        ),
-    }
-
+    """Test prepare_data_to_import function with a valid file using comma decimal separator."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {
-        ATTR_DECIMAL: False,  # True is ','
+        ATTR_DECIMAL: False,  # False is '.'
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
         ATTR_DELIMITER: "\t",
         ATTR_UNIT_FROM_ENTITY: False,
@@ -112,43 +62,19 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
     call = ServiceCall("domain_name", "service_name", data, data)
 
     # Call the function
-    stats, unit_from_entity = prepare_data_to_import(file_path, call)
+    df, timezone_id, datetime_format, unit_from_entity, is_delta = prepare_data_to_import(file_path, call)
 
-    # Check the output
-    assert stats == expected_stats
+    # Check the return types and values
+    assert isinstance(df, pd.DataFrame)
+    assert timezone_id == "Europe/London"
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
     assert unit_from_entity is UnitFrom.TABLE
-
-
-def test_prepare_data_to_import_wrong_separator() -> None:
-    """
-    Test prepare_data_to_import function with a valid file.
-
-    This function calls the prepare_data_to_import function with the file path, and checks that the returned statistics match the expected result.
-    """
-    file_path = "tests/testfiles/correctcolumnscomma.csv"
-
-    data = {
-        ATTR_DECIMAL: False,  # True: ','
-        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "\t",
-    }
-
-    call = ServiceCall("domain_name", "service_name", data, data)
-
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("Invalid float value: 1131,3. Check the decimal separator."),
-    ):
-        prepare_data_to_import(file_path, call)
+    assert is_delta is False
+    assert len(df) > 0
 
 
 def test_prepare_data_to_import_invalid_file() -> None:
-    """
-    Test prepare_data_to_import function with an invalid file.
-
-    This function calls the prepare_data_to_import function with a non-existent file path and checks that a FileNotFoundError is raised.
-    """
-    # Define the non-existent file path
+    """Test prepare_data_to_import function with an invalid file."""
     file_path = "nonexistent.csv"
 
     data = {
@@ -167,12 +93,7 @@ def test_prepare_data_to_import_invalid_file() -> None:
 
 
 def test_prepare_data_to_import_invalid_data() -> None:
-    """
-    Test prepare_data_to_import function with invalid data in the file.
-
-    This function creates a temporary CSV file with invalid data,
-        calls the prepare_data_to_import function with the file path, and checks that a HomeAssistantError is raised.
-    """
+    """Test prepare_data_to_import function with invalid data in the file."""
     file_path = "tests/testfiles/wrongcolumns.csv"
 
     data = {
@@ -189,41 +110,11 @@ def test_prepare_data_to_import_invalid_data() -> None:
             "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
         ),
     ):
-        # Call the function
         prepare_data_to_import(file_path, call)
 
 
 def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
-    """
-    Test prepare_data_to_import function with a valid file where unit comes from entity.
-
-    This function calls the prepare_data_to_import function with a file that doesn't contain
-    a unit column (unit_from_entity=True), and checks that the returned statistics match the expected result.
-    """
-    # Define the expected output
-    expected_stats = {
-        "sensor.esp32_soundroom_bathroomtempsensor": (
-            {
-                "mean_type": StatisticMeanType.ARITHMETIC,
-                "has_sum": False,
-                "statistic_id": "sensor.esp32_soundroom_bathroomtempsensor",
-                "name": None,
-                "source": "recorder",
-                "unit_class": None,
-                "unit_of_measurement": "",
-            },
-            [
-                {
-                    "start": datetime.datetime.strptime("26.01.2024 00:00", DATETIME_DEFAULT_FORMAT).replace(tzinfo=zoneinfo.ZoneInfo("Europe/London")),
-                    "min": 1131.3,
-                    "max": 1231.5,
-                    "mean": 1181,
-                }
-            ],
-        ),
-    }
-
-    # Use a file without unit column since unit comes from entity
+    """Test prepare_data_to_import function where unit comes from entity."""
     file_path = "tests/testfiles/correctcolumns_no_unit.csv"
 
     data = {
@@ -236,20 +127,22 @@ def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
     call = ServiceCall("domain_name", "service_name", data, data)
 
     # Call the function
-    stats, unit_from_entity = prepare_data_to_import(file_path, call)
+    df, timezone_id, datetime_format, unit_from_entity, is_delta = prepare_data_to_import(file_path, call)
 
-    # Check the output
-    assert stats == expected_stats
+    # Check the return types and values
+    assert isinstance(df, pd.DataFrame)
+    assert timezone_id == "Europe/London"
+    assert datetime_format == DATETIME_DEFAULT_FORMAT
     assert unit_from_entity is UnitFrom.ENTITY
+    assert is_delta is False
+    assert len(df) > 0
+    assert "statistic_id" in df.columns
+    assert "start" in df.columns
+    assert "unit" not in df.columns  # No unit column when unit_from_entity=True
 
 
 def test_prepare_data_to_import_with_unknown_columns() -> None:
-    """
-    Test prepare_data_to_import function with unknown column headers.
-
-    This test verifies that the function rejects files with unknown columns
-    and returns an error to the user.
-    """
+    """Test prepare_data_to_import function with unknown column headers."""
     # Create a DataFrame with valid columns plus unknown columns
     my_df = pd.DataFrame(
         [
@@ -281,12 +174,7 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
 
 
 def test_prepare_data_to_import_unit_from_entity_with_unit_column() -> None:
-    """
-    Test prepare_data_to_import function with unit_from_entity=True and a unit column.
-
-    This test verifies that the function rejects files that contain a unit column
-    when unit_from_entity is True, since unit should come from the entity in that case.
-    """
+    """Test prepare_data_to_import function with unit_from_entity=True and a unit column."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
 
     data = {

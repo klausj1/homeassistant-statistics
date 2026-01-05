@@ -1,4 +1,4 @@
-"""Test convert_deltas_case_1 function."""
+"""Test convert_deltas_with_older_reference function."""
 
 import datetime as dt
 import zoneinfo
@@ -6,7 +6,7 @@ import zoneinfo
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.import_service_delta_helper import convert_deltas_case_1
+from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_older_reference
 
 
 def test_convert_deltas_case_1_single_delta() -> None:
@@ -19,7 +19,7 @@ def test_convert_deltas_case_1_single_delta() -> None:
         }
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=100.0, state_oldest=100.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
     assert len(result) == 1
     assert result[0]["start"] == dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz)
@@ -36,7 +36,7 @@ def test_convert_deltas_case_1_multiple_deltas() -> None:
         {"start": dt.datetime(2022, 1, 1, 2, 0, tzinfo=tz), "delta": 3.1},
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=100.0, state_oldest=100.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
     assert len(result) == 3
     assert result[0]["sum"] == 110.5
@@ -55,7 +55,7 @@ def test_convert_deltas_case_1_negative_deltas() -> None:
         {"start": dt.datetime(2022, 1, 1, 1, 0, tzinfo=tz), "delta": -5.2},
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=100.0, state_oldest=100.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
     assert len(result) == 2
     assert result[0]["sum"] == 89.5
@@ -71,7 +71,7 @@ def test_convert_deltas_case_1_zero_delta() -> None:
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 0.0},
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=100.0, state_oldest=100.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
     assert len(result) == 1
     assert result[0]["sum"] == 100.0
@@ -87,7 +87,7 @@ def test_convert_deltas_case_1_mixed_deltas() -> None:
         {"start": dt.datetime(2022, 1, 1, 2, 0, tzinfo=tz), "delta": 3.0},
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=100.0, state_oldest=100.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
     assert len(result) == 3
     assert result[0]["sum"] == 110.0
@@ -102,7 +102,7 @@ def test_convert_deltas_case_1_large_values() -> None:
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 999999.99},
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=1000000.0, state_oldest=1000000.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=1000000.0, state_oldest=1000000.0)
 
     assert len(result) == 1
     assert result[0]["sum"] == 1999999.99
@@ -119,12 +119,12 @@ def test_convert_deltas_case_1_unsorted_rows_raises_error() -> None:
     ]
 
     with pytest.raises(HomeAssistantError, match="Delta rows must be sorted"):
-        convert_deltas_case_1(delta_rows, sum_oldest=100.0, state_oldest=100.0)
+        convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
 
 def test_convert_deltas_case_1_empty_rows() -> None:
     """Test convert_deltas_case_1 with empty rows."""
-    result = convert_deltas_case_1([], sum_oldest=100.0, state_oldest=100.0)
+    result = convert_deltas_with_older_reference([], sum_oldest=100.0, state_oldest=100.0)
 
     assert result == []
 
@@ -138,7 +138,7 @@ def test_convert_deltas_case_1_preserves_order() -> None:
         {"start": dt.datetime(2022, 1, 1, 2, 0, tzinfo=tz), "delta": 3.0},
     ]
 
-    result = convert_deltas_case_1(delta_rows, sum_oldest=0.0, state_oldest=0.0)
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=0.0, state_oldest=0.0)
 
     assert result[0]["start"] < result[1]["start"] < result[2]["start"]
     assert result[0]["start"] == dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz)
