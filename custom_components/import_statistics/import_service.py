@@ -31,13 +31,22 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     """
     Finds delta references for a single statistic.
     The delta reference is the value in the database that is used to convert delta values to sum and state.
-    The reference can be either older or equal/newer than the imported data.
+    It must be either:
+      - at least one hour older than the oldest imported value (OLDER_REFERENCE)
+        In this case, sum and state of the reference are needed to calculate sum and state of the oldest imported value
+      - or at or after the newest imported value (NEWER_REFERENCE)
+        In this case, sum and state of the reference are needed to calculate sum and state of the newest imported value
 
     Returns:
         Tuple of (reference_data, error_message)
         Where reference_data is None if error_message is not None
 
     """
+
+    # Important for understanding:
+    # When timestamps are compared, newer means '>'
+    # Therefore '<' means older
+
     # Fetch t_newest_db (most recent record in database)
     t_newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
     if t_newest_db_record is None:
@@ -46,67 +55,53 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
 
     t_newest_db = t_newest_db_record["start"]
 
-    # Check: t_newest_import must not be newer than t_newest_db
-    if t_newest_import < t_newest_db:
+    # Check: t_newest_import must not be newer than t_newest_db (newer means larger timestamp)
+    if t_newest_import > t_newest_db:
         msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
         return None, msg
 
-    # Fetch t_oldest_reference (older reference)
+    # Fetch t_oldest_reference (older reference). If there is one, there is a value in the database which is older than t_oldest_import.
+    # In this case we have found a reference of type OLDER_REFERENCE, unless import range is completely newer than DB range
     t_oldest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_oldest_import)
 
     if t_oldest_reference is not None:
-        # Use older reference (older reference)
+        # If older reference is found, check additionally if import range is completely newer than DB range
+        if t_newest_db <= t_oldest_import:
+            msg = f"Entity '{statistic_id}': imported timerange is completely newer than timerange in DB (database newest: {t_newest_db})"
+            return None, msg
+
         ref_distance = t_oldest_import - t_oldest_reference["start"]
         if ref_distance >= dt.timedelta(hours=1):
             return {
                 "reference": t_oldest_reference,
                 "ref_type": DeltaReferenceType.OLDER_REFERENCE,
             }, None
-        msg = f"Entity '{statistic_id}': Reference is less than 1 hour before oldest import ({t_oldest_import}), cannot use for delta conversion"
-        return None, msg
-
-    # No older reference found
-    if t_newest_db <= t_oldest_import:
-        msg = f"Entity '{statistic_id}': imported timerange is completely newer than timerange in DB (database newest: {t_newest_db})"
+        msg = f"Entity '{statistic_id}': Implementation error: Reference is less than 1 hour before oldest import ({t_oldest_import}), cannot use for delta conversion. That must not happen because in this case _get_reference_before_timestamp must return None."
         return None, msg
 
     # Try to find newer reference
-    t_newest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_newest_import)
+
+    # First, check if time ranges of DB and import overlap at all
+    #     add one hour to t_newest_import, as _get_reference_before_timestamp finds strictly before, and for newer we want to allow equal timestamps
+    t_newest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_newest_import + dt.timedelta(hours=1))
 
     if t_newest_reference is None:
-        # Try at or after newest import (NEWER_REFERENCE - can be equal or after)
-        t_newest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_newest_import)
+        msg = f"Entity '{statistic_id}': imported timerange is completely older than timerange in DB (database newest: {t_newest_db})"
+        return None, msg
 
-        if t_newest_reference is None:
-            msg = f"Entity '{statistic_id}': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
-            return None, msg
+    # Now fetch the oldest value in the database which is newer or equal than t_newest_import.
+    t_newest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_newest_import)
 
-        # Reference is at or after newest import (NEWER_REFERENCE)
-        # NEWER_REFERENCE can be equal to newest_import, so >= is valid
-        return {
-            "reference": t_newest_reference,
-            "ref_type": DeltaReferenceType.NEWER_REFERENCE,
-        }, None
-
-    # Reference is before newest import - check if it's old enough
-    ref_distance = t_newest_reference["start"] - t_newest_import
-    if ref_distance < dt.timedelta(hours=0):
-        # Reference is before newest import (more than 1 hour before)
-        if ref_distance <= dt.timedelta(hours=-1):
-            return {
-                "reference": t_newest_reference,
-                "ref_type": DeltaReferenceType.OLDER_REFERENCE,
-            }, None
-        msg = f"Entity '{statistic_id}': Reference is less than 1 hour before newest import, cannot use for delta conversion"
+    # If no such value exists, the import range completely overlaps the DB range
+    if t_newest_reference is None:
+        msg = f"Entity '{statistic_id}': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
         return None, msg
 
     # Reference is at or after newest import (NEWER_REFERENCE)
-    # NEWER_REFERENCE can be equal to newest_import
     return {
         "reference": t_newest_reference,
         "ref_type": DeltaReferenceType.NEWER_REFERENCE,
     }, None
-
 
 async def prepare_delta_handling(
     hass: HomeAssistant,

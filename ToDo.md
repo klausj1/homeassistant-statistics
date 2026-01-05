@@ -51,6 +51,10 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 - Review refactoring changes, tests; required unit-tests done?
   - I think _process_delta_references_for_statistic does the younger reference can be equal wrong - wait for tests
+  - Review implementation
+    - _get_reference_at_or_after_timestamp does not search for the oldest value
+      but it does not take the oldest value newer than t_newest_import, but the newest - correct this.
+      To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value.)
   - !!!! Here !!!! Review tests thoroughly
   - Rename export to export_service (symmetry)
   - Rename delta_import.py to something which makes it clear that its database access
