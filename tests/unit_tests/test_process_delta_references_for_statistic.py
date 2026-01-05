@@ -42,7 +42,7 @@ class TestProcessDeltaReferencesNoStatisticsFound:
             mock_newest.assert_called_once_with(hass_mock, statistic_id)
 
 
-class TestProcessDeltaReferencesYoungerThanYoungestDb:
+class TestProcessDeltaReferencesNewerThanNewestDb:
     """Test error case: Importing newer than newest DB value."""
 
     @pytest.mark.asyncio
@@ -59,11 +59,11 @@ class TestProcessDeltaReferencesYoungerThanYoungestDb:
         # than t_newest_db (22:00) - it's older. You cannot import data older than what exists.
         #
         # Oldest DB: 13:00 (oldest import + 1h, inferred from delta processing logic)
-        # Youngest DB: 22:00 (newest/furthest point in database)
+        # Newest DB: 22:00 (newest/furthest point in database)
         # Oldest Import: 12:00
-        # Youngest Import: 17:00 (newest/furthest point in import - OLDER than DB newest)
+        # Newest Import: 17:00 (newest/furthest point in import - OLDER than DB newest)
         # Oldest Reference: None
-        # Youngest Reference: None
+        # Newest Reference: None
         # ERROR: Import's newest point (17:00) is older than DB's newest point (22:00)
         statistic_id = "sensor.power"
         t_newest_db = base_time + dt.timedelta(hours=10)
@@ -234,7 +234,7 @@ class TestProcessDeltaReferencesCompletelyNewer:
             assert "imported timerange is completely newer than timerange in DB" in error_msg
 
 
-class TestProcessDeltaReferencesYoungerReference:
+class TestProcessDeltaReferencesNewerReference:
     """Test success case: Using NEWER_REFERENCE (reference at or after newest import)."""
 
     @pytest.mark.asyncio
@@ -248,11 +248,11 @@ class TestProcessDeltaReferencesYoungerReference:
         #       12:00                 17:00
         #
         # Oldest DB: 12:00 (same as oldest import, since no mock_before)
-        # Youngest DB: 17:00
+        # Newest DB: 17:00
         # Oldest Import: 12:00
-        # Youngest Import: 17:00
+        # Newest Import: 17:00
         # Oldest Reference: None
-        # Youngest Reference: 17:00 (found at newest import)
+        # Newest Reference: 17:00 (found at newest import)
         statistic_id = "sensor.temperature"
         t_oldest_import = base_time
         t_newest_import = base_time + dt.timedelta(hours=5)
@@ -294,11 +294,11 @@ class TestProcessDeltaReferencesYoungerReference:
         #       12:00                 17:00      18:00
         #
         # Oldest DB: 12:00 (same as oldest import, since no mock_before)
-        # Youngest DB: 17:00
+        # Newest DB: 17:00
         # Oldest Import: 12:00
-        # Youngest Import: 17:00
+        # Newest Import: 17:00
         # Oldest Reference: None
-        # Youngest Reference: 18:00 (found 1 hour after newest import)
+        # Newest Reference: 18:00 (found 1 hour after newest import)
         statistic_id = "sensor.energy"
         t_oldest_import = base_time
         t_newest_import = base_time + dt.timedelta(hours=5)

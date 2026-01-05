@@ -135,7 +135,7 @@ def convert_deltas_with_newer_reference(
     converted_rows.reverse()
 
     _LOGGER.debug(
-        "Younger reference conversion complete: final oldest sum=%s, state=%s",
+        "Newer reference conversion complete: final oldest sum=%s, state=%s",
         converted_rows[0]["sum"] if converted_rows else None,
         converted_rows[0]["state"] if converted_rows else None,
     )
