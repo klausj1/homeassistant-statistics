@@ -35,9 +35,7 @@ class TestProcessDeltaReferencesNoStatisticsFound:
         with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest:
             mock_youngest.return_value = None
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert error_msg == "Entity 'sensor.temperature': No statistics found in database for this entity"
@@ -49,11 +47,28 @@ class TestProcessDeltaReferencesYoungerThanYoungestDb:
 
     @pytest.mark.asyncio
     async def test_import_younger_than_youngest_db(self, hass_mock, base_time):
-        """Should error when t_youngest_import < t_youngest_db."""
+        """Should error when t_youngest_import < t_youngest_db (import is older than DB)."""
+        # Timeline visualization (base_time = 12:00):
+        #
+        # Import|=========================|
+        #       DB   |==================================================|
+        #
+        #       12:00 13:00       17:00                           22:00
+        #
+        # Note: "younger" means newer in time. Here t_youngest_import (17:00) is NOT younger
+        # than t_youngest_db (22:00) - it's older. You cannot import data older than what exists.
+        #
+        # Oldest DB: 13:00 (oldest import + 1h, inferred from delta processing logic)
+        # Youngest DB: 22:00 (newest/furthest point in database)
+        # Oldest Import: 12:00
+        # Youngest Import: 17:00 (newest/furthest point in import - OLDER than DB youngest)
+        # Oldest Reference: None
+        # Youngest Reference: None
+        # ERROR: Import's newest point (17:00) is older than DB's newest point (22:00)
         statistic_id = "sensor.power"
         t_youngest_db = base_time + dt.timedelta(hours=10)
         t_oldest_import = base_time
-        t_youngest_import = base_time + dt.timedelta(hours=5)  # Younger than DB
+        t_youngest_import = base_time + dt.timedelta(hours=5)
 
         with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest:
             mock_youngest.return_value = {
@@ -62,9 +77,7 @@ class TestProcessDeltaReferencesYoungerThanYoungestDb:
                 "state": 100.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "Importing values younger than the youngest value in the database" in error_msg
@@ -83,8 +96,10 @@ class TestProcessDeltaReferencesOlderReference:
         t_oldest_reference = base_time - dt.timedelta(hours=1)
         t_youngest_db = base_time + dt.timedelta(hours=10)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -96,9 +111,7 @@ class TestProcessDeltaReferencesOlderReference:
                 "state": 50.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -116,8 +129,10 @@ class TestProcessDeltaReferencesOlderReference:
         t_oldest_reference = base_time - dt.timedelta(hours=2)
         t_youngest_db = base_time + dt.timedelta(hours=5)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 200.0,
@@ -129,9 +144,7 @@ class TestProcessDeltaReferencesOlderReference:
                 "state": 100.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -146,8 +159,10 @@ class TestProcessDeltaReferencesOlderReference:
         t_oldest_reference = base_time - dt.timedelta(minutes=30)  # Only 30 min before
         t_youngest_db = base_time + dt.timedelta(hours=5)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -159,9 +174,7 @@ class TestProcessDeltaReferencesOlderReference:
                 "state": 50.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "Reference is less than 1 hour before oldest import" in error_msg
@@ -178,8 +191,10 @@ class TestProcessDeltaReferencesCompletelyNewer:
         t_oldest_import = base_time + dt.timedelta(hours=1)  # 13:00 - after t_youngest_db
         t_youngest_import = base_time + dt.timedelta(hours=3)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -187,9 +202,7 @@ class TestProcessDeltaReferencesCompletelyNewer:
             }
             mock_before.return_value = None  # No reference before oldest import
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "imported timerange is completely newer than timerange in DB" in error_msg
@@ -198,14 +211,16 @@ class TestProcessDeltaReferencesCompletelyNewer:
     @pytest.mark.asyncio
     async def test_imported_timerange_equal_to_youngest_db_no_reference(self, hass_mock, base_time):
         """Should error when t_youngest_db == t_oldest_import and no older reference."""
-        # ToDo: Check if this is the desired behavior
+        # TODO: Check if this is the desired behavior
         statistic_id = "sensor.power"
         t_youngest_db = base_time
         t_oldest_import = base_time  # Equal to t_youngest_db
         t_youngest_import = base_time + dt.timedelta(hours=2)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -213,9 +228,7 @@ class TestProcessDeltaReferencesCompletelyNewer:
             }
             mock_before.return_value = None
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "imported timerange is completely newer than timerange in DB" in error_msg
@@ -227,15 +240,30 @@ class TestProcessDeltaReferencesYoungerReference:
     @pytest.mark.asyncio
     async def test_younger_reference_exactly_at_youngest_import(self, hass_mock, base_time):
         """Should accept YOUNGER_REFERENCE when at youngest import."""
+        # Timeline visualization (base_time = 12:00):
+        #
+        # DB    |=========================|
+        # Import|=========================|
+        #
+        #       12:00                 17:00
+        #
+        # Oldest DB: 12:00 (same as oldest import, since no mock_before)
+        # Youngest DB: 17:00
+        # Oldest Import: 12:00
+        # Youngest Import: 17:00
+        # Oldest Reference: None
+        # Youngest Reference: 17:00 (found at youngest import)
         statistic_id = "sensor.temperature"
         t_oldest_import = base_time
         t_youngest_import = base_time + dt.timedelta(hours=5)
         t_youngest_reference = base_time + dt.timedelta(hours=5)  # Exactly at youngest import
         t_youngest_db = base_time + dt.timedelta(hours=5)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 150.0,
@@ -248,9 +276,7 @@ class TestProcessDeltaReferencesYoungerReference:
                 "state": 120.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -260,15 +286,30 @@ class TestProcessDeltaReferencesYoungerReference:
     @pytest.mark.asyncio
     async def test_younger_reference_1_hour_after_youngest_import(self, hass_mock, base_time):
         """Should accept YOUNGER_REFERENCE when 1+ hour after youngest import."""
+        # Timeline visualization (base_time = 12:00):
+        #
+        # DB    |=========================|
+        # Import|=========================|
+        #
+        #       12:00                 17:00      18:00
+        #
+        # Oldest DB: 12:00 (same as oldest import, since no mock_before)
+        # Youngest DB: 17:00
+        # Oldest Import: 12:00
+        # Youngest Import: 17:00
+        # Oldest Reference: None
+        # Youngest Reference: 18:00 (found 1 hour after youngest import)
         statistic_id = "sensor.energy"
         t_oldest_import = base_time
         t_youngest_import = base_time + dt.timedelta(hours=5)
         t_youngest_reference = base_time + dt.timedelta(hours=6)  # 1 hour after
         t_youngest_db = base_time + dt.timedelta(hours=5)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 200.0,
@@ -281,9 +322,7 @@ class TestProcessDeltaReferencesYoungerReference:
                 "state": 180.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -298,25 +337,28 @@ class TestProcessDeltaReferencesYoungerReference:
         t_reference = base_time + dt.timedelta(hours=9, minutes=30)  # 30 min before youngest
         t_youngest_db = base_time + dt.timedelta(hours=8)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
                 "state": 100.0,
             }
             # First call for before oldest_import, second call for before youngest_import
-            mock_before.side_effect = [None, {
-                "start": t_reference,
-                "sum": 90.0,
-                "state": 90.0,
-            }]
+            mock_before.side_effect = [
+                None,
+                {
+                    "start": t_reference,
+                    "sum": 90.0,
+                    "state": 90.0,
+                },
+            ]
             mock_at_after.return_value = None
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "Reference is less than 1 hour before youngest import" in error_msg
@@ -327,7 +369,8 @@ class TestProcessDeltaReferencesCompletelyOlder:
 
     @pytest.mark.asyncio
     async def test_imported_timerange_completely_overlaps_no_reference(self, hass_mock, base_time):
-        """Should error when no reference before or at/after youngest import (design scenario #4).
+        """
+        Should error when no reference before or at/after youngest import (design scenario #4).
 
         Error: "imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
         """
@@ -336,9 +379,11 @@ class TestProcessDeltaReferencesCompletelyOlder:
         t_youngest_import = base_time + dt.timedelta(hours=5)
         t_youngest_db = base_time
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -347,9 +392,7 @@ class TestProcessDeltaReferencesCompletelyOlder:
             mock_before.side_effect = [None, None]  # No reference before oldest or youngest
             mock_at_after.return_value = None  # No reference at or after youngest
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "imported timerange completely overlaps timerange in DB" in error_msg
@@ -363,9 +406,11 @@ class TestProcessDeltaReferencesCompletelyOlder:
         t_youngest_import = base_time + dt.timedelta(hours=2)
         t_youngest_db = base_time
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -374,9 +419,7 @@ class TestProcessDeltaReferencesCompletelyOlder:
             mock_before.side_effect = [None, None]  # No reference before oldest or youngest
             mock_at_after.return_value = None  # No reference at or after youngest
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert ref_data is None
             assert "imported timerange completely overlaps timerange in DB" in error_msg
@@ -395,25 +438,28 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
         t_youngest_db = base_time + dt.timedelta(hours=3)  # t_youngest_db is 3 hours after t_oldest_import
         t_reference_before_youngest = base_time + dt.timedelta(hours=2)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
                 "state": 100.0,
             }
             # First call for before oldest_import, second for before youngest_import
-            mock_before.side_effect = [None, {
-                "start": t_reference_before_youngest,
-                "sum": 80.0,
-                "state": 80.0,
-            }]
+            mock_before.side_effect = [
+                None,
+                {
+                    "start": t_reference_before_youngest,
+                    "sum": 80.0,
+                    "state": 80.0,
+                },
+            ]
             mock_at_after.return_value = None
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -428,24 +474,27 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
         t_youngest_db = base_time + dt.timedelta(hours=1)
         t_reference_before_youngest = base_time + dt.timedelta(hours=0.5)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
                 "state": 100.0,
             }
-            mock_before.side_effect = [None, {
-                "start": t_reference_before_youngest,
-                "sum": 90.0,
-                "state": 90.0,
-            }]
+            mock_before.side_effect = [
+                None,
+                {
+                    "start": t_reference_before_youngest,
+                    "sum": 90.0,
+                    "state": 90.0,
+                },
+            ]
             mock_at_after.return_value = None
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             # Should return OLDER_REFERENCE since we have a reference before youngest
             assert error_msg is None
@@ -462,8 +511,10 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
         t_reference_before = base_time - dt.timedelta(hours=1)
         t_youngest_db = base_time
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -475,9 +526,7 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
                 "state": 50.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -492,9 +541,11 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
         t_reference = base_time + dt.timedelta(hours=6)  # 1 hour after youngest
         t_youngest_db = base_time + dt.timedelta(hours=5)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -507,9 +558,7 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
                 "state": 110.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -524,9 +573,11 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
         t_reference = base_time + dt.timedelta(hours=8)  # 2 hours after
         t_youngest_db = base_time + dt.timedelta(hours=6)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -539,9 +590,7 @@ class TestProcessDeltaReferencesComplexTimingScenarios:
                 "state": 115.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -560,8 +609,10 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
         t_youngest_db = base_time  # Same as oldest_import
         t_reference = base_time - dt.timedelta(hours=2)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -573,9 +624,7 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
                 "state": 50.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -591,8 +640,10 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
         t_youngest_db = base_time + dt.timedelta(hours=10)
         t_ref_before_oldest = base_time - dt.timedelta(hours=3)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 200.0,
@@ -604,9 +655,7 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
                 "state": 100.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -621,9 +670,11 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
         t_youngest_db = base_time + dt.timedelta(hours=5)  # Same as youngest_import
         t_reference = base_time + dt.timedelta(hours=5)  # Exactly at both
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -636,9 +687,7 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
                 "state": 100.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -653,24 +702,27 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
         t_youngest_db = base_time + dt.timedelta(hours=5)  # Same as youngest_import
         t_ref_before = base_time + dt.timedelta(hours=2)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
                 "state": 100.0,
             }
-            mock_before.side_effect = [None, {
-                "start": t_ref_before,
-                "sum": 80.0,
-                "state": 80.0,
-            }]
+            mock_before.side_effect = [
+                None,
+                {
+                    "start": t_ref_before,
+                    "sum": 80.0,
+                    "state": 80.0,
+                },
+            ]
             mock_at_after.return_value = None
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None
@@ -685,9 +737,11 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
         t_youngest_db = base_time + dt.timedelta(hours=5)  # 2 hours before youngest_import
         t_ref_after = base_time + dt.timedelta(hours=8)
 
-        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
-             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
-             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+        with (
+            patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest,
+            patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
+            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after,
+        ):
             mock_youngest.return_value = {
                 "start": t_youngest_db,
                 "sum": 100.0,
@@ -700,9 +754,7 @@ class TestProcessDeltaReferencesTimingMatrixComprehensive:
                 "state": 120.0,
             }
 
-            ref_data, error_msg = await _process_delta_references_for_statistic(
-                hass_mock, statistic_id, t_oldest_import, t_youngest_import
-            )
+            ref_data, error_msg = await _process_delta_references_for_statistic(hass_mock, statistic_id, t_oldest_import, t_youngest_import)
 
             assert error_msg is None
             assert ref_data is not None

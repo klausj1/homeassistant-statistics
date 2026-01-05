@@ -74,17 +74,24 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     t_youngest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_youngest_import)
 
     if t_youngest_reference is None:
-        # Try at or after youngest import
+        # Try at or after youngest import (YOUNGER_REFERENCE - can be equal or after)
         t_youngest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_youngest_import)
 
         if t_youngest_reference is None:
             msg = f"Entity '{statistic_id}': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
             return None, msg
 
-    # Validate distance for younger reference
+        # Reference is at or after youngest import (YOUNGER_REFERENCE)
+        # YOUNGER_REFERENCE can be equal to youngest_import, so >= is valid
+        return {
+            "reference": t_youngest_reference,
+            "ref_type": DeltaReferenceType.YOUNGER_REFERENCE,
+        }, None
+
+    # Reference is before youngest import - check if it's old enough
     ref_distance = t_youngest_reference["start"] - t_youngest_import
     if ref_distance < dt.timedelta(hours=0):
-        # Reference is before youngest import
+        # Reference is before youngest import (more than 1 hour before)
         if ref_distance <= dt.timedelta(hours=-1):
             return {
                 "reference": t_youngest_reference,
@@ -94,6 +101,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         return None, msg
 
     # Reference is at or after youngest import (YOUNGER_REFERENCE)
+    # YOUNGER_REFERENCE can be equal to youngest_import
     return {
         "reference": t_youngest_reference,
         "ref_type": DeltaReferenceType.YOUNGER_REFERENCE,

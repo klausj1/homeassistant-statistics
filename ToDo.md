@@ -51,9 +51,10 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 - Review refactoring changes, tests; required unit-tests done?
   - I think _process_delta_references_for_statistic does the younger reference can be equal wrong - wait for tests
+  - !!!! Here !!!! Review tests thoroughly
   - Rename export to export_service (symmetry)
   - Rename delta_import.py to something which makes it clear that its database access
-  - new tests for _process_delta_references_for_statistic; separate or with tests for prepare_delta_handling
+  - new tests for prepare_delta_handling (only test this method, mock _process_delta_references_for_statistic)
   - new tests for custom_components/import_statistics/delta_import.py - do they make sense?
 
 - Create arc-doc
