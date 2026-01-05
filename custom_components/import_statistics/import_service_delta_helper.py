@@ -1,4 +1,8 @@
-"""Helper functions for import service in delta case. No hass object needed"""
+"""
+Helper functions for import service in delta case.
+
+No hass object needed.
+"""
 
 import zoneinfo
 

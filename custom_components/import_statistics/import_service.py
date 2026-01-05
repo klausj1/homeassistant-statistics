@@ -9,9 +9,9 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from custom_components.import_statistics.const import ATTR_FILENAME
 from custom_components.import_statistics.delta_import import (
+    _get_newest_db_statistic,
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
-    _get_newest_db_statistic,
 )
 from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, handle_error
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
@@ -29,7 +29,8 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     t_newest_import: dt.datetime,
 ) -> tuple[dict | None, str | None]:
     """
-    Finds delta references for a single statistic.
+    Find delta references for a single statistic.
+
     The delta reference is the value in the database that is used to convert delta values to sum and state.
     It must be either:
       - at least one hour older than the oldest imported value (OLDER_REFERENCE)
@@ -37,12 +38,12 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
       - or at or after the newest imported value (NEWER_REFERENCE)
         In this case, sum and state of the reference are needed to calculate sum and state of the newest imported value
 
-    Returns:
+    Returns
+    -------
         Tuple of (reference_data, error_message)
         Where reference_data is None if error_message is not None
 
     """
-
     # Important for understanding:
     # When timestamps are compared, newer means '>'
     # Therefore '<' means older
@@ -76,7 +77,11 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
                 "reference": t_oldest_reference,
                 "ref_type": DeltaReferenceType.OLDER_REFERENCE,
             }, None
-        msg = f"Entity '{statistic_id}': Implementation error: Reference is less than 1 hour before oldest import ({t_oldest_import}), cannot use for delta conversion. That must not happen because in this case _get_reference_before_timestamp must return None."
+        msg = (
+            f"Entity '{statistic_id}': Implementation error: Reference is less than 1 hour before oldest import "
+            f"({t_oldest_import}), cannot use for delta conversion. That must not happen because in this case "
+            "_get_reference_before_timestamp must return None."
+        )
         return None, msg
 
     # Try to find newer reference
@@ -103,6 +108,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         "ref_type": DeltaReferenceType.NEWER_REFERENCE,
     }, None
 
+
 async def prepare_delta_handling(
     hass: HomeAssistant,
     df: Any,
@@ -111,6 +117,7 @@ async def prepare_delta_handling(
 ) -> dict[str, dict]:
     """
     Fetch and validate delta references for delta import.
+
     The delta reference is the value in the database that is used to convert delta values to sum and state.
     The reference can be either older or equal/newer than the imported data.
 

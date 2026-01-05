@@ -1,4 +1,8 @@
-"""Helper functions for import service - data preparation from files/JSON. No hass object needed"""
+"""
+Helper functions for import service - data preparation from files/JSON.
+
+No hass object needed.
+"""
 
 import zoneinfo
 from pathlib import Path

@@ -19,7 +19,7 @@ This document describes the refactored delta import architecture that separates 
 |--------|---------|-----------|
 | `prepare_data_to_import()` | Calls `handle_dataframe()`, returns stats or marker tuple | Returns `(df, timezone_id, datetime_format, unit_from_entity, is_delta)` |
 | HA Dependency | In data preparation | Only in async service handlers |
-| Delta Marker | `("_DELTA_PROCESSING_NEEDED", ...)` tuple hack | Boolean flag in return value || Reference Type Indicator | Case 1/Case 2 integers | `DeltaReferenceType` enum (OLDER_REFERENCE, YOUNGER_REFERENCE) || Database Query Orchestration | In `import_service.py` (async) | New `prepare_delta_handling()` method |
+| Delta Marker | `("_DELTA_PROCESSING_NEEDED", ...)` tuple hack | Boolean flag in return value || Reference Type Indicator | Case 1/Case 2 integers | `DeltaReferenceType` enum (OLDER_REFERENCE, newER_REFERENCE) || Database Query Orchestration | In `import_service.py` (async) | New `prepare_delta_handling()` method |
 | Delta Conversion | In `import_service_delta_helper.py` | Renamed to `handle_dataframe_delta()` |
 | Non-delta Processing | Via `handle_dataframe()` | New method `handle_dataframe_no_delta()` |
 
@@ -146,7 +146,7 @@ def handle_dataframe_delta(
                    Format: {
                        statistic_id: {
                            "reference": {"start": datetime, "sum": float, "state": float},
-                           "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE
+                           "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.newER_REFERENCE
                        } or None
                    }
 
@@ -160,7 +160,7 @@ def handle_dataframe_delta(
     # Same logic, but references dict structure uses DeltaReferenceType enum
     # Calls helpers.are_columns_valid() to validate delta column structure
     # Groups by statistic_id
-    # Calls convert_deltas_with_older_reference() or convert_deltas_with_younger_reference()
+    # Calls convert_deltas_with_older_reference() or convert_deltas_with_newer_reference()
     # Builds metadata and returns stats dict
 ```
 
@@ -207,23 +207,23 @@ async def prepare_delta_handling(
     Raises:
         HomeAssistantError: On validation errors or incompatible time ranges
     """
-    # Step 1: Extract oldest/youngest timestamps from df per statistic_id
+    # Step 1: Extract oldest/newest timestamps from df per statistic_id
     #         (move logic from current handle_dataframe delta detection)
 
     # Step 2: For each statistic_id:
-    #   a) Fetch t_youngest_db using get_last_statistics()
-    #      ERROR: "Importing values younger than the youngest value in the database is not possible"
-    #             if t_youngest_import < t_youngest_db
+    #   a) Fetch t_newest_db using get_last_statistics()
+    #      ERROR: "Importing values newer than the newest value in the database is not possible"
+    #             if t_newest_import < t_newest_db
     #
-    #   b) Fetch t_youngest_db_time_before_oldest_import
+    #   b) Fetch t_newest_db_time_before_oldest_import
     #      ERROR: "imported timerange is completely newer than timerange in DB"
-    #             if t_youngest_db <= t_oldest_import
+    #             if t_newest_db <= t_oldest_import
     #
-    #   c) If t_youngest_db_time_before_oldest_import is not found:
-    #      - Fetch t_youngest_db_time_before_youngest_import
+    #   c) If t_newest_db_time_before_oldest_import is not found:
+    #      - Fetch t_newest_db_time_before_newest_import
     #        ERROR: "imported timerange is completely older than timerange in DB"
     #               if not found
-    #      - Fetch t_oldest_db_time_after_youngest_import
+    #      - Fetch t_oldest_db_time_after_newest_import
     #        ERROR: "imported timerange completely overlaps timerange in DB"
     #               if not found
     #
@@ -237,7 +237,7 @@ async def prepare_delta_handling(
 - Comprehensive error checking for time range compatibility
 - Includes entity ID in error messages for clarity
 - Returns structured data ready for `handle_dataframe_delta()` with `DeltaReferenceType` enum values
-- Validates distance of references (1+ hour away for OLDER_REFERENCE, 0+ hours for YOUNGER_REFERENCE)
+- Validates distance of references (1+ hour away for OLDER_REFERENCE, 0+ hours for newER_REFERENCE)
 
 ---
 
@@ -312,16 +312,16 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
 
 **Removed**:
 - `get_oldest_statistics_before()`: Functionality moved into `prepare_delta_handling()`
-- `get_youngest_statistic_after()`: Functionality merged into helper methods
+- `get_newest_statistic_after()`: Functionality merged into helper methods
 
 **New/Helper Methods** (to support `prepare_delta_handling()`):
 ```python
-async def _get_youngest_db_statistic(
+async def _get_newest_db_statistic(
     hass: HomeAssistant,
     statistic_id: str,
 ) -> dict | None:
     """
-    Fetch the youngest statistic from database for given statistic_id.
+    Fetch the newest statistic from database for given statistic_id.
 
     Returns:
         Dict with keys: start (datetime), sum (float), state (float)
@@ -338,7 +338,7 @@ async def _get_reference_before_timestamp(
     period_type: str = "hour",
 ) -> dict | None:
     """
-    Fetch the youngest statistic before given timestamp.
+    Fetch the newest statistic before given timestamp.
 
     Args:
         hass: Home Assistant instance
@@ -393,7 +393,7 @@ from enum import Enum
 class DeltaReferenceType(Enum):
     """Type of reference used for delta conversion."""
     OLDER_REFERENCE = "older"    # Reference is 1+ hour before oldest import
-    YOUNGER_REFERENCE = "younger" # Reference is at or after youngest import
+    newER_REFERENCE = "newer" # Reference is at or after newest import
 ```
 
 ### Return Value of Refactored Preparation Methods
@@ -422,7 +422,7 @@ references: dict[str, dict | None] = {
             "sum": 42.5,
             "state": 42.5,
         },
-        "ref_type": DeltaReferenceType.OLDER_REFERENCE,  # or YOUNGER_REFERENCE
+        "ref_type": DeltaReferenceType.OLDER_REFERENCE,  # or newER_REFERENCE
     },
     "sensor.power": None,  # No valid reference found
 }
@@ -435,7 +435,7 @@ Same as output from `prepare_delta_handling()`:
 references: dict[str, dict | None] = {
     statistic_id: {
         "reference": {"start": datetime, "sum": float, "state": float},
-        "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE,
+        "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.newER_REFERENCE,
     } or None
 }
 ```
@@ -450,25 +450,25 @@ All errors use `helpers.handle_error()` for consistency.
 
 **By Scenario**:
 
-1. **t_youngest_import < t_youngest_db**
-   - Error: `"Entity '<entity_id>': Importing values younger than the youngest value in the database (<timestamp>) is not possible"`
+1. **t_newest_import < t_newest_db**
+   - Error: `"Entity '<entity_id>': Importing values newer than the newest value in the database (<timestamp>) is not possible"`
 
-2. **t_youngest_db <= t_oldest_import (no backward reference)**
-   - Error: `"Entity '<entity_id>': imported timerange is completely newer than timerange in DB (database youngest: <timestamp>)"`
+2. **t_newest_db <= t_oldest_import (no backward reference)**
+   - Error: `"Entity '<entity_id>': imported timerange is completely newer than timerange in DB (database newest: <timestamp>)"`
 
-3. **No reference before oldest import AND no reference before youngest import**
+3. **No reference before oldest import AND no reference before newest import**
    - Error: `"Entity '<entity_id>': imported timerange is completely older than timerange in DB (database oldest: <timestamp>)"`
 
-4. **No reference before youngest import AND no reference at/after youngest import**
+4. **No reference before newest import AND no reference at/after newest import**
    - Error: `"Entity '<entity_id>': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"`
 
-5. **Implementation Error (neither OLDER_REFERENCE nor YOUNGER_REFERENCE found after validation)**
-   - Error: `"Internal error: Neither OLDER_REFERENCE nor YOUNGER_REFERENCE found for '<entity_id>' despite validation passing"`
+5. **Implementation Error (neither OLDER_REFERENCE nor newER_REFERENCE found after validation)**
+   - Error: `"Internal error: Neither OLDER_REFERENCE nor newER_REFERENCE found for '<entity_id>' despite validation passing"`
 
 **Error Message Format**:
 - Always include `<entity_id>` in message
 - Include relevant timestamp(s) where helpful
-- Include database values (youngest/oldest) for context
+- Include database values (newest/oldest) for context
 
 ---
 
@@ -483,8 +483,8 @@ handle_import_from_file_impl() [async]
   │
   ├─ IF is_delta:
   │   ├─ prepare_delta_handling() [async]
-  │   │   ├─ _extract_oldest_youngest_from_df()
-  │   │   ├─ _get_youngest_db_statistic() [async]
+  │   │   ├─ _extract_oldest_newest_from_df()
+  │   │   ├─ _get_newest_db_statistic() [async]
   │   │   ├─ _get_reference_before_timestamp() [async]
   │   │   └─ _get_reference_at_or_after_timestamp() [async]
   │   │
@@ -492,7 +492,7 @@ handle_import_from_file_impl() [async]
   │       ├─ helpers.are_columns_valid() (with delta validation)
   │       ├─ helpers.get_delta_stat()
   │       ├─ convert_deltas_with_older_reference()
-  │       └─ convert_deltas_with_younger_reference()
+  │       └─ convert_deltas_with_newer_reference()
   │
   └─ IF NOT is_delta:
       └─ handle_dataframe_no_delta() [executor]
@@ -516,7 +516,7 @@ The following methods are removed and replaced:
    - Functionality replaced by `prepare_delta_handling()` in `import_service.py`
    - All database orchestration is now in `prepare_delta_handling()`
 
-2. **`get_youngest_statistic_after()` in `delta_import.py`**
+2. **`get_newest_statistic_after()` in `delta_import.py`**
    - Functionality merged into helper methods used by `prepare_delta_handling()`
 
 3. **`handle_dataframe()` in `import_service_helper.py`**
@@ -525,7 +525,7 @@ The following methods are removed and replaced:
 
 4. **`convert_delta_dataframe_with_references()` in `import_service_delta_helper.py`**
    - Renamed to `handle_dataframe_delta()` with updated reference structure
-   - Method names `convert_deltas_case_1()` and `convert_deltas_case_2()` renamed to `convert_deltas_with_older_reference()` and `convert_deltas_with_younger_reference()`
+   - Method names `convert_deltas_case_1()` and `convert_deltas_case_2()` renamed to `convert_deltas_with_older_reference()` and `convert_deltas_with_newer_reference()`
 
 ## Methods to Keep (Unchanged)
 
@@ -547,15 +547,15 @@ Tests for the new `prepare_delta_handling()` method in `import_service.py`.
 
 **Success Scenarios**:
 - ✓ OLDER_REFERENCE: Reference exists 1+ hour BEFORE oldest import
-- ✓ YOUNGER_REFERENCE: Reference exists AT or AFTER youngest import
-- ✓ Multiple entities: Mix of OLDER_REFERENCE and YOUNGER_REFERENCE
+- ✓ newER_REFERENCE: Reference exists AT or AFTER newest import
+- ✓ Multiple entities: Mix of OLDER_REFERENCE and newER_REFERENCE
 - ✓ Multiple entities: Some with references, some without (partial valid)
 
 **Error Scenarios**:
-- ✗ t_youngest_import < t_youngest_db: "Importing values younger..."
-- ✗ t_youngest_db <= t_oldest_import (no OLDER_REFERENCE): "completely newer than timerange..."
-- ✗ No reference before youngest import (no YOUNGER_REFERENCE): "completely older than timerange..."
-- ✗ No reference before or after youngest import: "completely overlaps timerange..."
+- ✗ t_newest_import < t_newest_db: "Importing values newer..."
+- ✗ t_newest_db <= t_oldest_import (no OLDER_REFERENCE): "completely newer than timerange..."
+- ✗ No reference before newest import (no newER_REFERENCE): "completely older than timerange..."
+- ✗ No reference before or after newest import: "completely overlaps timerange..."
 - ✗ OLDER_REFERENCE is less than 1 hour away: Should reject
 
 **Edge Cases**:
@@ -571,7 +571,7 @@ Tests for the new `handle_dataframe_delta()` method.
 - ✓ Calls `helpers.are_columns_valid()` with delta validation
 - ✓ Handles reference data structure with `DeltaReferenceType` enum
 - ✓ Correctly routes to `convert_deltas_with_older_reference()` for OLDER_REFERENCE
-- ✓ Correctly routes to `convert_deltas_with_younger_reference()` for YOUNGER_REFERENCE
+- ✓ Correctly routes to `convert_deltas_with_newer_reference()` for newER_REFERENCE
 - ✓ Works with partial references (some entities have refs, some don't)
 - ✓ Builds metadata and returns stats dict in correct format
 
@@ -609,11 +609,11 @@ Tests for the refactored `prepare_data_to_import()` and `prepare_json_data_to_im
 - Rename method: `test_convert_delta_dataframe_with_references()` → `test_handle_dataframe_delta()`
 - Update method names in test cases:
   - `convert_deltas_case_1()` → `convert_deltas_with_older_reference()`
-  - `convert_deltas_case_2()` → `convert_deltas_with_younger_reference()`
+  - `convert_deltas_case_2()` → `convert_deltas_with_newer_reference()`
 - Update reference data structure in test inputs/assertions (use `DeltaReferenceType` enum)
 
 #### 3. **`test_delta_import.py`**
-- Remove tests for `get_oldest_statistics_before()` and `get_youngest_statistic_after()` (methods removed)
+- Remove tests for `get_oldest_statistics_before()` and `get_newest_statistic_after()` (methods removed)
 - Keep/update tests for low-level helpers if they remain public
 
 #### 4. **Integration Test: `test_integration_delta_imports.py`**
@@ -641,7 +641,7 @@ Tests for the refactored `prepare_data_to_import()` and `prepare_json_data_to_im
 
 4. **Better Error Messages**
    - All database validation errors include entity ID
-   - Error messages reference database state (youngest/oldest timestamps)
+   - Error messages reference database state (newest/oldest timestamps)
    - Consistent error handling via `helpers.handle_error()`
 
 5. **Maintainability**
@@ -665,10 +665,10 @@ Tests for the refactored `prepare_data_to_import()` and `prepare_json_data_to_im
 
 | File | Changes |
 |------|---------|
-| `helpers.py` | Add `DeltaReferenceType` enum with OLDER_REFERENCE and YOUNGER_REFERENCE values |
+| `helpers.py` | Add `DeltaReferenceType` enum with OLDER_REFERENCE and newER_REFERENCE values |
 | `import_service_helper.py` | Split `handle_dataframe()` → `handle_dataframe_no_delta()`, update `prepare_data_to_import()`/`prepare_json_data_to_import()` to return tuple |
-| `import_service_delta_helper.py` | Rename `convert_delta_dataframe_with_references()` → `handle_dataframe_delta()`, rename `convert_deltas_case_1()` → `convert_deltas_with_older_reference()`, rename `convert_deltas_case_2()` → `convert_deltas_with_younger_reference()` |
+| `import_service_delta_helper.py` | Rename `convert_delta_dataframe_with_references()` → `handle_dataframe_delta()`, rename `convert_deltas_case_1()` → `convert_deltas_with_older_reference()`, rename `convert_deltas_case_2()` → `convert_deltas_with_newer_reference()` |
 | `import_service.py` | Add `prepare_delta_handling()` async method, update service handlers to use `is_delta` boolean flag |
-| `delta_import.py` | Remove `get_oldest_statistics_before()` and `get_youngest_statistic_after()`, add private helper methods for `prepare_delta_handling()` |
+| `delta_import.py` | Remove `get_oldest_statistics_before()` and `get_newest_statistic_after()`, add private helper methods for `prepare_delta_handling()` |
 | Tests | Create 4 new test files (`test_prepare_delta_handling.py`, `test_handle_dataframe_delta.py`, `test_handle_dataframe_no_delta.py`, update `test_prepare_data_to_import.py`), update 4 existing test files |
 
