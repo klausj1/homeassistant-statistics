@@ -323,7 +323,37 @@ class TestProcessDeltaReferencesYoungerReference:
 
 
 class TestProcessDeltaReferencesCompletelyOlder:
-    """Test error case: Imported timerange is completely older than DB."""
+    """Test error case: Imported timerange completely overlaps DB."""
+
+    @pytest.mark.asyncio
+    async def test_imported_timerange_completely_overlaps_no_reference(self, hass_mock, base_time):
+        """Should error when no reference before or at/after youngest import (design scenario #4).
+
+        Error: "imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
+        """
+        statistic_id = "sensor.overlap_test"
+        t_oldest_import = base_time - dt.timedelta(hours=10)
+        t_youngest_import = base_time + dt.timedelta(hours=5)
+        t_youngest_db = base_time
+
+        with patch("custom_components.import_statistics.import_service._get_youngest_db_statistic") as mock_youngest, \
+             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before, \
+             patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_at_after:
+            mock_youngest.return_value = {
+                "start": t_youngest_db,
+                "sum": 100.0,
+                "state": 100.0,
+            }
+            mock_before.side_effect = [None, None]  # No reference before oldest or youngest
+            mock_at_after.return_value = None  # No reference at or after youngest
+
+            ref_data, error_msg = await _process_delta_references_for_statistic(
+                hass_mock, statistic_id, t_oldest_import, t_youngest_import
+            )
+
+            assert ref_data is None
+            assert "imported timerange completely overlaps timerange in DB" in error_msg
+            assert "cannot find reference before or after import" in error_msg
 
     @pytest.mark.asyncio
     async def test_imported_timerange_completely_older_than_db(self, hass_mock, base_time):
@@ -349,8 +379,8 @@ class TestProcessDeltaReferencesCompletelyOlder:
             )
 
             assert ref_data is None
-            assert "imported timerange is completely older than timerange in DB" in error_msg
-            assert "database oldest" in error_msg
+            assert "imported timerange completely overlaps timerange in DB" in error_msg
+            assert "cannot find reference before or after import" in error_msg
 
 
 class TestProcessDeltaReferencesComplexTimingScenarios:

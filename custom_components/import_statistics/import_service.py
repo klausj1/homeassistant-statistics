@@ -78,7 +78,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         t_youngest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_youngest_import)
 
         if t_youngest_reference is None:
-            msg = f"Entity '{statistic_id}': imported timerange is completely older than timerange in DB (database oldest: {t_youngest_db})"
+            msg = f"Entity '{statistic_id}': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
             return None, msg
 
     # Validate distance for younger reference
