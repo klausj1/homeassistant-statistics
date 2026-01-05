@@ -70,21 +70,21 @@ def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: floa
     return converted_rows
 
 
-def convert_deltas_with_younger_reference(
+def convert_deltas_with_newer_reference(
     delta_rows: list[dict],
     sum_reference: float,
     state_reference: float,
 ) -> list[dict]:
     """
-    Convert delta rows to absolute sum/state values using younger reference data.
+    Convert delta rows to absolute sum/state values using newer reference data.
 
-    Works backward in time from younger reference record using subtraction.
+    Works backward in time from newer reference record using subtraction.
 
     Args:
     ----
         delta_rows: List of dicts with 'start' (datetime) and 'delta' (float) keys
-        sum_reference: Reference sum value from younger database record
-        state_reference: Reference state value from younger database record
+        sum_reference: Reference sum value from newer database record
+        state_reference: Reference state value from newer database record
 
     Returns:
     -------
@@ -95,7 +95,7 @@ def convert_deltas_with_younger_reference(
         HomeAssistantError: If rows are not sorted by timestamp
 
     """
-    _LOGGER.debug("Converting %d delta rows to absolute values (younger reference)", len(delta_rows))
+    _LOGGER.debug("Converting %d delta rows to absolute values (newer reference)", len(delta_rows))
     _LOGGER.debug("Starting from sum=%s, state=%s (working backward)", sum_reference, state_reference)
 
     if not delta_rows:
@@ -106,12 +106,12 @@ def convert_deltas_with_younger_reference(
     if sorted_rows != delta_rows:
         helpers.handle_error("Delta rows must be sorted by start timestamp in ascending order")
 
-    # Work backward from youngest to oldest: subtract deltas instead of adding
-    # We process in reverse order, starting from the reference (youngest)
+    # Work backward from newest to oldest: subtract deltas instead of adding
+    # We process in reverse order, starting from the reference (newest)
     # and moving backward to the oldest
     converted_rows = []
 
-    # Process rows in reverse order (youngest to oldest)
+    # Process rows in reverse order (newest to oldest)
     for delta_row in reversed(delta_rows):
         sum_reference -= delta_row["delta"]
         state_reference -= delta_row["delta"]
@@ -131,7 +131,7 @@ def convert_deltas_with_younger_reference(
             state_reference,
         )
 
-    # Reverse result to ascending order (oldest to youngest)
+    # Reverse result to ascending order (oldest to newest)
     converted_rows.reverse()
 
     _LOGGER.debug(
@@ -153,7 +153,7 @@ def handle_dataframe_delta(
     Process delta statistics from DataFrame using pre-fetched references.
 
     Pure calculation function - no HA dependency (all references pre-fetched).
-    Supports both OLDER_REFERENCE and YOUNGER_REFERENCE conversion.
+    Supports both OLDER_REFERENCE and NEWER_REFERENCE conversion.
 
     Args:
     ----
@@ -165,7 +165,7 @@ def handle_dataframe_delta(
                    {
                        statistic_id: {
                            "reference": {"start": datetime, "sum": float, "state": float},
-                           "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE
+                           "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.NEWER_REFERENCE
                        } or None
                    }
 
@@ -223,9 +223,9 @@ def handle_dataframe_delta(
         if ref_type == DeltaReferenceType.OLDER_REFERENCE:
             _LOGGER.debug("Using OLDER_REFERENCE conversion for %s", statistic_id)
             converted = convert_deltas_with_older_reference(delta_rows, sum_ref, state_ref)
-        elif ref_type == DeltaReferenceType.YOUNGER_REFERENCE:
-            _LOGGER.debug("Using YOUNGER_REFERENCE conversion for %s", statistic_id)
-            converted = convert_deltas_with_younger_reference(delta_rows, sum_ref, state_ref)
+        elif ref_type == DeltaReferenceType.NEWER_REFERENCE:
+            _LOGGER.debug("Using NEWER_REFERENCE conversion for %s", statistic_id)
+            converted = convert_deltas_with_newer_reference(delta_rows, sum_ref, state_ref)
         else:
             helpers.handle_error(f"Internal error: Unknown reference type {ref_type} for {statistic_id}")
 

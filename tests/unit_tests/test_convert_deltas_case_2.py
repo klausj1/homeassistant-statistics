@@ -1,20 +1,20 @@
-"""Tests for convert_deltas_younger_ref function."""
+"""Tests for convert_deltas_newer_ref function."""
 
 import datetime as dt
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_younger_reference
+from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_newer_reference
 
 
-def test_convert_deltas_younger_ref_basic() -> None:
+def test_convert_deltas_newer_ref_basic() -> None:
     """Test Case 2 conversion with basic delta rows."""
-    # Reference is 100, and we have three deltas: 10, 20, 30 (from oldest to youngest)
+    # Reference is 100, and we have three deltas: 10, 20, 30 (from oldest to newest)
     # Working backward from 100:
     # - Row 1 (oldest): 100 - 30 = 70 (subtract the last delta first)
     # - Row 2 (middle): 100 - 30 - 20 = 50
-    # - Row 3 (youngest): 100 - 30 - 20 - 10 = 40 (but we subtract in reverse)
+    # - Row 3 (newest): 100 - 30 - 20 - 10 = 40 (but we subtract in reverse)
 
     tz = dt.UTC
     delta_rows = [
@@ -23,7 +23,7 @@ def test_convert_deltas_younger_ref_basic() -> None:
         {"start": dt.datetime(2025, 1, 1, 12, 0, tzinfo=tz), "delta": 30.0},
     ]
 
-    result = convert_deltas_with_younger_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
 
     # With Case 2, we work backward from 100:
     # After processing row 3 (delta=30): 100 - 30 = 70
@@ -39,28 +39,28 @@ def test_convert_deltas_younger_ref_basic() -> None:
     assert result[2]["state"] == 70.0
 
 
-def test_convert_deltas_younger_ref_single_row() -> None:
+def test_convert_deltas_newer_ref_single_row() -> None:
     """Test Case 2 conversion with single delta row."""
     tz = dt.UTC
     delta_rows = [
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 25.0},
     ]
 
-    result = convert_deltas_with_younger_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
 
     assert len(result) == 1
     assert result[0]["sum"] == 75.0
     assert result[0]["state"] == 75.0
 
 
-def test_convert_deltas_younger_ref_empty_rows() -> None:
+def test_convert_deltas_newer_ref_empty_rows() -> None:
     """Test Case 2 conversion with no delta rows."""
-    result = convert_deltas_with_younger_reference([], 100.0, 100.0)
+    result = convert_deltas_with_newer_reference([], 100.0, 100.0)
 
     assert result == []
 
 
-def test_convert_deltas_younger_ref_negative_deltas() -> None:
+def test_convert_deltas_newer_ref_negative_deltas() -> None:
     """Test Case 2 conversion with negative delta values."""
     tz = dt.UTC
     delta_rows = [
@@ -68,7 +68,7 @@ def test_convert_deltas_younger_ref_negative_deltas() -> None:
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 10.0},
     ]
 
-    result = convert_deltas_with_younger_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
 
     # Working backward from 100:
     # After row 2 (delta=10): 100 - 10 = 90
@@ -79,7 +79,7 @@ def test_convert_deltas_younger_ref_negative_deltas() -> None:
     assert result[1]["sum"] == 90.0
 
 
-def test_convert_deltas_younger_ref_unsorted_rows() -> None:
+def test_convert_deltas_newer_ref_unsorted_rows() -> None:
     """Test that Case 2 raises error for unsorted rows."""
     tz = dt.UTC
     delta_rows = [
@@ -88,10 +88,10 @@ def test_convert_deltas_younger_ref_unsorted_rows() -> None:
     ]
 
     with pytest.raises(HomeAssistantError):
-        convert_deltas_with_younger_reference(delta_rows, 100.0, 100.0)
+        convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
 
 
-def test_convert_deltas_younger_ref_preserves_timestamps() -> None:
+def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
     """Test that Case 2 preserves original timestamps in correct order."""
     tz = dt.UTC
     time1 = dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz)
@@ -104,14 +104,14 @@ def test_convert_deltas_younger_ref_preserves_timestamps() -> None:
         {"start": time3, "delta": 30.0},
     ]
 
-    result = convert_deltas_with_younger_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
 
     assert result[0]["start"] == time1
     assert result[1]["start"] == time2
     assert result[2]["start"] == time3
 
 
-def test_convert_deltas_younger_ref_float_precision() -> None:
+def test_convert_deltas_newer_ref_float_precision() -> None:
     """Test Case 2 with floating point values."""
     tz = dt.UTC
     delta_rows = [
@@ -119,7 +119,7 @@ def test_convert_deltas_younger_ref_float_precision() -> None:
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 20.25},
     ]
 
-    result = convert_deltas_with_younger_reference(delta_rows, 100.123, 100.123)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.123, 100.123)
 
     assert len(result) == 2
     # Working backward: 100.123 - 20.25 = 79.873, then 79.873 - 10.5 = 69.373

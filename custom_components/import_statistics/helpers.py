@@ -28,7 +28,7 @@ class DeltaReferenceType(Enum):
     """Type of reference used for delta conversion."""
 
     OLDER_REFERENCE = "older"  # Reference is 1+ hour before oldest import
-    YOUNGER_REFERENCE = "younger"  # Reference is at or after youngest import
+    NEWER_REFERENCE = "newer"  # Reference is at or after newest import
 
 
 def get_source(statistic_id: str) -> str:

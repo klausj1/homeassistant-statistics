@@ -11,7 +11,7 @@ from custom_components.import_statistics.const import ATTR_FILENAME
 from custom_components.import_statistics.delta_import import (
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
-    _get_youngest_db_statistic,
+    _get_newest_db_statistic,
 )
 from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, handle_error
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
@@ -26,29 +26,29 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     hass: HomeAssistant,
     statistic_id: str,
     t_oldest_import: dt.datetime,
-    t_youngest_import: dt.datetime,
+    t_newest_import: dt.datetime,
 ) -> tuple[dict | None, str | None]:
     """
     Finds delta references for a single statistic.
     The delta reference is the value in the database that is used to convert delta values to sum and state.
-    The reference can be either older or equal/younger than the imported data.
+    The reference can be either older or equal/newer than the imported data.
 
     Returns:
         Tuple of (reference_data, error_message)
         Where reference_data is None if error_message is not None
 
     """
-    # Fetch t_youngest_db (most recent record in database)
-    t_youngest_db_record = await _get_youngest_db_statistic(hass, statistic_id)
-    if t_youngest_db_record is None:
+    # Fetch t_newest_db (most recent record in database)
+    t_newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
+    if t_newest_db_record is None:
         msg = f"Entity '{statistic_id}': No statistics found in database for this entity"
         return None, msg
 
-    t_youngest_db = t_youngest_db_record["start"]
+    t_newest_db = t_newest_db_record["start"]
 
-    # Check: t_youngest_import must not be younger than t_youngest_db
-    if t_youngest_import < t_youngest_db:
-        msg = f"Entity '{statistic_id}': Importing values younger than the youngest value in the database ({t_youngest_db}) is not possible"
+    # Check: t_newest_import must not be newer than t_newest_db
+    if t_newest_import < t_newest_db:
+        msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
         return None, msg
 
     # Fetch t_oldest_reference (older reference)
@@ -66,45 +66,45 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         return None, msg
 
     # No older reference found
-    if t_youngest_db <= t_oldest_import:
-        msg = f"Entity '{statistic_id}': imported timerange is completely newer than timerange in DB (database youngest: {t_youngest_db})"
+    if t_newest_db <= t_oldest_import:
+        msg = f"Entity '{statistic_id}': imported timerange is completely newer than timerange in DB (database newest: {t_newest_db})"
         return None, msg
 
-    # Try to find younger reference
-    t_youngest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_youngest_import)
+    # Try to find newer reference
+    t_newest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_newest_import)
 
-    if t_youngest_reference is None:
-        # Try at or after youngest import (YOUNGER_REFERENCE - can be equal or after)
-        t_youngest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_youngest_import)
+    if t_newest_reference is None:
+        # Try at or after newest import (NEWER_REFERENCE - can be equal or after)
+        t_newest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_newest_import)
 
-        if t_youngest_reference is None:
+        if t_newest_reference is None:
             msg = f"Entity '{statistic_id}': imported timerange completely overlaps timerange in DB (cannot find reference before or after import)"
             return None, msg
 
-        # Reference is at or after youngest import (YOUNGER_REFERENCE)
-        # YOUNGER_REFERENCE can be equal to youngest_import, so >= is valid
+        # Reference is at or after newest import (NEWER_REFERENCE)
+        # NEWER_REFERENCE can be equal to newest_import, so >= is valid
         return {
-            "reference": t_youngest_reference,
-            "ref_type": DeltaReferenceType.YOUNGER_REFERENCE,
+            "reference": t_newest_reference,
+            "ref_type": DeltaReferenceType.NEWER_REFERENCE,
         }, None
 
-    # Reference is before youngest import - check if it's old enough
-    ref_distance = t_youngest_reference["start"] - t_youngest_import
+    # Reference is before newest import - check if it's old enough
+    ref_distance = t_newest_reference["start"] - t_newest_import
     if ref_distance < dt.timedelta(hours=0):
-        # Reference is before youngest import (more than 1 hour before)
+        # Reference is before newest import (more than 1 hour before)
         if ref_distance <= dt.timedelta(hours=-1):
             return {
-                "reference": t_youngest_reference,
+                "reference": t_newest_reference,
                 "ref_type": DeltaReferenceType.OLDER_REFERENCE,
             }, None
-        msg = f"Entity '{statistic_id}': Reference is less than 1 hour before youngest import, cannot use for delta conversion"
+        msg = f"Entity '{statistic_id}': Reference is less than 1 hour before newest import, cannot use for delta conversion"
         return None, msg
 
-    # Reference is at or after youngest import (YOUNGER_REFERENCE)
-    # YOUNGER_REFERENCE can be equal to youngest_import
+    # Reference is at or after newest import (NEWER_REFERENCE)
+    # NEWER_REFERENCE can be equal to newest_import
     return {
-        "reference": t_youngest_reference,
-        "ref_type": DeltaReferenceType.YOUNGER_REFERENCE,
+        "reference": t_newest_reference,
+        "ref_type": DeltaReferenceType.NEWER_REFERENCE,
     }, None
 
 
@@ -117,7 +117,7 @@ async def prepare_delta_handling(
     """
     Fetch and validate delta references for delta import.
     The delta reference is the value in the database that is used to convert delta values to sum and state.
-    The reference can be either older or equal/younger than the imported data.
+    The reference can be either older or equal/newer than the imported data.
 
     This method orchestrates all database queries needed for delta processing,
     validates time range intersections, and returns structured reference data.
@@ -135,7 +135,7 @@ async def prepare_delta_handling(
         {
             statistic_id: {
                 "reference": {"start": datetime, "sum": float, "state": float},
-                "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.YOUNGER_REFERENCE
+                "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.NEWER_REFERENCE
             } or None if no valid reference found
         }
 
@@ -146,36 +146,36 @@ async def prepare_delta_handling(
     """
     _LOGGER.info("Preparing delta handling: fetching and validating database references")
 
-    # Step 1: Extract oldest/youngest timestamps from df per statistic_id
+    # Step 1: Extract oldest/newest timestamps from df per statistic_id
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
     import_ranges = {}
 
     for statistic_id in df["statistic_id"].unique():
         group = df[df["statistic_id"] == statistic_id]
         oldest_timestamp_str = group["start"].min()
-        youngest_timestamp_str = group["start"].max()
+        newest_timestamp_str = group["start"].max()
 
         # Parse the timestamps to get datetime objects
         try:
             oldest_dt = dt.datetime.strptime(oldest_timestamp_str, datetime_format).replace(tzinfo=timezone)
-            youngest_dt = dt.datetime.strptime(youngest_timestamp_str, datetime_format).replace(tzinfo=timezone)
+            newest_dt = dt.datetime.strptime(newest_timestamp_str, datetime_format).replace(tzinfo=timezone)
         except (ValueError, TypeError) as e:
             handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
 
         # Convert to UTC for database query
         oldest_dt_utc = oldest_dt.astimezone(dt.UTC)
-        youngest_dt_utc = youngest_dt.astimezone(dt.UTC)
+        newest_dt_utc = newest_dt.astimezone(dt.UTC)
 
         import_ranges[statistic_id] = {
             "oldest_import": oldest_dt_utc,
-            "youngest_import": youngest_dt_utc,
+            "newest_import": newest_dt_utc,
         }
 
         _LOGGER.debug(
-            "Statistic %s import range: oldest=%s, youngest=%s",
+            "Statistic %s import range: oldest=%s, newest=%s",
             statistic_id,
             oldest_dt_utc,
-            youngest_dt_utc,
+            newest_dt_utc,
         )
 
     # Step 2: For each statistic_id, fetch database records and validate time ranges
@@ -183,11 +183,11 @@ async def prepare_delta_handling(
 
     for statistic_id, import_range in import_ranges.items():
         t_oldest_import = import_range["oldest_import"]
-        t_youngest_import = import_range["youngest_import"]
+        t_newest_import = import_range["newest_import"]
 
         _LOGGER.debug("Processing references for %s", statistic_id)
 
-        ref_data, error_msg = await _process_delta_references_for_statistic(hass, statistic_id, t_oldest_import, t_youngest_import)
+        ref_data, error_msg = await _process_delta_references_for_statistic(hass, statistic_id, t_oldest_import, t_newest_import)
 
         if error_msg:
             handle_error(error_msg)

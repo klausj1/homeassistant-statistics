@@ -51,9 +51,9 @@ def _get_row_state_value(row: Any) -> Any:
     return row.state if hasattr(row, "state") else row["state"]
 
 
-async def _get_youngest_db_statistic(hass: HomeAssistant, statistic_id: str) -> dict | None:
+async def _get_newest_db_statistic(hass: HomeAssistant, statistic_id: str) -> dict | None:
     """
-    Fetch the youngest statistic from database for given statistic_id.
+    Fetch the newest statistic from database for given statistic_id.
 
     Args:
     ----
@@ -66,7 +66,7 @@ async def _get_youngest_db_statistic(hass: HomeAssistant, statistic_id: str) -> 
         Or None if no statistics exist for this ID
 
     """
-    _LOGGER.debug("Querying youngest statistic for %s", statistic_id)
+    _LOGGER.debug("Querying newest statistic for %s", statistic_id)
 
     try:
         result_dict = await get_instance(hass).async_add_executor_job(
@@ -79,7 +79,7 @@ async def _get_youngest_db_statistic(hass: HomeAssistant, statistic_id: str) -> 
             )
         )
     except Exception as exc:  # noqa: BLE001
-        _LOGGER.error("Failed to query youngest statistics for %s: %s", statistic_id, exc)
+        _LOGGER.error("Failed to query newest statistics for %s: %s", statistic_id, exc)
         return None
 
     if not result_dict or statistic_id not in result_dict:
@@ -92,13 +92,13 @@ async def _get_youngest_db_statistic(hass: HomeAssistant, statistic_id: str) -> 
         return None
 
     # Get the first (and only) entry from the list
-    youngest_stat = stats_list[0]
-    result_dt = dt.datetime.fromtimestamp(youngest_stat["start"], tz=dt.UTC)
-    result_sum = youngest_stat.get("sum")
-    result_state = youngest_stat.get("state")
+    newest_stat = stats_list[0]
+    result_dt = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
+    result_sum = newest_stat.get("sum")
+    result_state = newest_stat.get("state")
 
     _LOGGER.debug(
-        "Found youngest statistic for %s: start=%s, sum=%s, state=%s",
+        "Found newest statistic for %s: start=%s, sum=%s, state=%s",
         statistic_id,
         result_dt,
         result_sum,
@@ -118,7 +118,7 @@ async def _get_reference_before_timestamp(
     timestamp: dt.datetime,
 ) -> dict | None:
     """
-    Fetch the youngest statistic before given timestamp.
+    Fetch the newest statistic before given timestamp.
 
     Args:
     ----
@@ -242,13 +242,13 @@ async def _get_reference_at_or_after_timestamp(
         return None
 
     # Get the first (and only) entry from the list
-    youngest_stat = stats_list[0]
-    result_dt = dt.datetime.fromtimestamp(youngest_stat["start"], tz=dt.UTC)
+    newest_stat = stats_list[0]
+    result_dt = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
 
     # Validate that result is at or after timestamp
     if result_dt >= timestamp:
-        result_sum = youngest_stat.get("sum")
-        result_state = youngest_stat.get("state")
+        result_sum = newest_stat.get("sum")
+        result_state = newest_stat.get("state")
 
         _LOGGER.debug(
             "Found reference at or after %s for %s: start=%s, sum=%s, state=%s",

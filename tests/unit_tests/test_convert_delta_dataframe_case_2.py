@@ -1,4 +1,4 @@
-"""Tests for handle_dataframe_delta with OLDER and YOUNGER reference support."""
+"""Tests for handle_dataframe_delta with OLDER and NEWER reference support."""
 
 import datetime as dt
 
@@ -44,8 +44,8 @@ def test_convert_delta_dataframe_case_1_older_reference() -> None:
     assert stats[1]["sum"] == 130.0  # 100 + 10 + 20
 
 
-def test_convert_delta_dataframe_case_2_younger_reference() -> None:
-    """Test that YOUNGER_REFERENCE is used when reference is after import data."""
+def test_convert_delta_dataframe_case_2_newer_reference() -> None:
+    """Test that NEWER_REFERENCE is used when reference is after import data."""
     # Reference at 13:00 (after import data ending at 11:00)
     ref_start = dt.datetime(2025, 1, 1, 13, 0, tzinfo=dt.UTC)
 
@@ -65,7 +65,7 @@ def test_convert_delta_dataframe_case_2_younger_reference() -> None:
                 "sum": 130.0,
                 "state": 130.0,
             },
-            "ref_type": DeltaReferenceType.YOUNGER_REFERENCE,
+            "ref_type": DeltaReferenceType.NEWER_REFERENCE,
         }
     }
 
@@ -75,7 +75,7 @@ def test_convert_delta_dataframe_case_2_younger_reference() -> None:
     metadata, stats = result["sensor.test"]
     assert metadata["source"] == "recorder"
     assert len(stats) == 2
-    # YOUNGER_REFERENCE: subtract backward from younger reference
+    # NEWER_REFERENCE: subtract backward from newer reference
     # Reference is 130, last delta is 20: 130 - 20 = 110
     # Second calculation: 110 - 10 = 100
     # Reverse to ascending: [100, 110]
@@ -84,7 +84,7 @@ def test_convert_delta_dataframe_case_2_younger_reference() -> None:
 
 
 def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
-    """Test mixed OLDER_REFERENCE and YOUNGER_REFERENCE for different statistics."""
+    """Test mixed OLDER_REFERENCE and NEWER_REFERENCE for different statistics."""
     ref_start_1 = dt.datetime(2025, 1, 1, 9, 0, tzinfo=dt.UTC)  # Before
     ref_start_2 = dt.datetime(2025, 1, 1, 13, 0, tzinfo=dt.UTC)  # After
 
@@ -112,7 +112,7 @@ def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
                 "sum": 130.0,
                 "state": 130.0,
             },
-            "ref_type": DeltaReferenceType.YOUNGER_REFERENCE,
+            "ref_type": DeltaReferenceType.NEWER_REFERENCE,
         },
     }
 
@@ -125,7 +125,7 @@ def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
     assert stats1[0]["sum"] == 110.0
     assert stats1[1]["sum"] == 130.0
 
-    # Test YOUNGER_REFERENCE (sensor.test2)
+    # Test NEWER_REFERENCE (sensor.test2)
     _metadata2, stats2 = result["sensor.test2"]
     assert stats2[0]["sum"] == 100.0
     assert stats2[1]["sum"] == 110.0
