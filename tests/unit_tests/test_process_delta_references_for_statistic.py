@@ -177,6 +177,7 @@ class TestProcessDeltaReferencesNewerReference:
         t_newest_import = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
         t_newest_db = dt.datetime(2025, 1, 1, 16, 0, tzinfo=dt.UTC)
         ref_newer_at_newest = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
+        ref_for_overlap_check = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
 
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
@@ -188,7 +189,7 @@ class TestProcessDeltaReferencesNewerReference:
                 "sum": 150.0,
                 "state": 150.0,
             }
-            mock_before.return_value = None  # No reference before oldest
+            mock_before.side_effect = [None, ref_for_overlap_check]  # First call returns None, second call returns 14:00
             mock_after.return_value = {
                 "start": ref_newer_at_newest,
                 "sum": 110.0,
@@ -223,6 +224,7 @@ class TestProcessDeltaReferencesNewerReference:
         t_oldest_import = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
         t_newest_import = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
         ref_newer_after_newest = dt.datetime(2025, 1, 1, 15, 0, tzinfo=dt.UTC)
+        ref_for_overlap_check = dt.datetime(2025, 1, 1, 15, 0, tzinfo=dt.UTC)
 
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
@@ -234,7 +236,7 @@ class TestProcessDeltaReferencesNewerReference:
                 "sum": 150.0,
                 "state": 150.0,
             }
-            mock_before.return_value = None
+            mock_before.side_effect = [None, ref_for_overlap_check]  # First call returns None, second call returns 15:00
             mock_after.return_value = {
                 "start": ref_newer_after_newest,
                 "sum": 125.0,
@@ -323,6 +325,7 @@ class TestProcessDeltaReferencesCombinedScenarios:
         t_oldest_import = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
         t_newest_import = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
         ref_at_newest = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
+        ref_for_overlap_check = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
 
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
@@ -334,7 +337,7 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 "sum": 120.0,
                 "state": 120.0,
             }
-            mock_before.return_value = None
+            mock_before.side_effect = [None, ref_for_overlap_check]  # First call returns None, second call returns 14:00
             mock_after.return_value = {
                 "start": ref_at_newest,
                 "sum": 120.0,
