@@ -126,12 +126,12 @@ class TestIntegrationDeltaImports:
             except TimeoutError:
                 _LOGGER.debug("Attempt %s (elapsed: %.1fs): Timeout waiting for response", attempt, elapsed)
                 # If we've waited long enough without connection, start HA
-                if elapsed > 10 and self.__class__.ha_process is None:
+                if elapsed > 2 and self.__class__.ha_process is None:
                     await self._start_ha()
             except aiohttp.ClientConnectionError as e:
                 _LOGGER.debug("Attempt %s (elapsed: %.1fs): Connection error: %s (HA may not be listening yet)", attempt, elapsed, type(e).__name__)
                 # If we've waited long enough without connection, start HA
-                if elapsed > 10 and self.__class__.ha_process is None:
+                if elapsed > 2 and self.__class__.ha_process is None:
                     await self._start_ha()
             except aiohttp.ClientError as e:
                 _LOGGER.debug("Attempt %s (elapsed: %.1fs): Client error: %s: %s", attempt, elapsed, type(e).__name__, e)
@@ -145,11 +145,19 @@ class TestIntegrationDeltaImports:
 
     async def _start_ha(self) -> None:
         """Start Home Assistant if not already running."""
+        # delete config/home-assistant_v2. sqlite db to start fresh
+        _LOGGER.info("Starting Home Assistant - deleting existing DB files first ...")
+        for db_file in (Path(__file__).parent.parent.parent / "config").glob("home-assistant_v2.*"):
+            try:
+                db_file.unlink()
+                _LOGGER.info("Deleted existing Home Assistant DB file: %s", db_file)
+            except Exception:
+                _LOGGER.exception("Failed to delete Home Assistant DB file: %s", db_file)
         _LOGGER.info("\n%s", "=" * 80)
         _LOGGER.info("Starting Home Assistant...")
         _LOGGER.info("%s", "=" * 80)
         try:
-            script_path = Path(__file__).parent.parent / "scripts" / "develop"
+            script_path = Path(__file__).parent.parent.parent / "scripts" / "develop"
             self.__class__.ha_process = subprocess.Popen(  # noqa: S603, ASYNC220
                 ["/bin/bash", str(script_path)],
                 text=True,
@@ -291,6 +299,8 @@ class TestIntegrationDeltaImports:
         # Wait for HA to be fully started (up to 3 minutes)
         is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
         assert is_ready, "Home Assistant did not start within 3 minutes"
+
+        await asyncio.sleep(5)  # Give HA some time to setup completely
 
         # ==================== STEP 1: Import sum_state ====================
         success = await self._call_service(

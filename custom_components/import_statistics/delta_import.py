@@ -236,11 +236,14 @@ async def _get_reference_at_or_after_timestamp(
         _LOGGER.debug("No statistics found for %s", statistic_id)
         return None
 
+    # _LOGGER.debug("Newest statistics fetched for %s: %s.", statistic_id, newest_dict)
+
     newest_stat = newest_dict[statistic_id][0]
     t_newest_db = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
 
     # Query all statistics between timestamp and the newest DB record + 1 hour
     # The +1 hour is needed because statistics_during_period uses inclusive lower bound and exclusive upper bound
+    # _LOGGER.debug("Querying statistics during period from %s to %s for %s", timestamp, t_newest_db + dt.timedelta(hours=1), statistic_id)
     try:
         stats_dict = await get_instance(hass).async_add_executor_job(
             lambda: statistics_during_period(
@@ -261,12 +264,14 @@ async def _get_reference_at_or_after_timestamp(
         _LOGGER.debug("No statistics found in period for %s", statistic_id)
         return None
 
-    # Take the newest value from the period (which is the oldest value >= timestamp)
-    newest_in_period = stats_dict[statistic_id][-1]  # Last element is newest in the period
-    result_dt = dt.datetime.fromtimestamp(newest_in_period["start"], tz=dt.UTC)
-    result_sum = newest_in_period.get("sum")
-    result_state = newest_in_period.get("state")
+    # _LOGGER.debug("Statistics during period fetched for %s: %s.", statistic_id, stats_dict)
 
+    # Take the oldest value from the period (which is the oldest value >= timestamp)
+    oldest_in_period = stats_dict[statistic_id][0]  # First element is oldest in the period
+    # _LOGGER.debug("Oldest statistic in period for %s: %s.", statistic_id, oldest_in_period)
+    result_dt = dt.datetime.fromtimestamp(oldest_in_period["start"], tz=dt.UTC)
+    result_sum = oldest_in_period.get("sum")
+    result_state = oldest_in_period.get("state")
     _LOGGER.debug(
         "Found reference at or after %s for %s: start=%s, sum=%s, state=%s",
         timestamp,

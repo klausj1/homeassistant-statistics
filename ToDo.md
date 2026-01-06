@@ -52,7 +52,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
       it does not take the oldest value newer than t_newest_import, but the newest - correct this.
       To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value. For querying the values from the DB, use statistics_during_period. Check custom_components/import_statistics/export.py how statistics_during_period has to be used.
 
-- Adapt ITest to delete sqlite-DB
+- Check added debugs in at_or_after
 
 - ITest without mock for case 2
   - new tests for custom_components/import_statistics/delta_import.py - do they make sense?
