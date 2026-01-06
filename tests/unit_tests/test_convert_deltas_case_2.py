@@ -94,6 +94,7 @@ def test_convert_deltas_newer_ref_unsorted_rows() -> None:
 def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
     """Test that Case 2 preserves original timestamps in correct order."""
     tz = dt.UTC
+    time0 = dt.datetime(2025, 1, 1, 9, 0, tzinfo=tz)
     time1 = dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz)
     time2 = dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz)
     time3 = dt.datetime(2025, 1, 1, 12, 0, tzinfo=tz)
@@ -106,9 +107,9 @@ def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
 
     result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
 
-    assert result[0]["start"] == time1
-    assert result[1]["start"] == time2
-    assert result[2]["start"] == time3
+    assert result[0]["start"] == time0
+    assert result[1]["start"] == time1
+    assert result[2]["start"] == time2
 
 
 def test_convert_deltas_newer_ref_float_precision() -> None:

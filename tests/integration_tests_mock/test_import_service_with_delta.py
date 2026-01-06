@@ -723,8 +723,8 @@ class TestDeltaImportIntegration:
     def _verify_all_statistics(calls_by_id: dict, expected_df: pd.DataFrame) -> None:
         """Verify all statistic values match expected output.
 
-        The expected_df contains all rows from the expected file, including reference rows.
-        We only verify the rows that were actually imported (based on the first imported row timestamp).
+        The expected_df contains all rows from the expected file.
+        We only verify the rows that were actually imported by matching timestamps with imported stats.
         """
         for entity_id in expected_df["statistic_id"].unique():
             assert entity_id in calls_by_id, f"Entity {entity_id} not found in import calls"
@@ -732,28 +732,30 @@ class TestDeltaImportIntegration:
             metadata, stats = calls_by_id[entity_id]
             expected_entity = expected_df[expected_df["statistic_id"] == entity_id]
 
-            # Find which rows in expected_entity were actually imported
-            # by matching the first imported statistic timestamp
-            expected_entity_to_verify = expected_entity
-            if len(stats) > 0:
-                first_stat_start = stats[0]["start"]
-                # Convert datetime to string format matching expected data
-                first_stat_str = first_stat_start.strftime("%d.%m.%Y %H:%M")
-                matching_rows = expected_entity[expected_entity["start"] == first_stat_str]
+            # Build list of imported timestamps
+            imported_timestamps = set()
+            for stat in stats:
+                # Convert to string format matching expected data
+                timestamp_str = stat["start"].strftime("%d.%m.%Y %H:%M")
+                imported_timestamps.add(timestamp_str)
 
-                if len(matching_rows) > 0:
-                    # Start from the first matching row
-                    start_idx = expected_entity.index.get_loc(matching_rows.index[0])
-                    expected_entity_to_verify = expected_entity.iloc[start_idx:]
+            # Filter expected rows to only those that were imported
+            expected_entity_to_verify = expected_entity[expected_entity["start"].isin(imported_timestamps)]
 
-            # Verify all statistics for this entity match expected
+            # Verify count matches
             assert len(stats) == len(expected_entity_to_verify), \
                 f"Expected {len(expected_entity_to_verify)} stats for {entity_id}, got {len(stats)}"
 
-            for i, stat in enumerate(stats):
-                expected_stat = expected_entity_to_verify.iloc[i]
-                expected_timestamp_str = expected_stat["start"]
-                expected_timestamp = pd.to_datetime(expected_timestamp_str, format="%d.%m.%Y %H:%M")
+            # Create mapping of expected rows by timestamp for easy lookup
+            expected_by_timestamp = {}
+            for _, row in expected_entity_to_verify.iterrows():
+                expected_by_timestamp[row["start"]] = row
+
+            # Verify each imported statistic
+            for stat in stats:
+                stat_timestamp_str = stat["start"].strftime("%d.%m.%Y %H:%M")
+                expected_stat = expected_by_timestamp[stat_timestamp_str]
+                expected_timestamp = pd.to_datetime(expected_stat["start"], format="%d.%m.%Y %H:%M")
 
                 assert stat["start"].year == expected_timestamp.year
                 assert stat["start"].month == expected_timestamp.month

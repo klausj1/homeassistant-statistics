@@ -64,10 +64,11 @@ def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: floa
         )
 
         _LOGGER.debug(
-            "Delta: %s, Accumulated: sum=%s, state=%s",
+            "Delta: %s, Accumulated: sum=%s, state=%s, start=%s",
             delta_row["delta"],
             current_sum,
             current_state,
+            delta_row["start"],
         )
 
     _LOGGER.debug("Conversion complete: final sum=%s, state=%s", current_sum, current_state)
@@ -99,8 +100,10 @@ def convert_deltas_with_newer_reference(
         HomeAssistantError: If rows are not sorted by timestamp
 
     """
+    import datetime as dt
+
     _LOGGER.debug("Converting %d delta rows to absolute values (newer reference)", len(delta_rows))
-    _LOGGER.debug("Starting from sum=%s, state=%s (working backward)", sum_reference, state_reference)
+    _LOGGER.debug("Starting from sum=%s, state=%s (working backward) at %s", sum_reference, state_reference, delta_rows[-1]["start"] if delta_rows else None)
 
     if not delta_rows:
         return []
@@ -114,27 +117,33 @@ def convert_deltas_with_newer_reference(
     # We process in reverse order, starting from the reference (newest)
     # and moving backward to the oldest
     converted_rows = []
+    reversed_rows = list(reversed(delta_rows))
 
     # Process rows in reverse order (newest to oldest)
-    for delta_row in reversed(delta_rows):
+    for i, delta_row in enumerate(reversed_rows):
         sum_reference -= delta_row["delta"]
         state_reference -= delta_row["delta"]
+        start_time: dt.datetime
 
+        # Write calculated values to the next older item (next in reversed iteration)
+        if i + 1 < len(reversed_rows):
+            start_time = reversed_rows[i + 1]["start"]
+        else:
+            start_time = reversed_rows[i]["start"] - dt.timedelta(hours=1)
         converted_rows.append(
             {
-                "start": delta_row["start"],
+                "start": start_time,
                 "sum": sum_reference,
                 "state": state_reference,
             }
         )
-
         _LOGGER.debug(
-            "Delta: %s, Calculated backward: sum=%s, state=%s",
+            "Delta: %s, Calculated backward: sum=%s, state=%s, start=%s",
             delta_row["delta"],
             sum_reference,
             state_reference,
+            start_time,
         )
-
     # Reverse result to ascending order (oldest to newest)
     converted_rows.reverse()
 
