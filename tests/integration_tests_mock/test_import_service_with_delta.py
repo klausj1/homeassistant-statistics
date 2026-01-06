@@ -721,15 +721,20 @@ class TestDeltaImportIntegration:
 
     @staticmethod
     def _verify_all_statistics(calls_by_id: dict, expected_df: pd.DataFrame) -> None:
-        """Verify all statistic values match expected output."""
+        """Verify all statistic values match expected output.
+
+        The expected_df contains all rows from the expected file, including reference rows.
+        We only verify the rows that were actually imported (based on the first imported row timestamp).
+        """
         for entity_id in expected_df["statistic_id"].unique():
             assert entity_id in calls_by_id, f"Entity {entity_id} not found in import calls"
 
             metadata, stats = calls_by_id[entity_id]
             expected_entity = expected_df[expected_df["statistic_id"] == entity_id]
 
-            # Find the first row that matches the first imported statistic timestamp
-            # This accounts for reference rows in the expected data
+            # Find which rows in expected_entity were actually imported
+            # by matching the first imported statistic timestamp
+            expected_entity_to_verify = expected_entity
             if len(stats) > 0:
                 first_stat_start = stats[0]["start"]
                 # Convert datetime to string format matching expected data
@@ -740,11 +745,6 @@ class TestDeltaImportIntegration:
                     # Start from the first matching row
                     start_idx = expected_entity.index.get_loc(matching_rows.index[0])
                     expected_entity_to_verify = expected_entity.iloc[start_idx:]
-                else:
-                    # If no exact match, assume first row is reference (skip it)
-                    expected_entity_to_verify = expected_entity.iloc[1:]
-            else:
-                expected_entity_to_verify = expected_entity.iloc[1:]
 
             # Verify all statistics for this entity match expected
             assert len(stats) == len(expected_entity_to_verify), \

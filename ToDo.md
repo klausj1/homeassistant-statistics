@@ -48,6 +48,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 ### Other
 
 - ITest with mock for case 2
+  - There is a problem in the verification logic. The test collects the mocked methods async_import_statistics and async_add_external_statistics. But the expected file config/test_delta/expected_after_step3_delta_changed.tsv contains not only the changed data from these two methods, but also not changed data from config/test_delta/test_case_1_sum_state.txt. Change the verification logic accordingly. There is no difference between internal and external statistics. Make sure the test passes, it again contains only test_case_1.
 
 - Correct known bug
   - _get_reference_at_or_after_timestamp does not search for the oldest value
