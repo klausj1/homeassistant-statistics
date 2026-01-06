@@ -47,8 +47,6 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Rename export to export_service (symmetry)
-- Rename delta_import.py to something which makes it clear that its database access
 - Rename integration test and methods and test files in the integration test, as they test all cases
 
 - Checks
