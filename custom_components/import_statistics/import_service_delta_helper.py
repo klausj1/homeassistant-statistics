@@ -4,6 +4,7 @@ Helper functions for import service in delta case.
 No hass object needed.
 """
 
+import datetime as dt
 import zoneinfo
 
 import pandas as pd
@@ -100,8 +101,6 @@ def convert_deltas_with_newer_reference(
         HomeAssistantError: If rows are not sorted by timestamp
 
     """
-    import datetime as dt
-
     _LOGGER.debug("Converting %d delta rows to absolute values (newer reference)", len(delta_rows))
     _LOGGER.debug("Starting from sum=%s, state=%s (working backward) at %s", sum_reference, state_reference, delta_rows[-1]["start"] if delta_rows else None)
 
@@ -123,13 +122,9 @@ def convert_deltas_with_newer_reference(
     for i, delta_row in enumerate(reversed_rows):
         sum_reference -= delta_row["delta"]
         state_reference -= delta_row["delta"]
-        start_time: dt.datetime
 
         # Write calculated values to the next older item (next in reversed iteration)
-        if i + 1 < len(reversed_rows):
-            start_time = reversed_rows[i + 1]["start"]
-        else:
-            start_time = delta_row["start"] - dt.timedelta(hours=1)
+        start_time = reversed_rows[i + 1]["start"] if i + 1 < len(reversed_rows) else delta_row["start"] - dt.timedelta(hours=1)
         converted_rows.append(
             {
                 "start": start_time,

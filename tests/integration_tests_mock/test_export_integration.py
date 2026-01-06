@@ -109,7 +109,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -179,7 +179,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"counter.energy_consumed": "kWh", "counter.water_used": "L"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -255,7 +255,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "counter.energy": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -311,7 +311,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -377,7 +377,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"counter.energy": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -460,7 +460,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "counter.energy": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -531,7 +531,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -583,7 +583,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -636,7 +636,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
@@ -687,7 +687,7 @@ class TestExportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.export.get_statistics_from_recorder") as mock_get_stats:
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)

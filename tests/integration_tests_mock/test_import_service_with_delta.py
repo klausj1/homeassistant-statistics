@@ -588,11 +588,35 @@ class TestDeltaImportIntegration:
         db_test_case_1_copy["datetime"] = pd.to_datetime(db_test_case_1_copy["start"], format="%d.%m.%Y %H:%M")
 
         # Store entity metadata for mock functions
+        entity_metadata = self._build_entity_metadata(import_test_case_1, import_test_case_1_copy, db_test_case_1_copy)
+
+        # Configure mocks
+        async def newest_wrapper(hass: HomeAssistant, sid: str) -> dict | None:
+            return await self._mock_newest_impl(hass, sid, entity_metadata)
+
+        async def before_wrapper(hass: HomeAssistant, sid: str, ts: dt.datetime) -> dict | None:
+            return await self._mock_before_impl(hass, sid, ts, entity_metadata, {})
+
+        async def after_wrapper(hass: HomeAssistant, sid: str, ts: dt.datetime) -> dict | None:
+            return await self._mock_after_impl(hass, sid, ts, entity_metadata)
+
+        mock_newest.side_effect = newest_wrapper
+        call_counts: dict[str, int] = {}
+
+        async def before_wrapper_with_counts(hass: HomeAssistant, sid: str, ts: dt.datetime) -> dict | None:
+            return await self._mock_before_impl(hass, sid, ts, entity_metadata, call_counts)
+
+        mock_before.side_effect = before_wrapper_with_counts
+        mock_after.side_effect = after_wrapper
+
+    @staticmethod
+    def _build_entity_metadata(import_df: pd.DataFrame, import_df_copy: pd.DataFrame, db_df_copy: pd.DataFrame) -> dict:
+        """Build entity metadata from import and database dataframes."""
         entity_metadata: dict[str, Any] = {}
 
-        for entity_id in import_test_case_1["statistic_id"].unique():
-            import_entity = import_test_case_1_copy[import_test_case_1_copy["statistic_id"] == entity_id]
-            db_entity = db_test_case_1_copy[db_test_case_1_copy["statistic_id"] == entity_id]
+        for entity_id in import_df["statistic_id"].unique():
+            import_entity = import_df_copy[import_df_copy["statistic_id"] == entity_id]
+            db_entity = db_df_copy[db_df_copy["statistic_id"] == entity_id]
 
             if len(import_entity) == 0 or len(db_entity) == 0:
                 continue
@@ -621,87 +645,79 @@ class TestDeltaImportIntegration:
                 "newest_db_record": db_entity.iloc[-1],
             }
 
-        # Configure _get_newest_db_statistic mock
-        async def mock_newest_impl(hass: HomeAssistant, statistic_id: str) -> dict | None:
-            if statistic_id not in entity_metadata:
+        return entity_metadata
+
+    @staticmethod
+    async def _mock_newest_impl(_hass: HomeAssistant, statistic_id: str, entity_metadata: dict) -> dict | None:
+        """Mock implementation for _get_newest_db_statistic."""
+        if statistic_id not in entity_metadata:
+            return None
+        meta = entity_metadata[statistic_id]
+        return {
+            "start": meta["t_newest_db"],
+            "sum": float(meta["newest_db_record"]["sum"]),
+            "state": float(meta["newest_db_record"]["state"]),
+        }
+
+    @staticmethod
+    async def _mock_before_impl(
+        _hass: HomeAssistant, statistic_id: str, _timestamp: dt.datetime, entity_metadata: dict, call_counts: dict[str, int]
+    ) -> dict | None:
+        """Mock implementation for _get_reference_before_timestamp."""
+        if statistic_id not in entity_metadata:
+            return None
+
+        if statistic_id not in call_counts:
+            call_counts[statistic_id] = 0
+        call_counts[statistic_id] += 1
+
+        meta = entity_metadata[statistic_id]
+        call_num = call_counts[statistic_id]
+
+        # Determine reference time based on call number
+        if call_num == 1:
+            # First call: returns t_oldest_import - 1 hour
+            ref_time = meta["t_oldest_import"] - dt.timedelta(hours=1)
+            if ref_time < meta["t_oldest_db"]:
                 return None
-            meta = entity_metadata[statistic_id]
-            return {
-                "start": meta["t_newest_db"],
-                "sum": float(meta["newest_db_record"]["sum"]),
-                "state": float(meta["newest_db_record"]["state"]),
-            }
-
-        mock_newest.side_effect = mock_newest_impl
-
-        # Configure _get_reference_before_timestamp mock with call tracking
-        call_counts: dict[str, int] = {}
-
-        async def mock_before_impl(hass: HomeAssistant, statistic_id: str, timestamp: dt.datetime) -> dict | None:
-            if statistic_id not in entity_metadata:
-                return None
-
-            if statistic_id not in call_counts:
-                call_counts[statistic_id] = 0
-            call_counts[statistic_id] += 1
-
-            meta = entity_metadata[statistic_id]
-            call_num = call_counts[statistic_id]
-
-            if call_num == 1:
-                # First call: returns t_oldest_import - 1 hour
-                ref_time = meta["t_oldest_import"] - dt.timedelta(hours=1)
-                if ref_time < meta["t_oldest_db"]:
-                    return None
-                # Find record at this time in DB
-                matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == ref_time.replace(tzinfo=None)]
-                if len(matching_records) > 0:
-                    rec = matching_records.iloc[0]
-                    return {
-                        "start": ref_time,
-                        "sum": float(rec["sum"]),
-                        "state": float(rec["state"]),
-                    }
-                return None
+        else:
             # Second call: returns t_newest_import - 1 hour
             ref_time = meta["t_newest_import"] - dt.timedelta(hours=1)
             # Check if ref_time <= oldest in DB
             if ref_time <= meta["t_oldest_db"]:
                 return None
-            # Find record at this time in DB
-            matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == ref_time.replace(tzinfo=None)]
-            if len(matching_records) > 0:
-                rec = matching_records.iloc[0]
-                return {
-                    "start": ref_time,
-                    "sum": float(rec["sum"]),
-                    "state": float(rec["state"]),
-                }
+
+        # Find record at this time in DB
+        matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == ref_time.replace(tzinfo=None)]
+        if len(matching_records) > 0:
+            rec = matching_records.iloc[0]
+            return {
+                "start": ref_time,
+                "sum": float(rec["sum"]),
+                "state": float(rec["state"]),
+            }
+        return None
+
+    @staticmethod
+    async def _mock_after_impl(_hass: HomeAssistant, statistic_id: str, _timestamp: dt.datetime, entity_metadata: dict) -> dict | None:
+        """Mock implementation for _get_reference_at_or_after_timestamp."""
+        if statistic_id not in entity_metadata:
             return None
 
-        mock_before.side_effect = mock_before_impl
-
-        # Configure _get_reference_at_or_after_timestamp mock
-        async def mock_after_impl(hass: HomeAssistant, statistic_id: str, timestamp: dt.datetime) -> dict | None:
-            if statistic_id not in entity_metadata:
-                return None
-
-            meta = entity_metadata[statistic_id]
-            # Returns value at t_newest_import. If t_newest_import > newest in DB, return None
-            if meta["t_newest_import"] > meta["t_newest_db"]:
-                return None
-            # Find record at t_newest_import
-            matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == meta["t_newest_import"].replace(tzinfo=None)]
-            if len(matching_records) > 0:
-                rec = matching_records.iloc[0]
-                return {
-                    "start": meta["t_newest_import"],
-                    "sum": float(rec["sum"]),
-                    "state": float(rec["state"]),
-                }
+        meta = entity_metadata[statistic_id]
+        # Returns value at t_newest_import. If t_newest_import > newest in DB, return None
+        if meta["t_newest_import"] > meta["t_newest_db"]:
             return None
-
-        mock_after.side_effect = mock_after_impl
+        # Find record at t_newest_import
+        matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == meta["t_newest_import"].replace(tzinfo=None)]
+        if len(matching_records) > 0:
+            rec = matching_records.iloc[0]
+            return {
+                "start": meta["t_newest_import"],
+                "sum": float(rec["sum"]),
+                "state": float(rec["state"]),
+            }
+        return None
 
     @staticmethod
     def _collect_import_calls(mock_import: MagicMock, mock_import_ext: MagicMock) -> dict:
@@ -731,7 +747,7 @@ class TestDeltaImportIntegration:
         for entity_id in expected_df["statistic_id"].unique():
             assert entity_id in calls_by_id, f"Entity {entity_id} not found in import calls"
 
-            metadata, stats = calls_by_id[entity_id]
+            _metadata, stats = calls_by_id[entity_id]
             expected_entity = expected_df[expected_df["statistic_id"] == entity_id]
 
             # Build list of imported timestamps

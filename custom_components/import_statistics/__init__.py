@@ -6,7 +6,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from custom_components.import_statistics.const import DOMAIN
-from custom_components.import_statistics.export import handle_export_statistics_impl
+from custom_components.import_statistics.export_service import handle_export_statistics_impl
 from custom_components.import_statistics.import_service import handle_import_from_file_impl, handle_import_from_json_impl
 
 # Use empty_config_schema because the component does not have any config options

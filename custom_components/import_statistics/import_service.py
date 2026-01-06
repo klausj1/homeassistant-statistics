@@ -8,7 +8,7 @@ from homeassistant.components.recorder.statistics import async_add_external_stat
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from custom_components.import_statistics.const import ATTR_FILENAME
-from custom_components.import_statistics.delta_import import (
+from custom_components.import_statistics.delta_database_access import (
     _get_newest_db_statistic,
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
