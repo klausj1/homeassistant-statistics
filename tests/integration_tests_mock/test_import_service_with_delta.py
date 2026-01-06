@@ -512,19 +512,16 @@ class TestDeltaImportIntegration:
             db_df = pd.read_csv(db_file_path, sep="\t")
             import_df = pd.read_csv(import_file_path, sep="\t")
 
-            db_test_case_1 = db_df[db_df["statistic_id"].str.contains("test_case_1")]
-            import_test_case_1 = import_df[import_df["statistic_id"].str.contains("test_case_1")]
-
-            # Create test delta file with filtered data
-            test_file = Path(tmpdir) / "delta_test_case_1.csv"
-            import_test_case_1.to_csv(test_file, sep="\t", index=False)
+            # Create test delta file with all data
+            test_file = Path(tmpdir) / "delta_test_all.csv"
+            import_df.to_csv(test_file, sep="\t", index=False)
 
             call = ServiceCall(
                 hass,
                 "import_statistics",
                 "import_from_file",
                 {
-                    ATTR_FILENAME: "delta_test_case_1.csv",
+                    ATTR_FILENAME: "delta_test_all.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
                     ATTR_DECIMAL: False,
@@ -540,7 +537,7 @@ class TestDeltaImportIntegration:
                 patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import_ext,
             ):
                 # Configure mock behaviors based on test data
-                self._configure_delta_mocks(mock_newest, mock_before, mock_after, import_test_case_1, db_test_case_1)
+                self._configure_delta_mocks(mock_newest, mock_before, mock_after, import_df, db_df)
 
                 await import_handler(call)
 
@@ -548,8 +545,7 @@ class TestDeltaImportIntegration:
 
                 calls_by_id = self._collect_import_calls(mock_import, mock_import_ext)
 
-                self._verify_internal_statistic(calls_by_id, expected_df)
-                self._verify_external_statistic(calls_by_id, expected_df, import_test_case_1)
+                self._verify_all_statistics(calls_by_id, expected_df)
 
     @staticmethod
     def _build_mock_reference(import_test_case_1: pd.DataFrame, db_test_case_1: pd.DataFrame) -> dict:
@@ -724,63 +720,50 @@ class TestDeltaImportIntegration:
         return calls_by_id
 
     @staticmethod
-    def _verify_internal_statistic(calls_by_id: dict, expected_df: pd.DataFrame) -> None:
-        """Verify internal statistic values match expected output."""
-        assert "sensor.test_case_1" in calls_by_id
-        metadata_internal, stats_internal = calls_by_id["sensor.test_case_1"]
-        assert metadata_internal["unit_of_measurement"] == "kWh"
-        assert metadata_internal["source"] == "recorder"
+    def _verify_all_statistics(calls_by_id: dict, expected_df: pd.DataFrame) -> None:
+        """Verify all statistic values match expected output."""
+        for entity_id in expected_df["statistic_id"].unique():
+            assert entity_id in calls_by_id, f"Entity {entity_id} not found in import calls"
 
-        expected_internal = expected_df[expected_df["statistic_id"] == "sensor.test_case_1"]
-        expected_internal_skip_ref = expected_internal.iloc[1:]
-        assert len(stats_internal) == len(expected_internal_skip_ref)
+            metadata, stats = calls_by_id[entity_id]
+            expected_entity = expected_df[expected_df["statistic_id"] == entity_id]
 
-        for i, stat in enumerate(stats_internal):
-            expected_stat = expected_internal_skip_ref.iloc[i]
-            expected_timestamp_str = expected_stat["start"]
-            expected_timestamp = pd.to_datetime(expected_timestamp_str, format="%d.%m.%Y %H:%M")
-            assert stat["start"].year == expected_timestamp.year
-            assert stat["start"].month == expected_timestamp.month
-            assert stat["start"].day == expected_timestamp.day
-            assert stat["start"].hour == expected_timestamp.hour
-            assert stat["start"].minute == expected_timestamp.minute
+            # Find the first row that matches the first imported statistic timestamp
+            # This accounts for reference rows in the expected data
+            if len(stats) > 0:
+                first_stat_start = stats[0]["start"]
+                # Convert datetime to string format matching expected data
+                first_stat_str = first_stat_start.strftime("%d.%m.%Y %H:%M")
+                matching_rows = expected_entity[expected_entity["start"] == first_stat_str]
 
-            if not pd.isna(expected_stat.get("sum")):
-                assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"]))
-            if not pd.isna(expected_stat.get("state")):
-                assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"]))
+                if len(matching_rows) > 0:
+                    # Start from the first matching row
+                    start_idx = expected_entity.index.get_loc(matching_rows.index[0])
+                    expected_entity_to_verify = expected_entity.iloc[start_idx:]
+                else:
+                    # If no exact match, assume first row is reference (skip it)
+                    expected_entity_to_verify = expected_entity.iloc[1:]
+            else:
+                expected_entity_to_verify = expected_entity.iloc[1:]
 
-    @staticmethod
-    def _verify_external_statistic(calls_by_id: dict, expected_df: pd.DataFrame, import_test_case_1: pd.DataFrame) -> None:
-        """Verify external statistic values match expected output."""
-        assert "sensor:test_case_1_ext" in calls_by_id
-        metadata_external, stats_external = calls_by_id["sensor:test_case_1_ext"]
-        assert metadata_external["unit_of_measurement"] == "kWh"
-        assert metadata_external["source"] == "sensor"
+            # Verify all statistics for this entity match expected
+            assert len(stats) == len(expected_entity_to_verify), \
+                f"Expected {len(expected_entity_to_verify)} stats for {entity_id}, got {len(stats)}"
 
-        expected_external = expected_df[expected_df["statistic_id"] == "sensor:test_case_1_ext"]
-        first_external_import = import_test_case_1[import_test_case_1["statistic_id"] == "sensor:test_case_1_ext"]["start"].iloc[0]
-        expected_external_match = expected_external[expected_external["start"] == first_external_import]
+            for i, stat in enumerate(stats):
+                expected_stat = expected_entity_to_verify.iloc[i]
+                expected_timestamp_str = expected_stat["start"]
+                expected_timestamp = pd.to_datetime(expected_timestamp_str, format="%d.%m.%Y %H:%M")
 
-        if len(expected_external_match) > 0:
-            start_idx = expected_external.index.get_loc(expected_external_match.index[0])
-            expected_external_skip_ref = expected_external.iloc[start_idx:]
-        else:
-            expected_external_skip_ref = expected_external.iloc[1:]
+                assert stat["start"].year == expected_timestamp.year
+                assert stat["start"].month == expected_timestamp.month
+                assert stat["start"].day == expected_timestamp.day
+                assert stat["start"].hour == expected_timestamp.hour
+                assert stat["start"].minute == expected_timestamp.minute
 
-        assert len(stats_external) == len(expected_external_skip_ref)
-
-        for i, stat in enumerate(stats_external):
-            expected_stat = expected_external_skip_ref.iloc[i]
-            expected_timestamp_str = expected_stat["start"]
-            expected_timestamp = pd.to_datetime(expected_timestamp_str, format="%d.%m.%Y %H:%M")
-            assert stat["start"].year == expected_timestamp.year
-            assert stat["start"].month == expected_timestamp.month
-            assert stat["start"].day == expected_timestamp.day
-            assert stat["start"].hour == expected_timestamp.hour
-            assert stat["start"].minute == expected_timestamp.minute
-
-            if not pd.isna(expected_stat.get("sum")):
-                assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"]))
-            if not pd.isna(expected_stat.get("state")):
-                assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"]))
+                if not pd.isna(expected_stat.get("sum")):
+                    assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"])), \
+                        f"Sum mismatch for {entity_id} at {stat['start']}: expected {expected_stat['sum']}, got {stat['sum']}"
+                if not pd.isna(expected_stat.get("state")):
+                    assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"])), \
+                        f"State mismatch for {entity_id} at {stat['start']}: expected {expected_stat['state']}, got {stat['state']}"

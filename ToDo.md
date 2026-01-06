@@ -47,20 +47,17 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Correct known bug
-- _get_reference_at_or_after_timestamp does not search for the oldest value
-    but it does not take the oldest value newer than t_newest_import, but the newest - correct this.
-    To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value.
-- Rename export to export_service (symmetry)
-- Rename delta_import.py to something which makes it clear that its database access
-- new tests for prepare_delta_handling (only test this method, mock _process_delta_references_for_statistic)
-- new tests for custom_components/import_statistics/delta_import.py - do they make sense?
-
-- Create arc-doc
-
 - ITest with mock for case 2
 
+- Correct known bug
+  - _get_reference_at_or_after_timestamp does not search for the oldest value
+      but it does not take the oldest value newer than t_newest_import, but the newest - correct this.
+      To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value.
+- Rename export to export_service (symmetry)
+- Rename delta_import.py to something which makes it clear that its database access
+
 - ITest without mock for case 2
+  - new tests for custom_components/import_statistics/delta_import.py - do they make sense?
 
 - get_oldest_statistics_before: name and description are not correct anymore
 
@@ -104,3 +101,4 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 - Check what should be in init and what not; own file for HA-dependent helpers
 - Allow import of counter and sensor in one file
 - Why isn't pandas directly used to read json? prepare_json_data_to_import does some manual stuff, necessary?
+- Create arc-doc
