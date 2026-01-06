@@ -47,59 +47,31 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Correct known bug
-  - _get_reference_at_or_after_timestamp has a bug:
-      it does not take the oldest value newer than t_newest_import, but the newest - correct this.
-      To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value. For querying the values from the DB, use statistics_during_period. Check custom_components/import_statistics/export.py how statistics_during_period has to be used.
-
-- Check added debugs in at_or_after
-
-- ITest without mock for case 2
-  - new tests for custom_components/import_statistics/delta_import.py - do they make sense?
-
 - Rename export to export_service (symmetry)
 - Rename delta_import.py to something which makes it clear that its database access
-
-- get_oldest_statistics_before: name and description are not correct anymore
-
-- test_export_service.py: Separate to unit-tests and integration-tests
-
-- Understand the stuff with the youngest timestamp. Currently the query in _get_youngest_reference_stats uses the oldest timestamp in the imported file, and searches for younger (=larger) timestamps (start_ts >= ts.timestamp())
-- Expected files are wrong, because the case 2 import adds new entries -> repair (possibly filter the time range for export of 1 and 2? Will not help I assume ...)
-  - Or for now, always delete the sqlite db
-  - Or rather with the import at the beginning overwrite the changed values -> does not work, as the timestamp logic is incorrect then ...
-- Implemented, unit-tests OK, delta-import for case 2 does not work, the results are very strange. See comparison.
-- Problem: Working backward from the latest timestamp and the delta-rows. That does not make sense in this way. Must work backward from the nearest youngest timestamp, and consider every value in the database. Create a design description for this and let the AI work ... Also change the 1 hour timediff for the youngest timestamp. Start with a unit-test and review the results carefully before starting with integration tests, esp. as the database has to be setup again after each test ...
-
 - Rename integration test and methods and test files in the integration test, as they test all cases
 
-- When 1 (older history available) is working, implement 2-4. In work
-  - Whats the difference between 2 and 3? And 3 and 1? Isn't overriding 1? Understand before impementation
-
-- Check error messages
-
 - Checks
-  - youngest timestamp to import must be less than current hour -1
-  - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. Alternative: Merge, could make sense as delta is the important part, and I did it for case 2 test intuitively
-  - Later: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
+  - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
 
 - User doc
   - warning: do export before delta import, as more data are changed
-
-- Write a post export is working
+  - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. Alternative: Merge, could make sense as delta is the important part, and I did it for case 2 test intuitively. Alternative: document.
 
 - Add non-delta imports to the integration test
 
+- Write a post
+
 ### Later
-- Remove check for future imports?
+- youngest timestamp to import must be less than current hour -1
+  - Remove check for future imports? During that?
 - Test repo in other local storage, create developer documentation
 - Is it possible to wait until async import task is ready?
 - Setup a job to run the test in the pipeline as well, for pull requests
 - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import
   - Also in normal import an empty value is returned. I do not understand, maybe this is anyhow checked before already?
 - Code duplication between handle_import_from_file and json
-  - JSON does not work anyhow
-- Check what should be in init and what not; own file for HA-dependent helpers
 - Allow import of counter and sensor in one file
 - Why isn't pandas directly used to read json? prepare_json_data_to_import does some manual stuff, necessary?
 - Create arc-doc
+- test_export_service.py: Separate to unit-tests and integration-tests
