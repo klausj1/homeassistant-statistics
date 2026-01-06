@@ -47,8 +47,6 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Check mock-test with integration: test_import_delta_with_configurable_mock_data
-- Unit test for prepare_delta_handling
 - Correct known bug
 - _get_reference_at_or_after_timestamp does not search for the oldest value
     but it does not take the oldest value newer than t_newest_import, but the newest - correct this.
@@ -95,6 +93,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 - Add non-delta imports to the integration test
 
 ### Later
+- Remove check for future imports?
 - Test repo in other local storage, create developer documentation
 - Is it possible to wait until async import task is ready?
 - Setup a job to run the test in the pipeline as well, for pull requests

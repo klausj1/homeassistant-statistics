@@ -50,6 +50,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
 
     # Fetch t_newest_db (most recent record in database)
     t_newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
+    _LOGGER.debug("Statistic %s: Newest DB record: %s", statistic_id, t_newest_db_record)
     if t_newest_db_record is None:
         msg = f"Entity '{statistic_id}': No statistics found in database for this entity"
         return None, msg
@@ -64,6 +65,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     # Fetch t_oldest_reference (older reference). If there is one, there is a value in the database which is older than t_oldest_import.
     # In this case we have found a reference of type OLDER_REFERENCE, unless import range is completely newer than DB range
     t_oldest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_oldest_import)
+    _LOGGER.debug("Statistic %s: Oldest reference before search for old %s: %s", statistic_id, t_oldest_import, t_oldest_reference)
 
     if t_oldest_reference is not None:
         # If older reference is found, check additionally if import range is completely newer than DB range
@@ -89,6 +91,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     # First, check if time ranges of DB and import overlap at all
     #     add one hour to t_newest_import, as _get_reference_before_timestamp finds strictly before, and for newer we want to allow equal timestamps
     t_newest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_newest_import + dt.timedelta(hours=1))
+    _LOGGER.debug("Statistic %s: Newest reference before search for new %s: %s", statistic_id, t_newest_import, t_newest_reference)
 
     if t_newest_reference is None:
         msg = f"Entity '{statistic_id}': imported timerange is completely older than timerange in DB (database newest: {t_newest_db})"
@@ -96,6 +99,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
 
     # Now fetch the oldest value in the database which is newer or equal than t_newest_import.
     t_newest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_newest_import)
+    _LOGGER.debug("Statistic %s: Newest reference at or after search for new %s: %s", statistic_id, t_newest_import, t_newest_reference)
 
     # If no such value exists, the import range completely overlaps the DB range
     if t_newest_reference is None:
@@ -193,6 +197,8 @@ async def prepare_delta_handling(
 
         if error_msg:
             handle_error(error_msg)
+
+        _LOGGER.debug("Reference data for %s found: %s", statistic_id, ref_data)
 
         references[statistic_id] = ref_data
 
