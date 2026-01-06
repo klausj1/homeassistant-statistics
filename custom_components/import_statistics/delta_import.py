@@ -5,7 +5,7 @@ from typing import Any
 
 from homeassistant.components.recorder import get_instance, statistics
 from homeassistant.components.recorder.db_schema import Statistics
-from homeassistant.components.recorder.statistics import _statistics_at_time, get_metadata
+from homeassistant.components.recorder.statistics import _statistics_at_time, get_metadata, statistics_during_period
 from homeassistant.components.recorder.util import session_scope
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -208,7 +208,6 @@ async def _get_reference_at_or_after_timestamp(
         hass: Home Assistant instance
         statistic_id: The statistic to query
         timestamp: Find records at or after this time
-        period_type: "hour" (default) for hourly statistics
 
     Returns:
     -------
@@ -218,52 +217,67 @@ async def _get_reference_at_or_after_timestamp(
     """
     _LOGGER.debug("Querying reference at or after %s for %s", timestamp, statistic_id)
 
+    # First, get the newest statistic in the database to determine the upper bound
     try:
-        result_dict = await get_instance(hass).async_add_executor_job(
+        newest_dict = await get_instance(hass).async_add_executor_job(
             lambda: statistics.get_last_statistics(
                 hass,
-                number_of_stats=1,  # We only need the newest one
+                number_of_stats=1,
                 statistic_id=statistic_id,
                 convert_units=False,
                 types={"sum", "state"},
             )
         )
     except Exception as exc:  # noqa: BLE001
-        _LOGGER.error("Failed to query statistics for %s: %s", statistic_id, exc)
+        _LOGGER.error("Failed to query newest statistics for %s: %s", statistic_id, exc)
         return None
 
-    if not result_dict or statistic_id not in result_dict:
+    if not newest_dict or statistic_id not in newest_dict or not newest_dict[statistic_id]:
         _LOGGER.debug("No statistics found for %s", statistic_id)
         return None
 
-    stats_list = result_dict[statistic_id]
-    if not stats_list:
-        _LOGGER.debug("Empty statistics list for %s", statistic_id)
+    newest_stat = newest_dict[statistic_id][0]
+    t_newest_db = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
+
+    # Query all statistics between timestamp and the newest DB record + 1 hour
+    # The +1 hour is needed because statistics_during_period uses inclusive lower bound and exclusive upper bound
+    try:
+        stats_dict = await get_instance(hass).async_add_executor_job(
+            lambda: statistics_during_period(
+                hass,
+                timestamp,
+                t_newest_db + dt.timedelta(hours=1),
+                [statistic_id],
+                "hour",
+                None,
+                ["sum", "state"],
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.error("Failed to query statistics during period for %s: %s", statistic_id, exc)
         return None
 
-    # Get the first (and only) entry from the list
-    newest_stat = stats_list[0]
-    result_dt = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
+    if not stats_dict or statistic_id not in stats_dict or not stats_dict[statistic_id]:
+        _LOGGER.debug("No statistics found in period for %s", statistic_id)
+        return None
 
-    # Validate that result is at or after timestamp
-    if result_dt >= timestamp:
-        result_sum = newest_stat.get("sum")
-        result_state = newest_stat.get("state")
+    # Take the newest value from the period (which is the oldest value >= timestamp)
+    newest_in_period = stats_dict[statistic_id][-1]  # Last element is newest in the period
+    result_dt = dt.datetime.fromtimestamp(newest_in_period["start"], tz=dt.UTC)
+    result_sum = newest_in_period.get("sum")
+    result_state = newest_in_period.get("state")
 
-        _LOGGER.debug(
-            "Found reference at or after %s for %s: start=%s, sum=%s, state=%s",
-            timestamp,
-            statistic_id,
-            result_dt,
-            result_sum,
-            result_state,
-        )
+    _LOGGER.debug(
+        "Found reference at or after %s for %s: start=%s, sum=%s, state=%s",
+        timestamp,
+        statistic_id,
+        result_dt,
+        result_sum,
+        result_state,
+    )
 
-        return {
-            "start": result_dt,
-            "sum": result_sum,
-            "state": result_state,
-        }
-
-    _LOGGER.debug("Reference for %s exists but is not at or after timestamp %s", statistic_id, timestamp)
-    return None
+    return {
+        "start": result_dt,
+        "sum": result_sum,
+        "state": result_state,
+    }

@@ -577,7 +577,9 @@ class TestDeltaImportIntegration:
 
         return mock_reference
 
-    def _configure_delta_mocks(self, mock_newest: AsyncMock, mock_before: AsyncMock, mock_after: AsyncMock, import_test_case_1: pd.DataFrame, db_test_case_1: pd.DataFrame) -> None:
+    def _configure_delta_mocks(
+        self, mock_newest: AsyncMock, mock_before: AsyncMock, mock_after: AsyncMock, import_test_case_1: pd.DataFrame, db_test_case_1: pd.DataFrame
+    ) -> None:
         """Configure mocks for delta import helper functions based on test data."""
         # Parse datetime from both dataframes
         import_test_case_1_copy = import_test_case_1.copy()
@@ -661,22 +663,21 @@ class TestDeltaImportIntegration:
                         "state": float(rec["state"]),
                     }
                 return None
-            else:
-                # Second call: returns t_newest_import - 1 hour
-                ref_time = meta["t_newest_import"] - dt.timedelta(hours=1)
-                # Check if ref_time <= oldest in DB
-                if ref_time <= meta["t_oldest_db"]:
-                    return None
-                # Find record at this time in DB
-                matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == ref_time.replace(tzinfo=None)]
-                if len(matching_records) > 0:
-                    rec = matching_records.iloc[0]
-                    return {
-                        "start": ref_time,
-                        "sum": float(rec["sum"]),
-                        "state": float(rec["state"]),
-                    }
+            # Second call: returns t_newest_import - 1 hour
+            ref_time = meta["t_newest_import"] - dt.timedelta(hours=1)
+            # Check if ref_time <= oldest in DB
+            if ref_time <= meta["t_oldest_db"]:
                 return None
+            # Find record at this time in DB
+            matching_records = meta["db_entity"][meta["db_entity"]["datetime"] == ref_time.replace(tzinfo=None)]
+            if len(matching_records) > 0:
+                rec = matching_records.iloc[0]
+                return {
+                    "start": ref_time,
+                    "sum": float(rec["sum"]),
+                    "state": float(rec["state"]),
+                }
+            return None
 
         mock_before.side_effect = mock_before_impl
 
@@ -721,7 +722,8 @@ class TestDeltaImportIntegration:
 
     @staticmethod
     def _verify_all_statistics(calls_by_id: dict, expected_df: pd.DataFrame) -> None:
-        """Verify all statistic values match expected output.
+        """
+        Verify all statistic values match expected output.
 
         The expected_df contains all rows from the expected file.
         We only verify the rows that were actually imported by matching timestamps with imported stats.
@@ -743,8 +745,7 @@ class TestDeltaImportIntegration:
             expected_entity_to_verify = expected_entity[expected_entity["start"].isin(imported_timestamps)]
 
             # Verify count matches
-            assert len(stats) == len(expected_entity_to_verify), \
-                f"Expected {len(expected_entity_to_verify)} stats for {entity_id}, got {len(stats)}"
+            assert len(stats) == len(expected_entity_to_verify), f"Expected {len(expected_entity_to_verify)} stats for {entity_id}, got {len(stats)}"
 
             # Create mapping of expected rows by timestamp for easy lookup
             expected_by_timestamp = {}
@@ -764,8 +765,10 @@ class TestDeltaImportIntegration:
                 assert stat["start"].minute == expected_timestamp.minute
 
                 if not pd.isna(expected_stat.get("sum")):
-                    assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"])), \
+                    assert pytest.approx(stat["sum"]) == pytest.approx(float(expected_stat["sum"])), (
                         f"Sum mismatch for {entity_id} at {stat['start']}: expected {expected_stat['sum']}, got {stat['sum']}"
+                    )
                 if not pd.isna(expected_stat.get("state")):
-                    assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"])), \
+                    assert pytest.approx(stat["state"]) == pytest.approx(float(expected_stat["state"])), (
                         f"State mismatch for {entity_id} at {stat['start']}: expected {expected_stat['state']}, got {stat['state']}"
+                    )

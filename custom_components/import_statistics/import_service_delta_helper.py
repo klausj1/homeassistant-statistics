@@ -129,7 +129,7 @@ def convert_deltas_with_newer_reference(
         if i + 1 < len(reversed_rows):
             start_time = reversed_rows[i + 1]["start"]
         else:
-            start_time = reversed_rows[i]["start"] - dt.timedelta(hours=1)
+            start_time = delta_row["start"] - dt.timedelta(hours=1)
         converted_rows.append(
             {
                 "start": start_time,

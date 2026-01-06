@@ -47,18 +47,18 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- ITest with mock for case 2
-  - There is a problem in the verification logic. The test collects the mocked methods async_import_statistics and async_add_external_statistics. But the expected file config/test_delta/expected_after_step3_delta_changed.tsv contains not only the changed data from these two methods, but also not changed data from config/test_delta/test_case_1_sum_state.txt. Change the verification logic accordingly. There is no difference between internal and external statistics. Make sure the test passes, it again contains only test_case_1.
-
 - Correct known bug
-  - _get_reference_at_or_after_timestamp does not search for the oldest value
-      but it does not take the oldest value newer than t_newest_import, but the newest - correct this.
-      To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value.
-- Rename export to export_service (symmetry)
-- Rename delta_import.py to something which makes it clear that its database access
+  - _get_reference_at_or_after_timestamp has a bug:
+      it does not take the oldest value newer than t_newest_import, but the newest - correct this.
+      To correct this, query all values from the database between t_newest_import and the value found via get_last_statistics, and from there take the newest value. For querying the values from the DB, use statistics_during_period. Check custom_components/import_statistics/export.py how statistics_during_period has to be used.
+
+- Adapt ITest to delete sqlite-DB
 
 - ITest without mock for case 2
   - new tests for custom_components/import_statistics/delta_import.py - do they make sense?
+
+- Rename export to export_service (symmetry)
+- Rename delta_import.py to something which makes it clear that its database access
 
 - get_oldest_statistics_before: name and description are not correct anymore
 
