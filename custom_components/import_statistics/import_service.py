@@ -22,7 +22,7 @@ from custom_components.import_statistics.import_service_helper import (
 )
 
 
-async def _process_delta_references_for_statistic(  # noqa: PLR0911
+async def _process_delta_references_for_statistic(
     hass: HomeAssistant,
     statistic_id: str,
     t_oldest_import: dt.datetime,
@@ -55,13 +55,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         msg = f"Entity '{statistic_id}': No statistics found in database for this entity"
         return None, msg
 
-    # ToDo: Skip this check. Instead, check if t_newest_import is + 1 hour is older than the current time
     t_newest_db = t_newest_db_record["start"]
-
-    # Check: t_newest_import must not be newer than t_newest_db (newer means larger timestamp)
-    # if t_newest_import > t_newest_db:
-    #     msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
-    #     return None, msg
 
     # Fetch t_oldest_reference (older reference). If there is one, there is a value in the database which is older than t_oldest_import.
     # In this case we have found a reference of type OLDER_REFERENCE, unless import range is completely newer than DB range
@@ -88,18 +82,7 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
 
     # Try to find newer reference
 
-    # First, check if time ranges of DB and import overlap at all
-    #     add one hour to t_newest_import, as _get_reference_before_timestamp finds strictly before, and for newer we want to allow equal timestamps
-
-    # ToDo: This check can probably be deleted completely. Leave it for now to not need to change mocks
-    t_newest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_newest_import + dt.timedelta(hours=1))
-    _LOGGER.debug("Statistic %s: Newest reference before search for new %s: %s", statistic_id, t_newest_import, t_newest_reference)
-
-    # if t_newest_reference is None:
-    #     msg = f"Entity '{statistic_id}': imported timerange is completely older than timerange in DB (database newest: {t_newest_db})"
-    #     return None, msg
-
-    # Now fetch the oldest value in the database which is newer or equal than t_newest_import.
+    # Fetch the oldest value in the database which is newer or equal than t_newest_import.
     t_newest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_newest_import)
     _LOGGER.debug("Statistic %s: Newest reference at or after search for new %s: %s", statistic_id, t_newest_import, t_newest_reference)
 

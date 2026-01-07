@@ -47,13 +47,13 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
+- Check for import in the future - not allowed
+
 - Rename integration test and methods and test files in the integration test, as they test all cases
   - Also rename entities so that they have a name according to what is tested
 
 - Checks
   - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
-
-- Allow import totally outside of DB. Use reference values from nearest timestamp, change timestamp to what is used / allowed now
 
 - User doc
   - warning: do export before delta import, as more data are changed

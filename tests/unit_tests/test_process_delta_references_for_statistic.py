@@ -359,6 +359,8 @@ class TestProcessDeltaReferencesCombinedScenarios:
     @pytest.mark.asyncio
     async def test_newest_import_more_than_1_hour_after_newest_db(self) -> None:
         """
+        Test when newest_import is more than 1 hour after newest_db.
+
         Timestamps:
             - t_oldest_db    : 11:00
             - t_newest_db    : 14:00
@@ -421,7 +423,6 @@ class TestProcessDeltaReferencesCombinedScenarios:
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
             patch("custom_components.import_statistics.import_service._get_reference_before_timestamp") as mock_before,
-            patch("custom_components.import_statistics.import_service._get_reference_at_or_after_timestamp") as mock_after,
         ):
             mock_newest.return_value = {
                 "start": t_newest_db,
@@ -490,6 +491,7 @@ class TestProcessDeltaReferencesCombinedScenarios:
             assert error_msg is None
             assert ref_data["ref_type"] == DeltaReferenceType.NEWER_REFERENCE
             assert ref_data["reference"]["start"] == t_newest_import
+
 
 class TestProcessDeltaReferencesSpecialCases:
     """Test special cases and edge scenarios."""
