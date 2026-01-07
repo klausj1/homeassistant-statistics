@@ -209,7 +209,7 @@ class TestProcessDeltaReferencesNewerReference:
             assert ref_data["reference"]["start"] == ref_newer_at_newest
 
     @pytest.mark.asyncio
-    async def test_newer_reference_after_newest_import_timestamp(self) -> None:
+    async def test_newer_reference_at_newest_import_timestamp(self) -> None:
         """
         Test NEWER_REFERENCE when reference is after newest import timestamp.
 
@@ -218,12 +218,12 @@ class TestProcessDeltaReferencesNewerReference:
             - t_newest_db    : 16:00
             - t_oldest_import: 12:00
             - t_newest_import: 14:00
-            - Reference found: 15:00 (1 hour after newest_import)
+            - Reference found: 14:00 (at newest_import)
         """
         hass = MagicMock()
         t_oldest_import = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
         t_newest_import = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
-        ref_newer_after_newest = dt.datetime(2025, 1, 1, 15, 0, tzinfo=dt.UTC)
+        ref_newer_after_newest = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
         ref_for_overlap_check = dt.datetime(2025, 1, 1, 15, 0, tzinfo=dt.UTC)
 
         with (
@@ -357,22 +357,19 @@ class TestProcessDeltaReferencesCombinedScenarios:
             assert ref_data["reference"]["start"] == ref_at_newest
 
     @pytest.mark.asyncio
-    async def test_newest_import_more_than_1_hour_after_newest_db_error(self) -> None:
+    async def test_newest_import_more_than_1_hour_after_newest_db(self) -> None:
         """
-        Test error when newest_import is newer than newest_db.
-
         Timestamps:
             - t_oldest_db    : 11:00
             - t_newest_db    : 14:00
             - t_oldest_import: 12:00
             - t_newest_import: 16:00 (2 hours after newest_db)
-
-        Error: "Importing values newer than the newest value in the database"
         """
         hass = MagicMock()
         t_oldest_import = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
         t_newest_import = dt.datetime(2025, 1, 1, 16, 0, tzinfo=dt.UTC)
         t_newest_db = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
+        t_ref_before = t_oldest_import - dt.timedelta(hours=1)
 
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
@@ -384,7 +381,11 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 "sum": 100.0,
                 "state": 100.0,
             }
-            mock_before.return_value = None
+            mock_newest.return_value = {
+                "start": t_ref_before,
+                "sum": 100.0,
+                "state": 100.0,
+            }
             mock_after.return_value = None
 
             ref_data, error_msg = await _process_delta_references_for_statistic(
@@ -394,31 +395,28 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 t_newest_import,
             )
 
-            assert ref_data is None
+            assert ref_data is not None
             assert error_msg is not None
-            assert "Importing values newer than the newest value in the database" in error_msg
-            assert "sensor.test" in error_msg
+            assert ref_data["ref_type"] == DeltaReferenceType.OLDER_REFERENCE
+            assert ref_data["reference"]["start"] == t_ref_before
 
     @pytest.mark.asyncio
-    async def test_oldest_import_more_than_1_hour_after_newest_db_error(self) -> None:
+    async def test_oldest_import_more_than_1_hour_after_newest_db(self) -> None:
         """
-        Test error when oldest_import is newer than newest_db.
+        Test that import range can be completely newer than db range.
 
         Timestamps:
             - t_oldest_db    : 10:00
-            - t_newest_db    : 12:00 (2 hours before oldest_import)
+            - t_newest_db    : 11:00 (3 hours before oldest_import)
             - t_oldest_import: 14:00
             - t_newest_import: 16:00
 
-        Error: "imported timerange is completely newer than timerange in DB"
-
-        This can never happen, as the error 'Importing values newer than the newest value in the database' will always come before
-        Keeping the test, as maybe it will be possible in the future to import values newer than in the DB.
         """
         hass = MagicMock()
         t_oldest_import = dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC)
         t_newest_import = dt.datetime(2025, 1, 1, 16, 0, tzinfo=dt.UTC)
-        t_newest_db = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
+        t_newest_db = dt.datetime(2025, 1, 1, 11, 0, tzinfo=dt.UTC)
+        ref_older_before_oldest = dt.datetime(2025, 1, 1, 10, 0, tzinfo=dt.UTC)
 
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
@@ -430,8 +428,11 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 "sum": 100.0,
                 "state": 100.0,
             }
-            mock_before.return_value = None
-            mock_after.return_value = None
+            mock_before.return_value = {
+                "start": ref_older_before_oldest,
+                "sum": 50.0,
+                "state": 50.0,
+            }
 
             ref_data, error_msg = await _process_delta_references_for_statistic(
                 hass,
@@ -440,27 +441,26 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 t_newest_import,
             )
 
-            assert ref_data is None
-            assert error_msg is not None
-            assert "Importing values newer than the newest value in the databas" in error_msg
-            assert "sensor.test" in error_msg
+            assert error_msg is None
+            assert ref_data is not None
+            assert ref_data["ref_type"] == DeltaReferenceType.OLDER_REFERENCE
+            assert ref_data["reference"]["start"] == t_oldest_import - dt.timedelta(hours=1)
 
     @pytest.mark.asyncio
-    async def test_newest_import_before_oldest_db_error(self) -> None:
+    async def test_newest_import_before_oldest_db(self) -> None:
         """
-        Test error when newest_import is before oldest_db.
+        Test when newest_import is before oldest_db.
 
         Timestamps:
             - t_oldest_db    : 12:00
             - t_newest_db    : 14:00
             - t_oldest_import: 08:00
             - t_newest_import: 10:00
-
-        Error: "imported timerange is completely older than timerange in DB"
         """
         hass = MagicMock()
         t_oldest_import = dt.datetime(2025, 1, 1, 8, 0, tzinfo=dt.UTC)
         t_newest_import = dt.datetime(2025, 1, 1, 10, 0, tzinfo=dt.UTC)
+        t_oldest_db = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
 
         with (
             patch("custom_components.import_statistics.import_service._get_newest_db_statistic") as mock_newest,
@@ -473,7 +473,11 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 "state": 100.0,
             }
             mock_before.return_value = None
-            mock_after.return_value = None
+            mock_after.return_value = {
+                "start": t_oldest_db,
+                "sum": 50.0,
+                "state": 50.0,
+            }
 
             ref_data, error_msg = await _process_delta_references_for_statistic(
                 hass,
@@ -482,11 +486,10 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 t_newest_import,
             )
 
-            assert ref_data is None
-            assert error_msg is not None
-            assert "imported timerange is completely older than timerange in DB" in error_msg
-            assert "sensor.test" in error_msg
-
+            assert ref_data is not None
+            assert error_msg is None
+            assert ref_data["ref_type"] == DeltaReferenceType.NEWER_REFERENCE
+            assert ref_data["reference"]["start"] == t_newest_import
 
 class TestProcessDeltaReferencesSpecialCases:
     """Test special cases and edge scenarios."""
@@ -542,9 +545,6 @@ class TestProcessDeltaReferencesSpecialCases:
             - No reference at/after newest_import
 
         Error: "imported timerange completely overlaps timerange in DB"
-
-        This can never happen, as the error 'Importing values newer than the newest value in the database' will always come before.
-        Keeping the test, as maybe it will be possible in the future to import values newer than in the DB.
         """
         hass = MagicMock()
         t_oldest_import = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
@@ -572,7 +572,7 @@ class TestProcessDeltaReferencesSpecialCases:
 
             assert ref_data is None
             assert error_msg is not None
-            assert "Importing values newer than the newest value in the database" in error_msg
+            assert "imported timerange completely overlaps timerange in DB (cannot find reference before or after import)" in error_msg
             assert "sensor.test" in error_msg
 
     @pytest.mark.asyncio

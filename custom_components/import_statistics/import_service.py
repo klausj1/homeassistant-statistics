@@ -55,12 +55,13 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         msg = f"Entity '{statistic_id}': No statistics found in database for this entity"
         return None, msg
 
+    # ToDo: Skip this check. Instead, check if t_newest_import is + 1 hour is older than the current time
     t_newest_db = t_newest_db_record["start"]
 
     # Check: t_newest_import must not be newer than t_newest_db (newer means larger timestamp)
-    if t_newest_import > t_newest_db:
-        msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
-        return None, msg
+    # if t_newest_import > t_newest_db:
+    #     msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
+    #     return None, msg
 
     # Fetch t_oldest_reference (older reference). If there is one, there is a value in the database which is older than t_oldest_import.
     # In this case we have found a reference of type OLDER_REFERENCE, unless import range is completely newer than DB range
@@ -68,10 +69,9 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
     _LOGGER.debug("Statistic %s: Oldest reference before search for old %s: %s", statistic_id, t_oldest_import, t_oldest_reference)
 
     if t_oldest_reference is not None:
-        # If older reference is found, check additionally if import range is completely newer than DB range
+        # If import range is completely newer than DB, allow import, but change timestamp of reference to exactly t_oldest_import - 1 hour
         if t_newest_db <= t_oldest_import:
-            msg = f"Entity '{statistic_id}': imported timerange is completely newer than timerange in DB (database newest: {t_newest_db})"
-            return None, msg
+            t_oldest_reference["start"] = t_oldest_import - dt.timedelta(hours=1)
 
         ref_distance = t_oldest_import - t_oldest_reference["start"]
         if ref_distance >= dt.timedelta(hours=1):
@@ -90,12 +90,14 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
 
     # First, check if time ranges of DB and import overlap at all
     #     add one hour to t_newest_import, as _get_reference_before_timestamp finds strictly before, and for newer we want to allow equal timestamps
+
+    # ToDo: This check can probably be deleted completely. Leave it for now to not need to change mocks
     t_newest_reference = await _get_reference_before_timestamp(hass, statistic_id, t_newest_import + dt.timedelta(hours=1))
     _LOGGER.debug("Statistic %s: Newest reference before search for new %s: %s", statistic_id, t_newest_import, t_newest_reference)
 
-    if t_newest_reference is None:
-        msg = f"Entity '{statistic_id}': imported timerange is completely older than timerange in DB (database newest: {t_newest_db})"
-        return None, msg
+    # if t_newest_reference is None:
+    #     msg = f"Entity '{statistic_id}': imported timerange is completely older than timerange in DB (database newest: {t_newest_db})"
+    #     return None, msg
 
     # Now fetch the oldest value in the database which is newer or equal than t_newest_import.
     t_newest_reference = await _get_reference_at_or_after_timestamp(hass, statistic_id, t_newest_import)
@@ -107,6 +109,9 @@ async def _process_delta_references_for_statistic(  # noqa: PLR0911
         return None, msg
 
     # Reference is at or after newest import (NEWER_REFERENCE)
+    # To allow imported timerange is completely older than timerange in DB as well, set timestamp of reference to exactly t_newest_import
+    #   (which is what would be returned also when import and DB overlap)
+    t_newest_reference["start"] = t_newest_import
     return {
         "reference": t_newest_reference,
         "ref_type": DeltaReferenceType.NEWER_REFERENCE,

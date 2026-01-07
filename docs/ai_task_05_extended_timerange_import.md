@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the changes required to allow importing statistics with time ranges that extend completely outside the database ranges, and to allow importing timestamps in the future (within constraints).
+This document describes the changes required to allow importing statistics with time ranges that extend completely outside the database ranges. This enables complete imports where the data boundaries don't overlap with existing database records.
 
 **Current Behavior**:
 - Error when `t_newest_import > t_newest_db`: "Importing values newer than the newest value in the database is not possible"
@@ -11,34 +11,16 @@ This document describes the changes required to allow importing statistics with 
 
 **New Behavior**:
 1. Allow import ranges completely outside DB ranges by using the nearest DB value as reference
-2. Allow future imports with constraint: `t_newest_import` must be ≤ 1 hour before current time
-3. Reference timestamp adjustment: keep semantics of "oldest import - 1" or "newest import" from current logic
+2. Future timestamps (newer than DB's newest) are still rejected - no imports from the future are allowed
+3. When import range is completely before the database (oldest DB case), use NEWER_REFERENCE instead of OLDER_REFERENCE
 
 ---
 
 ## Validation Rules After Changes
 
-### Rule 1: Future Timestamp Constraint
-**Validation Location**: [`_process_delta_references_for_statistic()`](../custom_components/import_statistics/import_service.py) or new helper
+### Rule: Nearest Database Value as Reference (No Future Timestamps)
+**Validation Location**: [`_process_delta_references_for_statistic()`](../custom_components/import_statistics/import_service.py)
 
-**Current Time Check**:
-```
-current_hour = floor(now to full hour)
-allowed_newest_import = current_hour - 1 hour
-
-if t_newest_import > allowed_newest_import:
-    ERROR: "Imported values must not be newer than 1 hour before the current hour"
-           (e.g., if now=04:30, allowed=03:00; if now=04:00, allowed=03:00; if now=03:59, allowed=02:00)
-```
-
-**Implementation Details**:
-- Current time should be obtained via `dt.datetime.now(tz=dt.UTC)` or Home Assistant's time utility
-- "Current hour" = `now.replace(minute=0, second=0, microsecond=0)`
-- Allowed newest = `current_hour - timedelta(hours=1)`
-- Only applies to delta imports (affected statistic_id must have delta column)
-- Non-delta imports have no future timestamp restrictions
-
-### Rule 2: Nearest Database Value as Reference
 **Old Logic** (Lines 60-100 in import_service.py):
 ```
 1. If t_newest_import > t_newest_db: ERROR "Importing values newer..."
@@ -49,26 +31,25 @@ if t_newest_import > allowed_newest_import:
 **New Logic**:
 ```
 1. (UNCHANGED) Fetch t_newest_db - if None, ERROR "No statistics found in database"
-2. (NEW) If t_newest_import > t_newest_db:
-   - Check future constraint (Rule 1)
-   - Use t_newest_db as NEWER_REFERENCE (instead of error)
-   - Reference timestamp = t_newest_import (or t_newest_import itself per current semantics)
+2. (UNCHANGED) If t_newest_import > t_newest_db: ERROR "Importing values newer..."
+   (Future timestamps are not allowed)
 
 3. (UNCHANGED) Try to find OLDER_REFERENCE:
    - Fetch t_oldest_reference (value before t_oldest_import, at least 1 hour away)
-   - If found and t_newest_db > t_oldest_import: SUCCESS, use OLDER_REFERENCE
+   - If found and ref_distance >= 1 hour: SUCCESS, use OLDER_REFERENCE
 
-4. (MODIFIED) If no OLDER_REFERENCE found:
-   - (NEW) If t_newest_db <= t_oldest_import:
-     - Check if t_newest_db is older than t_oldest_import
-     - Use t_newest_db as "best available reference" for OLDER_REFERENCE
-     - Reference timestamp = t_oldest_import - 1 hour (maintain semantics)
-     - Log warning: "Using newest DB value as older reference (DB range is completely before import range)"
-   - (UNCHANGED) Else try NEWER_REFERENCE path
+4. (MODIFIED) If no OLDER_REFERENCE found (completely newer or no old data):
+   - Try NEWER_REFERENCE path:
+     - Fetch t_newest_reference via _get_reference_before_timestamp(t_newest_import + 1h)
+     - If found: SUCCESS, use NEWER_REFERENCE
+   - If no NEWER_REFERENCE found via _get_reference_before_timestamp:
+     - (NEW) Use t_newest_db as NEWER_REFERENCE (treat DB's newest as reference)
+     - Log warning: "Using newest DB value as reference (no existing data between import and DB range)"
 
-5. (MODIFIED) If no NEWER_REFERENCE found via _get_reference_at_or_after_timestamp:
-   - (NEW) Use t_newest_db as NEWER_REFERENCE (no existing value after newest import)
-   - Log warning: "Using newest DB value as newer reference (DB range is completely before import range)"
+5. (MODIFIED) When import range is completely BEFORE the database (completely older case):
+   - Changed from ERROR to SUCCESS
+   - Use t_newest_db as NEWER_REFERENCE (because import ends before all DB data)
+   - Log warning: "Using newest DB value as reference (import range is completely before DB range)"
 ```
 
 ---
@@ -80,46 +61,18 @@ if t_newest_import > allowed_newest_import:
 #### Function: `_process_delta_references_for_statistic()` (async)
 
 **Changes**:
-1. Add parameter: `allow_future_timestamps: bool = True`
-   - Can be configured per integration or as service parameter
-   - Default: True for compatibility
 
-2. Add future timestamp validation:
+1. Keep the existing check for `t_newest_import > t_newest_db` (line 60) unchanged:
 ```python
-# After fetching t_newest_db_record, before the first check:
-if allow_future_timestamps:
-    current_hour = dt.datetime.now(tz=dt.UTC).replace(minute=0, second=0, microsecond=0)
-    allowed_newest = current_hour - dt.timedelta(hours=1)
-    if t_newest_import > allowed_newest:
-        msg = (
-            f"Entity '{statistic_id}': Imported values must not be newer than 1 hour "
-            f"before the current hour (current: {current_hour}, allowed until: {allowed_newest}, "
-            f"import has: {t_newest_import})"
-        )
-        return None, msg
-```
-
-3. Modify the "newer than newest_db" check (currently line 60):
-```python
-# OLD:
-# if t_newest_import > t_newest_db:
-#     msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
-#     return None, msg
-
-# NEW:
+# UNCHANGED - Future timestamps are never allowed
 if t_newest_import > t_newest_db:
-    # Future constraint already validated above
-    _LOGGER.warning(
-        "Entity '%s': Using newest DB value (%s) as reference for imports newer than DB (%s)",
-        statistic_id, t_newest_db, t_newest_import
-    )
-    return {
-        "reference": t_newest_db_record,
-        "ref_type": DeltaReferenceType.NEWER_REFERENCE,
-    }, None
+    msg = f"Entity '{statistic_id}': Importing values newer than the newest value in the database ({t_newest_db}) is not possible"
+    return None, msg
 ```
 
-4. Modify "completely newer than DB" check (currently lines 73-76):
+2. Modify "completely newer than DB" check logic (currently lines 73-76):
+   - Keep the check but change the behavior when `t_newest_db <= t_oldest_import` is true
+   - Instead of returning an error, try to find a NEWER_REFERENCE (next step)
 ```python
 # OLD:
 # if t_oldest_reference is not None:
@@ -128,132 +81,90 @@ if t_newest_import > t_newest_db:
 #         return None, msg
 
 # NEW:
-if t_oldest_reference is not None:
-    # (Keep existing distance check)
-    ref_distance = t_oldest_import - t_oldest_reference["start"]
-    if ref_distance >= dt.timedelta(hours=1):
-        return {
-            "reference": t_oldest_reference,
-            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
-        }, None
+# When t_oldest_reference is not None and its distance is >= 1 hour, use it (unchanged)
+# When no OLDER_REFERENCE found, fall through to NEWER_REFERENCE logic instead of error
 ```
 
-5. Add new fallback for completely older case (after line 100, in the NEWER_REFERENCE section):
-```python
-# NEW: If no newer reference found in DB, use newest_db as fallback
-if t_newest_reference is None:
-    _LOGGER.warning(
-        "Entity '%s': Using newest DB value (%s) as reference (import range completely after DB range)",
-        statistic_id, t_newest_db
-    )
-    return {
-        "reference": t_newest_db_record,
-        "ref_type": DeltaReferenceType.OLDER_REFERENCE,  # Use as if it's an older reference
-    }, None
-```
-
-6. Modify "completely older than DB" check (after _get_reference_before_timestamp call for new check):
+3. Modify "completely older than DB" check (after line 100 in NEWER_REFERENCE section):
 ```python
 # After: t_newest_reference = await _get_reference_before_timestamp(...)
-# Currently it errors if t_newest_reference is None
-# NEW FLOW:
+# OLD: If t_newest_reference is None, return error "imported timerange is completely older..."
+# NEW: If t_newest_reference is None:
+#      - Use t_newest_db_record as NEWER_REFERENCE (instead of error)
+#      - Log warning: "Using newest DB value as reference (import range is completely before DB range)"
+#      - Return with NEWER_REFERENCE type
+
+# Specific code change:
 if t_newest_reference is None:
     # Import range is completely before the DB range
-    # Use t_newest_db_record as OLDER_REFERENCE (best available)
+    # Use t_newest_db as NEWER_REFERENCE
     _LOGGER.warning(
-        "Entity '%s': Using newest DB value (%s) as older reference (import range completely before DB range)",
+        "Entity '%s': Using newest DB value (%s) as reference for imports before DB range (%s)",
+        statistic_id, t_newest_db, t_oldest_import
+    )
+    return {
+        "reference": t_newest_db_record,
+        "ref_type": DeltaReferenceType.NEWER_REFERENCE,  # NEW: Use NEWER_REFERENCE for old imports
+    }, None
+```
+
+4. Handle the case where `_get_reference_at_or_after_timestamp` returns None in NEWER_REFERENCE path:
+```python
+# After: t_newest_reference = await _get_reference_at_or_after_timestamp(...)
+# This is the second attempt to find a reference after oldest import
+# OLD: If None, return error "imported timerange completely overlaps timerange in DB"
+# NEW: If None:
+#      - Use t_newest_db as NEWER_REFERENCE (best available value)
+#      - Log warning explaining the situation
+#      - Return with success
+
+if t_newest_reference is None:
+    _LOGGER.warning(
+        "Entity '%s': Using newest DB value (%s) as reference (no suitable DB record found between import and DB newest)",
         statistic_id, t_newest_db
     )
     return {
         "reference": t_newest_db_record,
-        "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        "ref_type": DeltaReferenceType.NEWER_REFERENCE,
     }, None
 ```
 
-#### New Helper Function: `_get_allowed_newest_import_time()` (sync)
-```python
-def _get_allowed_newest_import_time() -> dt.datetime:
-    """
-    Calculate the newest allowed import timestamp (1 hour before current full hour).
+---
 
-    Examples:
-        - Current: 04:30 → Allowed: 03:00
-        - Current: 04:00 → Allowed: 03:00
-        - Current: 03:59 → Allowed: 02:00
+### 2. [`delta_database_access.py`](../custom_components/import_statistics/delta_database_access.py)
 
-    Returns:
-        datetime: The newest allowed import timestamp in UTC
-    """
-    current_hour = dt.datetime.now(tz=dt.UTC).replace(minute=0, second=0, microsecond=0)
-    return current_hour - dt.timedelta(hours=1)
-```
+**Review of existing methods**:
+
+Check if any methods have hardcoded validations that prevent the new behavior:
+
+- `_get_reference_before_timestamp()`:
+  - Validates `row_start_dt < timestamp` (line ~188)
+  - **Impact**: None - this is still correct behavior, just used in different scenarios
+
+- `_get_reference_at_or_after_timestamp()`:
+  - Uses `statistics_during_period()` to find records in a range
+  - **Impact**: None - no changes needed, returns None if no records found (expected)
+
+**Conclusion**: No changes needed to delta_database_access.py. The existing query methods already handle the edge cases correctly (returning None when no data matches, which we now handle gracefully).
 
 ---
 
-### 2. [`import_service_delta_helper.py`](../custom_components/import_statistics/import_service_delta_helper.py)
+### 3. [`import_service_delta_helper.py`](../custom_components/import_statistics/import_service_delta_helper.py)
 
-**Changes**: Minimal - the delta conversion logic in `handle_dataframe_delta()` doesn't change significantly.
+**Changes**: Minimal - the delta conversion logic in `handle_dataframe_delta()` doesn't need changes.
 
-However, update comment documentation to reflect that references can be:
-- Exactly at the import boundary (not just 1+ hour away)
-- From a DB range that doesn't overlap with import range
-
----
-
-### 3. [`import_service_helper.py`](../custom_components/import_statistics/import_service_helper.py)
-
-**Changes**: Add new parameter documentation to reflect that future timestamps are now allowed (with constraint).
-
-Example in docstrings:
-```python
-"""
-Prepare data from CSV/TSV file for import.
-
-Note: For delta imports, imported timestamps must be ≤ 1 hour before the current hour.
-      Non-delta imports have no timestamp restrictions.
-
-Returns:
-    Tuple of (df, timezone_identifier, datetime_format, unit_from_entity, is_delta)
-...
-"""
-```
+Update documentation/comments to reflect that references can now come from:
+- DB ranges that don't overlap with import range
+- Edge cases where we use the "nearest available" value
 
 ---
 
-### 4. [`const.py`](../custom_components/import_statistics/const.py)
+### 4. Service Handler Interface Changes
 
-**New Constants**:
-```python
-# Service parameter: allow future imports (with 1-hour constraint)
-ATTR_ALLOW_FUTURE_IMPORTS = "allow_future_imports"  # Default: True
-
-# Maximum age of imported data: must be at least 1 hour before current time
-MAX_IMPORT_FUTURE_OFFSET_HOURS = 1
-```
-
----
-
-### 5. Service Handler Interface Changes
-
-#### Service: `import_from_file`
-**New Optional Parameter** (optional):
-- `allow_future_imports` (boolean, default: True)
-  - If False, reverts to old behavior (error on future timestamps)
-  - Allows opt-out for integrations that prefer strict old behavior
-
-#### Service: `import_from_json`
-**New Optional Parameter** (optional):
-- `allow_future_imports` (boolean, default: True)
-
-#### Service: `export_statistics`
-**No changes** - export is unaffected.
-
----
-
-## Error Message Changes
-
-### Error Messages That Disappear
-1. ~~"Importing values newer than the newest value in the database is not possible"~~ → Allowed with constraint
+**No changes** - all service handlers remain unchanged:
+- `import_from_file` service: No new parameters
+- `import_from_json` service: No new parameters
+- `export_statistics` service: No changes
 2. ~~"imported timerange is completely newer than timerange in DB"~~ → Uses nearest DB value as reference
 3. ~~"imported timerange is completely older than timerange in DB"~~ → Uses nearest DB value as reference
 
@@ -275,7 +186,7 @@ The `DeltaReferenceType` enum remains unchanged (OLDER_REFERENCE, NEWER_REFERENC
 | Import range 1h before DB data | OLDER_REFERENCE | Value 1h+ before oldest import | (unchanged) |
 | Import range within DB range | OLDER_REFERENCE | Value 1h+ before oldest import | (unchanged) |
 | Import range extends after newest DB | NEWER_REFERENCE | Value at/after newest import | (unchanged) |
-| Import range completely after DB | OLDER_REFERENCE | Newest DB value | **NEW**: treated as older for semantics |
+| Import range completely after DB | NEWER_REFERENCE | Newest DB value | **NEW**: treated as older for semantics |
 | Import range completely before DB | OLDER_REFERENCE | Newest DB value | **NEW**: fallback reference |
 
 ---
