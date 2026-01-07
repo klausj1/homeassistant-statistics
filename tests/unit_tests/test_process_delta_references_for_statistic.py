@@ -381,7 +381,7 @@ class TestProcessDeltaReferencesCombinedScenarios:
                 "sum": 100.0,
                 "state": 100.0,
             }
-            mock_newest.return_value = {
+            mock_before.return_value = {
                 "start": t_ref_before,
                 "sum": 100.0,
                 "state": 100.0,
@@ -396,7 +396,7 @@ class TestProcessDeltaReferencesCombinedScenarios:
             )
 
             assert ref_data is not None
-            assert error_msg is not None
+            assert error_msg is None
             assert ref_data["ref_type"] == DeltaReferenceType.OLDER_REFERENCE
             assert ref_data["reference"]["start"] == t_ref_before
 
