@@ -43,3 +43,7 @@ sensor:test_case_2_ext	29.06.2025 16:00	kWh	8
 sensor:test_case_2_ext	30.06.2025 08:00	kWh	9
 sensor:test_case_2_ext	30.06.2025 09:00	kWh	10
 sensor:test_case_2_ext	30.06.2025 10:00	kWh	11
+sensor.imp_before	29.12.2025 09:00	kWh	1
+sensor.imp_before	29.12.2025 10:00	kWh	2
+sensor.imp_after	29.12.2025 09:00	kWh	1
+sensor.imp_after	29.12.2025 10:00	kWh	2

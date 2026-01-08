@@ -323,7 +323,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step1.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext", "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after" ],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -360,7 +360,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step2.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext", "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after" ],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -397,7 +397,7 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step3.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext"],
+                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext", "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after" ],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",

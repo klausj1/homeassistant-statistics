@@ -46,3 +46,13 @@ template:
         device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 300 }}"
+      - name: imp_before
+        state_class: total_increasing
+        device_class: energy
+        unit_of_measurement: "kWh"
+        state: "{{ 3 }}"
+      - name: imp_after
+        state_class: total_increasing
+        device_class: energy
+        unit_of_measurement: "kWh"
+        state: "{{ 3 }}"

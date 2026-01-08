@@ -1,4 +1,16 @@
 statistic_id	unit	start	sum	state	delta
+sensor.imp_after	kWh	29.12.2025 08:00	0	10	
+sensor.imp_after	kWh	29.12.2025 09:00	1	11	1
+sensor.imp_after	kWh	29.12.2025 10:00	3	13	2
+sensor.imp_after	kWh	30.12.2025 09:00	13	23	10
+sensor.imp_after	kWh	30.12.2025 10:00	33	43	20
+sensor.imp_after	kWh	30.12.2025 11:00	63	73	30
+sensor.imp_before	kWh	28.12.2025 08:00	-60	-50	
+sensor.imp_before	kWh	28.12.2025 09:00	-50	-40	10
+sensor.imp_before	kWh	28.12.2025 10:00	-30	-20	20
+sensor.imp_before	kWh	29.12.2025 08:00	0	10	30
+sensor.imp_before	kWh	29.12.2025 09:00	1	11	1
+sensor.imp_before	kWh	29.12.2025 10:00	3	13	2
 sensor.test_case_1	kWh	29.12.2025 08:00	0	10	
 sensor.test_case_1	kWh	29.12.2025 09:00	0	10	0
 sensor.test_case_1	kWh	29.12.2025 10:00	0	10	0

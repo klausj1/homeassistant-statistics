@@ -47,3 +47,9 @@ sensor:test_case_2_ext	29.06.2025 16:00	kWh	36	46
 sensor:test_case_2_ext	30.06.2025 08:00	kWh	45	55
 sensor:test_case_2_ext	30.06.2025 09:00	kWh	55	65
 sensor:test_case_2_ext	30.06.2025 10:00	kWh	66	76
+sensor.imp_before	29.12.2025 08:00	kWh	0	10
+sensor.imp_before	29.12.2025 09:00	kWh	1	11
+sensor.imp_before	29.12.2025 10:00	kWh	3	13
+sensor.imp_after	29.12.2025 08:00	kWh	0	10
+sensor.imp_after	29.12.2025 09:00	kWh	1	11
+sensor.imp_after	29.12.2025 10:00	kWh	3	13
