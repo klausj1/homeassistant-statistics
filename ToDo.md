@@ -56,13 +56,10 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 - Checks
   - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
 
-- Is it possible to wait until async import task is ready?
-  - Check performance
-- Add timestamps to DEBUG/INFO-Outputs
-
 - User doc
   - warning: do export before delta import, as more data are changed
   - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. Alternative: Merge, could make sense as delta is the important part, and I did it for case 2 test intuitively. Alternative: document.
+  - Import is not async anymore
 
 - Add non-delta imports to the integration test
 

@@ -315,7 +315,6 @@ class TestIntegrationDeltaImports:
             token=self.ha_token,
         )
         assert success, "Failed to call import_from_file service for sum_state"
-        await asyncio.sleep(2)  # Wait for import to complete
 
         # Export and verify step 1 (both entities)
         export_file_1 = config_dir / "test_delta" / "export_after_step1.tsv"
@@ -333,7 +332,6 @@ class TestIntegrationDeltaImports:
             token=self.ha_token,
         )
         assert success, "Failed to export statistics after step 1"
-        await asyncio.sleep(1)
 
         reference_file_1 = test_delta_dir / "expected_after_step1_sum_state.tsv"
         assert export_file_1.exists(), f"Export file not found: {export_file_1}"
@@ -353,7 +351,6 @@ class TestIntegrationDeltaImports:
             token=self.ha_token,
         )
         assert success, "Failed to call import_from_file service for delta_unchanged"
-        await asyncio.sleep(2)  # Wait for import to complete
 
         # Export and verify step 2 (both entities)
         export_file_2 = config_dir / "test_delta" / "export_after_step2.tsv"
@@ -371,7 +368,6 @@ class TestIntegrationDeltaImports:
             token=self.ha_token,
         )
         assert success, "Failed to export statistics after step 2"
-        await asyncio.sleep(1)
 
         reference_file_2 = reference_file_1  # Should be the same as after step 1
         assert export_file_2.exists(), f"Export file not found: {export_file_2}"
@@ -391,7 +387,6 @@ class TestIntegrationDeltaImports:
             token=self.ha_token,
         )
         assert success, "Failed to call import_from_file service for delta_changed"
-        await asyncio.sleep(2)  # Wait for import to complete
 
         # Export and verify step 3 (both entities)
         export_file_3 = config_dir / "test_delta" / "export_after_step3.tsv"
@@ -409,7 +404,6 @@ class TestIntegrationDeltaImports:
             token=self.ha_token,
         )
         assert success, "Failed to export statistics after step 3"
-        await asyncio.sleep(1)
 
         reference_file_3 = test_delta_dir / "expected_after_step3_delta_changed.tsv"
         assert export_file_3.exists(), f"Export file not found: {export_file_3}"

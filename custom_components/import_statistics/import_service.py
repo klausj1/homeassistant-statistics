@@ -4,6 +4,7 @@ import datetime as dt
 import zoneinfo
 from typing import Any
 
+from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics
 from homeassistant.core import HomeAssistant, ServiceCall
 
@@ -217,7 +218,7 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
         # Non-delta path: direct processing
         stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(df, timezone_id, datetime_format, unit_from_entity))
 
-    import_stats(hass, stats, unit_from_entity)
+    await import_stats(hass, stats, unit_from_entity)
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -240,11 +241,11 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
         # Non-delta path: direct processing
         stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(df, timezone_id, datetime_format, unit_from_entity))
 
-    import_stats(hass, stats, unit_from_entity)
+    await import_stats(hass, stats, unit_from_entity)
 
 
-def import_stats(hass: HomeAssistant, stats: dict, unit_from_entity: UnitFrom) -> None:
-    """Import statistics into Home Assistant."""
+async def import_stats(hass: HomeAssistant, stats: dict, unit_from_entity: UnitFrom) -> None:
+    """Import statistics into Home Assistant and wait for recorder to commit."""
     _LOGGER.info("Checking if all entities exist")
     check_all_entities_exists(hass, stats)
 
@@ -268,7 +269,10 @@ def import_stats(hass: HomeAssistant, stats: dict, unit_from_entity: UnitFrom) -
         else:
             async_add_external_statistics(hass, metadata, statistics)
 
-    _LOGGER.info("Finished importing data")
+    # Wait for the recorder to process all queued statistics and commit to database
+    _LOGGER.info("Waiting for recorder to commit imported statistics to database")
+    await get_instance(hass).async_block_till_done()
+    _LOGGER.info("Finished importing data - all statistics committed to database")
 
 
 def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
