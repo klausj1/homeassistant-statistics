@@ -22,21 +22,24 @@ def test_convert_deltas_newer_ref_basic() -> None:
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 20.0},
         {"start": dt.datetime(2025, 1, 1, 12, 0, tzinfo=tz), "delta": 30.0},
     ]
+    reference_time = dt.datetime(2025, 1, 1, 12, 0, tzinfo=tz)
 
-    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0, reference_time)
 
     # With Case 2, we work backward from 100:
     # After processing row 3 (delta=30): 100 - 30 = 70
     # After processing row 2 (delta=20): 70 - 20 = 50
     # After processing row 1 (delta=10): 50 - 10 = 40
-    # Then reverse to ascending order
-    assert len(result) == 3
+    # Then reverse to ascending order, plus connection record at 12:00 with 100.0
+    assert len(result) == 4
     assert result[0]["sum"] == 40.0
     assert result[1]["sum"] == 50.0
     assert result[2]["sum"] == 70.0
+    assert result[3]["sum"] == 100.0  # Connection record
     assert result[0]["state"] == 40.0
     assert result[1]["state"] == 50.0
     assert result[2]["state"] == 70.0
+    assert result[3]["state"] == 100.0  # Connection record
 
 
 def test_convert_deltas_newer_ref_single_row() -> None:
@@ -45,17 +48,21 @@ def test_convert_deltas_newer_ref_single_row() -> None:
     delta_rows = [
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 25.0},
     ]
+    reference_time = dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz)
 
-    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0, reference_time)
 
-    assert len(result) == 1
+    assert len(result) == 2
     assert result[0]["sum"] == 75.0
     assert result[0]["state"] == 75.0
+    assert result[1]["sum"] == 100.0  # Connection record
+    assert result[1]["state"] == 100.0
 
 
 def test_convert_deltas_newer_ref_empty_rows() -> None:
     """Test Case 2 conversion with no delta rows."""
-    result = convert_deltas_with_newer_reference([], 100.0, 100.0)
+    reference_time = dt.datetime(2025, 1, 1, 10, 0, tzinfo=dt.UTC)
+    result = convert_deltas_with_newer_reference([], 100.0, 100.0, reference_time)
 
     assert result == []
 
@@ -67,16 +74,18 @@ def test_convert_deltas_newer_ref_negative_deltas() -> None:
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": -5.0},
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 10.0},
     ]
+    reference_time = dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz)
 
-    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0, reference_time)
 
     # Working backward from 100:
     # After row 2 (delta=10): 100 - 10 = 90
     # After row 1 (delta=-5): 90 - (-5) = 95
-    # Reverse to ascending: [95, 90]
-    assert len(result) == 2
+    # Reverse to ascending: [95, 90] + connection record [100]
+    assert len(result) == 3
     assert result[0]["sum"] == 95.0
     assert result[1]["sum"] == 90.0
+    assert result[2]["sum"] == 100.0  # Connection record
 
 
 def test_convert_deltas_newer_ref_unsorted_rows() -> None:
@@ -86,9 +95,10 @@ def test_convert_deltas_newer_ref_unsorted_rows() -> None:
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 20.0},  # Second
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 10.0},  # First
     ]
+    reference_time = dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz)
 
     with pytest.raises(HomeAssistantError):
-        convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
+        convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0, reference_time)
 
 
 def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
@@ -104,12 +114,14 @@ def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
         {"start": time2, "delta": 20.0},
         {"start": time3, "delta": 30.0},
     ]
+    reference_time = time3
 
-    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0, reference_time)
 
     assert result[0]["start"] == time0
     assert result[1]["start"] == time1
     assert result[2]["start"] == time2
+    assert result[3]["start"] == time3  # Connection record
 
 
 def test_convert_deltas_newer_ref_float_precision() -> None:
@@ -119,10 +131,12 @@ def test_convert_deltas_newer_ref_float_precision() -> None:
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 10.5},
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 20.25},
     ]
+    reference_time = dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz)
 
-    result = convert_deltas_with_newer_reference(delta_rows, 100.123, 100.123)
+    result = convert_deltas_with_newer_reference(delta_rows, 100.123, 100.123, reference_time)
 
-    assert len(result) == 2
+    assert len(result) == 3
     # Working backward: 100.123 - 20.25 = 79.873, then 79.873 - 10.5 = 69.373
     assert abs(result[0]["sum"] - 69.373) < 0.001
     assert abs(result[1]["sum"] - 79.873) < 0.001
+    assert abs(result[2]["sum"] - 100.123) < 0.001  # Connection record

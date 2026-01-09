@@ -80,6 +80,7 @@ def convert_deltas_with_newer_reference(
     delta_rows: list[dict],
     sum_reference: float,
     state_reference: float,
+    reference_time: dt.datetime,
 ) -> list[dict]:
     """
     Convert delta rows to absolute sum/state values using newer reference data.
@@ -91,6 +92,7 @@ def convert_deltas_with_newer_reference(
         delta_rows: List of dicts with 'start' (datetime) and 'delta' (float) keys
         sum_reference: Reference sum value from newer database record
         state_reference: Reference state value from newer database record
+        reference_time: The timestamp of the reference record
 
     Returns:
     -------
@@ -102,7 +104,7 @@ def convert_deltas_with_newer_reference(
 
     """
     _LOGGER.debug("Converting %d delta rows to absolute values (newer reference)", len(delta_rows))
-    _LOGGER.debug("Starting from sum=%s, state=%s (working backward) at %s", sum_reference, state_reference, delta_rows[-1]["start"] if delta_rows else None)
+    _LOGGER.debug("Starting from sum=%s, state=%s (working backward) at %s", sum_reference, state_reference, reference_time)
 
     if not delta_rows:
         return []
@@ -117,6 +119,10 @@ def convert_deltas_with_newer_reference(
     # and moving backward to the oldest
     converted_rows = []
     reversed_rows = list(reversed(delta_rows))
+
+    # Save the original reference values for the connection record
+    original_sum_reference = sum_reference
+    original_state_reference = state_reference
 
     # Process rows in reverse order (newest to oldest)
     for i, delta_row in enumerate(reversed_rows):
@@ -139,8 +145,27 @@ def convert_deltas_with_newer_reference(
             state_reference,
             start_time,
         )
+
     # Reverse result to ascending order (oldest to newest)
     converted_rows.reverse()
+
+    # Add the connection record at the newest import time with the original reference values
+    # This bridges the imported data to the existing database records
+    # Must be added AFTER reversing so it's at the end (newest time)
+    newest_import_time = delta_rows[-1]["start"]
+    converted_rows.append(
+        {
+            "start": newest_import_time,
+            "sum": original_sum_reference,
+            "state": original_state_reference,
+        }
+    )
+    _LOGGER.debug(
+        "Added connection record: sum=%s, state=%s, start=%s",
+        original_sum_reference,
+        original_state_reference,
+        newest_import_time,
+    )
 
     _LOGGER.debug(
         "Newer reference conversion complete: final oldest sum=%s, state=%s",
@@ -233,7 +258,8 @@ def handle_dataframe_delta(
             converted = convert_deltas_with_older_reference(delta_rows, sum_ref, state_ref)
         elif ref_type == DeltaReferenceType.NEWER_REFERENCE:
             _LOGGER.debug("Using NEWER_REFERENCE conversion for %s", statistic_id)
-            converted = convert_deltas_with_newer_reference(delta_rows, sum_ref, state_ref)
+            reference_time = reference.get("start")
+            converted = convert_deltas_with_newer_reference(delta_rows, sum_ref, state_ref, reference_time)
         else:
             helpers.handle_error(f"Internal error: Unknown reference type {ref_type} for {statistic_id}")
 
