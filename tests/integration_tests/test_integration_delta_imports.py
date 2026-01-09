@@ -285,11 +285,11 @@ class TestIntegrationDeltaImports:
 
         Steps:
         1. Wait for Home Assistant to be fully started
-        3. Import test_case_1_sum_state.txt (absolute values)
+        3. Import sum_state.txt (absolute values)
         4. Export and verify values match reference
-        5. Import test_case_1_sum_delta_unchanged.txt (unchanged deltas)
-        6. Export and verify values are correctly updated
-        7. Import test_case_1_sum_delta_changed.txt (changed deltas)
+        5. Import sum_delta_unchanged.txt (unchanged deltas)
+        6. Export and verify values still the same
+        7. Import sum_delta_changed.txt (changed deltas)
         8. Export and verify values are correctly changed
 
         """
@@ -306,7 +306,7 @@ class TestIntegrationDeltaImports:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_delta/test_case_1_sum_state.txt",
+                "filename": "test_delta/sum_state.txt",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": False,
@@ -323,7 +323,8 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step1.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext", "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after" ],
+                "entities": ["sensor.imp_inside_same_newest_1", "sensor:imp_inside_same_newest_2", "sensor.import_partly_before", "sensor:import_partly_at",
+                             "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after", "sensor.imp_partly_before", "sensor:imp_partly_at" ],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -343,7 +344,7 @@ class TestIntegrationDeltaImports:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_delta/test_case_1_sum_delta_unchanged.txt",
+                "filename": "test_delta/sum_delta_unchanged.txt",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": False,
@@ -360,7 +361,8 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step2.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext", "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after" ],
+                "entities": ["sensor.imp_inside_same_newest_1", "sensor:imp_inside_same_newest_2", "sensor.import_partly_before", "sensor:import_partly_at",
+                             "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after", "sensor.imp_partly_before", "sensor:imp_partly_at" ],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",
@@ -371,7 +373,7 @@ class TestIntegrationDeltaImports:
         assert success, "Failed to export statistics after step 2"
         await asyncio.sleep(1)
 
-        reference_file_2 = test_delta_dir / "expected_after_step2_delta_unchanged.tsv"
+        reference_file_2 = reference_file_1  # Should be the same as after step 1
         assert export_file_2.exists(), f"Export file not found: {export_file_2}"
         assert reference_file_2.exists(), f"Reference file not found: {reference_file_2}"
         assert self._compare_tsv_files(export_file_2, reference_file_2), "Step 2 export does not match reference"
@@ -380,7 +382,7 @@ class TestIntegrationDeltaImports:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_delta/test_case_1_sum_delta_changed.txt",
+                "filename": "test_delta/sum_delta_changed.txt",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": False,
@@ -397,7 +399,8 @@ class TestIntegrationDeltaImports:
             "export_statistics",
             {
                 "filename": "test_delta/export_after_step3.tsv",
-                "entities": ["sensor.test_case_1", "sensor:test_case_1_ext", "sensor.test_case_2", "sensor:test_case_2_ext", "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after" ],
+                "entities": ["sensor.imp_inside_same_newest_1", "sensor:imp_inside_same_newest_2", "sensor.import_partly_before", "sensor:import_partly_at",
+                             "sensor.imp_before", "sensor:imp_before","sensor.imp_after", "sensor:imp_after", "sensor.imp_partly_before", "sensor:imp_partly_at" ],
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",

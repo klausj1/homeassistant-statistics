@@ -31,21 +31,16 @@ template:
         device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 8832 }}"
-      - name: test_case_1
+      - name: imp_inside_same_newest_1
         state_class: total_increasing
         device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 100 }}"
-      - name: test_case_2
+      - name: imp_partly_before
         state_class: total_increasing
         device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 200 }}"
-      - name: test_case_3
-        state_class: total_increasing
-        device_class: energy
-        unit_of_measurement: "kWh"
-        state: "{{ 300 }}"
       - name: imp_before
         state_class: total_increasing
         device_class: energy
