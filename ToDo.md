@@ -54,10 +54,12 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - imp_partly_after: imp_after, but with overlap
   - Add to export!!
 
-- Check for import in the future - not allowed
-
 - Checks
   - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
+
+- Sort test input files
+
+- Add counters without delta and sensor to integration test
 
 - User doc
   - warning: do export before delta import, as more data are changed

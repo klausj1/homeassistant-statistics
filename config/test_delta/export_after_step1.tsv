@@ -29,6 +29,15 @@ sensor.imp_partly_before	kWh	29.12.2025 16:00	36	46	8
 sensor.imp_partly_before	kWh	30.12.2025 08:00	45	55	9
 sensor.imp_partly_before	kWh	30.12.2025 09:00	55	65	10
 sensor.imp_partly_before	kWh	30.12.2025 10:00	66	76	11
+sensor:imp_inside	kWh	29.12.2025 08:00	0	10	
+sensor:imp_inside	kWh	29.12.2025 09:00	1	11	1
+sensor:imp_inside	kWh	29.12.2025 10:00	3	13	2
+sensor:imp_inside	kWh	29.12.2025 11:00	6	16	3
+sensor:imp_inside	kWh	29.12.2025 12:00	10	20	4
+sensor:imp_inside	kWh	29.12.2025 13:00	15	25	5
+sensor:imp_inside	kWh	29.12.2025 14:00	21	31	6
+sensor:imp_inside	kWh	29.12.2025 15:00	28	38	7
+sensor:imp_inside	kWh	29.12.2025 16:00	36	46	8
 sensor:imp_inside_same_newest_2	kWh	29.06.2025 08:00	0	10	
 sensor:imp_inside_same_newest_2	kWh	29.06.2025 09:00	1	11	1
 sensor:imp_inside_same_newest_2	kWh	29.06.2025 10:00	3	13	2
