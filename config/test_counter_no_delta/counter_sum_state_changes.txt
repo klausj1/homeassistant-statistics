@@ -9,8 +9,6 @@ sensor.cnt_part_overlap_new	29.12.2025 11:00	m3	60	160
 sensor.cnt_part_overlap_new	29.12.2025 12:00	m3	75	175
 sensor.cnt_part_overlap_new	29.12.2025 13:00	m3	95	195
 sensor.cnt_part_overlap_new	29.12.2025 14:00	m3	120	220
-sensor:cnt_some_changed	29.12.2025 11:00	kWh	50	100
-sensor:cnt_some_changed	29.12.2025 12:00	kWh	60	110
 sensor:cnt_all_changed_new	29.12.2025 08:00	L	500	700
 sensor:cnt_all_changed_new	29.12.2025 09:00	L	510	710
 sensor:cnt_all_changed_new	29.12.2025 10:00	L	525	725
@@ -18,3 +16,5 @@ sensor:cnt_all_changed_new	29.12.2025 11:00	L	545	745
 sensor:cnt_all_changed_new	29.12.2025 12:00	L	570	770
 sensor:cnt_all_changed_new	29.12.2025 13:00	L	600	800
 sensor:cnt_all_changed_new	29.12.2025 14:00	L	640	840
+sensor:cnt_some_changed	29.12.2025 11:00	kWh	50	100
+sensor:cnt_some_changed	29.12.2025 12:00	kWh	60	110

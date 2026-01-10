@@ -47,11 +47,6 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Add counters without delta and sensor to integration test. Needs separate input files. For simpler understanding, also use separate export files
-  - I check the reference files.
-  - Check comparison, difference between delta and other tests
-  - Check if there are really errors when I change the reference files
-
 - Checks
   - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
 

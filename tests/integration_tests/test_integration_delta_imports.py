@@ -245,9 +245,9 @@ class TestIntegrationAll:
         for i, (actual_row, expected_row) in enumerate(zip(actual_rows, expected_rows, strict=False), start=1):
             assert len(actual_row) == len(expected_row), f"Column count mismatch at row {i}: {len(actual_row)} vs {len(expected_row)}"
 
-            for j, (actual_val, expected_val) in enumerate(zip(actual_row, expected_row, strict=False)):
-                actual_val = actual_val.strip()
-                expected_val = expected_val.strip()
+            for j, (actual_val_raw, expected_val_raw) in enumerate(zip(actual_row, expected_row, strict=False)):
+                actual_val = actual_val_raw.strip()
+                expected_val = expected_val_raw.strip()
 
                 try:
                     if actual_val or expected_val:
@@ -284,7 +284,13 @@ class TestIntegrationAll:
         entities = ["sensor.sens_all_changed", "sensor.sens_part_overlap_new", "sensor:sens_some_changed", "sensor:sens_all_changed_new"]
         success = await self._call_service(
             "export_statistics",
-            {"filename": "test_sensor/export_after_step1.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            {
+                "filename": "test_sensor/export_after_step1.tsv",
+                "entities": entities,
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -306,7 +312,13 @@ class TestIntegrationAll:
         # Export and verify step 2
         success = await self._call_service(
             "export_statistics",
-            {"filename": "test_sensor/export_after_step2.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            {
+                "filename": "test_sensor/export_after_step2.tsv",
+                "entities": entities,
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -339,7 +351,13 @@ class TestIntegrationAll:
         entities = ["sensor.cnt_all_changed", "sensor.cnt_part_overlap_new", "sensor:cnt_some_changed", "sensor:cnt_all_changed_new"]
         success = await self._call_service(
             "export_statistics",
-            {"filename": "test_counter_no_delta/export_after_step1.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            {
+                "filename": "test_counter_no_delta/export_after_step1.tsv",
+                "entities": entities,
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -361,7 +379,13 @@ class TestIntegrationAll:
         # Export and verify step 2
         success = await self._call_service(
             "export_statistics",
-            {"filename": "test_counter_no_delta/export_after_step2.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            {
+                "filename": "test_counter_no_delta/export_after_step2.tsv",
+                "entities": entities,
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
             ha_url=self.ha_url,
             token=self.ha_token,
         )
