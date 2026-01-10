@@ -4,6 +4,7 @@ Helper functions for import service - data preparation from files/JSON.
 No hass object needed.
 """
 
+import datetime as dt
 import zoneinfo
 from pathlib import Path
 
@@ -196,6 +197,12 @@ def handle_dataframe_no_delta(
 
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
+
+    # Validate that newest timestamp is not too recent
+    newest_timestamp_str = df["start"].max()
+    newest_dt = dt.datetime.strptime(newest_timestamp_str, datetime_format).replace(tzinfo=timezone)
+    helpers.is_not_in_future(newest_dt)
+
     has_mean = "mean" in columns
     has_sum = "sum" in columns
 

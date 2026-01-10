@@ -156,6 +156,43 @@ def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format:
     return {}
 
 
+def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
+    """
+    Check if the newest timestamp is not too recent (in the future from HA perspective).
+
+    Home Assistant requires statistics to be at least 1 hour old.
+    The newest allowed time is: current time - 65 minutes, truncated to the full hour.
+
+    Args:
+    ----
+        newest_timestamp (dt.datetime): The newest timestamp in the import data (with timezone).
+
+    Returns:
+    -------
+        bool: True if the timestamp is valid (not too recent).
+
+    Raises:
+    ------
+        HomeAssistantError: If the timestamp is too recent (in the future).
+
+    """
+    now = dt.datetime.now(dt.UTC)
+    # Subtract 65 minutes and truncate to full hour
+    max_allowed = (now - dt.timedelta(minutes=65)).replace(minute=0, second=0, microsecond=0)
+
+    # Convert newest_timestamp to UTC for comparison
+    newest_utc = newest_timestamp.astimezone(dt.UTC)
+
+    if newest_utc > max_allowed:
+        msg = (
+            f"Timestamp {newest_timestamp} is too recent. "
+            f"The newest allowed timestamp is {max_allowed} (current time minus 65 minutes, truncated to full hour)."
+        )
+        handle_error(msg)
+
+    return True
+
+
 def is_full_hour(timestamp_str: str, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> bool:
     """
     Check if the given timestamp is a full hour.

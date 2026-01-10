@@ -41,3 +41,9 @@ sensor.imp_before	28.12.2025 11:00	kWh	30
 sensor.imp_after	30.12.2025 09:00	kWh	10
 sensor.imp_after	30.12.2025 10:00	kWh	20
 sensor.imp_after	30.12.2025 11:00	kWh	30
+sensor:imp_inside	29.12.2025 09:00	kWh	2
+sensor:imp_inside	29.12.2025 10:00	kWh	2
+sensor:imp_inside	29.12.2025 11:00	kWh	2
+sensor:imp_inside	29.12.2025 12:00	kWh	5
+sensor:imp_inside	29.12.2025 13:00	kWh	5
+sensor:imp_inside	29.12.2025 14:00	kWh	5

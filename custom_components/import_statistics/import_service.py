@@ -14,7 +14,7 @@ from custom_components.import_statistics.delta_database_access import (
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
 )
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, handle_error
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, handle_error, is_not_in_future
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
     handle_dataframe_no_delta,
@@ -156,6 +156,9 @@ async def prepare_delta_handling(
             newest_dt = dt.datetime.strptime(newest_timestamp_str, datetime_format).replace(tzinfo=timezone)
         except (ValueError, TypeError) as e:
             handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
+
+        # Validate that newest timestamp is not too recent
+        is_not_in_future(newest_dt)
 
         # Convert to UTC for database query
         oldest_dt_utc = oldest_dt.astimezone(dt.UTC)
