@@ -53,6 +53,9 @@ Your file must contain one type of statistics:
 - **Sensors (state_class == measurement)** (temperature, humidity, etc.): columns `min`, `max`, `mean`
 - **Counters (state_class == increasing or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
 
+> **Before importing counters, make sure to read [Understanding counter statistics in Home Assistant](./docs/user/counters.md)**
+> For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Understanding counter statistics in Home Assistant](./docs/user/counters.md#delta-import)
+
 Example files:
 - [Sensors (min/max/mean)](./assets/min_max_mean.tsv)
 - [Counters (sum/state)](./assets/state_sum.tsv)
@@ -61,9 +64,9 @@ Example files:
 
 | Requirement | Details |
 |-------------|---------|
-| **Timestamp format** | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) |
+| **Timestamp format** | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (it is possible to use other formats as well)|
 | **Timestamp constraint** | Minutes must be `:00` (full hours only) |
-| **Timezone** | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) |
+| **Timezone** | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones, e.g. Europe/Vienna) |
 | **File encoding** | UTF-8 (required for special characters like m³ or °C) |
 | **Delimiter** | Tab (default), comma, semicolon, or pipe |
 | **Decimal separator** | `.` (default) or `,` |
@@ -75,7 +78,7 @@ Example files:
 | **Internal** | `sensor.name` (with `.`) | `sensor.temperature` | For existing Home Assistant entities |
 | **External** | `domain:name` (with `:`) | `sensor:imported_energy` | For external (custom/synthetic) statistics |
 
-> **Tip:** Internal statistics must match an existing entity. If you import for a non-existent entity, you'll see an error in Developer Tools → Statistics (where you can remove it).
+> Internal statistics must match an existing entity.
 
 ### Step 4: Run the Import
 
@@ -137,7 +140,7 @@ Content-Type: application/json
 
 ## Exporting Statistics
 
-Export your statistics to a file e.g. for backup, analysis, preparing an import with delta, or transfer to another Home Assistant instance.
+Export your statistics to a file e.g. for backup, analysis, preparing a counter import with delta, or transfer to another Home Assistant instance.
 
 ### How to Export
 
@@ -184,143 +187,6 @@ The exported file contains:
 
 ---
 
-## Understanding Counter Statistics (sum/state)
-
-Counters are entities with a state_class increasing or total_increasing.
-
-Counter statistics (like energy meters) are more complex than sensor statistics. Here's what you need to know:
-
-### What are `sum` and `state`?
-
-| Column | Description | Example |
-|--------|-------------|---------|
-| **state** | The actual meter reading | `6913.045 kWh` (your meter shows this) |
-| **sum** | Cumulative value since sensor creation | Used by Energy Dashboard |
-| **delta** | Change from previous hour | `0.751 kWh` consumed this hour |
-
-### How Home Assistant Records Counter Statistics
-
-| Time | Meter Reading | Stored Statistics |
-|------|---------------|-------------------|
-| 06:59:50 | 6912.294 kWh | — |
-| 07:00:00 | — | `start`: 06:00, `state`: 6912.294, `sum`: 912.294 |
-| 07:59:51 | 6913.045 kWh | — |
-| 08:00:00 | — | `start`: 07:00, `state`: 6913.045, `sum`: 913.045, `delta`: 0.751 |
-
-**Key points:**
-- Statistics are recorded at **hour boundaries** using the most recent meter reading
-- The timestamp represents the **start** of the hour (07:00 entry = data for the 07:00–08:00 hour)
-- **delta** = difference between consecutive sums (913.045 − 912.294 = 0.751)
-- The Energy Dashboard uses `sum` values, so import both `sum` and `state` for correct graphs
-
-> **Tip:** When importing, you can use the same value for both `sum` and `state` if you're working with absolute meter readings.
-
-For more details, see the [Home Assistant documentation on state_class total](https://developers.home-assistant.io/blog/2021/08/16/state_class_total/).
-
----
-
-## Delta Import (Simpler)
-
-Instead of importing absolute `sum`/`state` values, you can import **delta** values (the change per hour). This is useful because you do not need to calculate sum and state, and you do not need to align sum and state values of the import with the sum and state values in the database, which can be a pain.
-
-### How Delta Import Works
-
-1. **Export your current data** using `export_statistics`
-2. **Modify the file**:
-   - Remove the `sum` and `state` columns
-   - Keep or edit the `delta` column
-   - Add/remove rows as needed
-3. **Import the modified file** using `import_from_file`
-
-The integration automatically converts deltas to absolute values using existing database entries as reference points.
-
-### Requirements
-
-| Requirement | Details |
-|-------------|---------|
-| **Reference point** | At least one existing database value 1+ hour before or at/after your import range |
-| **Complete coverage** | You must provide values for ALL hours in your import range, which exists in the database (no gaps). This is the case automatically when you start with the exported file |
-
-> §KJ: Gaps see above
-
-### Delta Import Examples
-
-<details>
-<summary><strong>Example 1: Add historical data before sensor existed</strong></summary>
-
-You have data from before your sensor was in Home Assistant.
-
-> §KJ: Readd complete examples
-
-**Existing database:**
-| Time | sum | state |
-|------|-----|-------|
-| 29.12.2025 08:00 | 0 | 10 |
-| 29.12.2025 09:00 | 1 | 11 |
-
-**Import file:**
-```tsv
-statistic_id	start	unit	delta
-sensor.my_energy	28.12.2025 09:00	kWh	10
-sensor.my_energy	28.12.2025 10:00	kWh	20
-sensor.my_energy	28.12.2025 11:00	kWh	30
-```
-
-**Result:** The integration calculates backward from your existing data to create the historical entries.
-
-</details>
-
-<details>
-<summary><strong>Example 2: Correct values in the middle</strong></summary>
-
-Your sensor was offline and recorded wrong values.
-
-**Existing database (09:00–14:00 need correction):**
-| Time | sum | delta |
-|------|-----|-------|
-| 29.12.2025 08:00 | 0 | — |
-| 29.12.2025 09:00 | 1 | 1 |
-| ... | ... | ... |
-| 29.12.2025 15:00 | 28 | 7 |
-
-**Import file (corrected deltas):**
-```tsv
-statistic_id	start	unit	delta
-sensor:my_energy	29.12.2025 09:00	kWh	2
-sensor:my_energy	29.12.2025 10:00	kWh	2
-sensor:my_energy	29.12.2025 11:00	kWh	2
-sensor:my_energy	29.12.2025 12:00	kWh	5
-sensor:my_energy	29.12.2025 13:00	kWh	5
-sensor:my_energy	29.12.2025 14:00	kWh	5
-```
-
-**Result:** Values 09:00–14:00 are recalculated; 08:00 and 15:00+ remain unchanged.
-
-> **Important:** To avoid spikes, ensure your imported deltas sum to the same total as the original range (here: 21).
-
-</details>
-
-<details>
-<summary><strong>Example 3: Add values after existing data</strong></summary>
-
-Manually add consumption data for hours not yet in the database.
-
-**Import file:**
-```tsv
-statistic_id	start	unit	delta
-sensor.my_energy	30.12.2025 09:00	kWh	10
-sensor.my_energy	30.12.2025 10:00	kWh	20
-sensor.my_energy	30.12.2025 11:00	kWh	30
-```
-
-**Result:** New entries are calculated forward from your last existing database value.
-
-</details>
-
-> **Warning:** You must provide values for ALL hours in your import range. Skipping hours creates incorrect results.
-
----
-
 ## Additional Resources
 
 - **[Community Guide: Loading, Manipulating, and Recovering Statistics](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802)** — Detailed examples for fixing historical data (thanks to Geoffrey!)
@@ -332,9 +198,9 @@ sensor.my_energy	30.12.2025 11:00	kWh	30
 
 | Problem | Solution |
 |---------|----------|
-| Import shows no error but data doesn't appear | Check Home Assistant logs for details |
+| Import shows no error but data doesn't appear | Check Home Assistant logs for details, and create a bug in the repo |
 | "Unknown column" error | Check for typos in column names; see [Allowed Columns](#allowed-columns) |
-| Spikes in Energy Dashboard after import | Your `sum` values don't align with existing data; see [Counter Statistics](#understanding-counter-statistics-sumstate) |
+| Spikes in Energy Dashboard after import | Your `sum` values don't align with existing data; see [Counter Statistics](./docs/user/counters.md#understanding-counter-statistics-sumstate) |
 | Mean values wrong for compass/wind direction | Mean uses arithmetic average, which doesn't work for circular values |
 
 ---
