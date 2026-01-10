@@ -21,7 +21,7 @@ from custom_components.import_statistics.const import (
     ATTR_UNIT_FROM_ENTITY,
 )
 from custom_components.import_statistics.helpers import UnitFrom, are_columns_valid
-from tests.conftest import mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
 
 
 class TestStandardImportIntegration:
@@ -63,7 +63,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -133,7 +136,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -199,7 +205,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called for both statistics
@@ -263,7 +272,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_add_external_statistics was called
@@ -327,7 +339,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -375,7 +390,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await json_handler(call)
 
                 # Verify async_import_statistics was called
@@ -444,7 +462,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await json_handler(call)
 
                 # Verify async_import_statistics was called
@@ -501,7 +522,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -550,7 +574,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -673,7 +700,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_import_statistics was called
@@ -724,7 +754,10 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_external:
+            with (
+                patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_external,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await import_handler(call)
 
                 # Verify async_add_external_statistics was called for both external statistics

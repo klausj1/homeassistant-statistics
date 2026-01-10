@@ -48,7 +48,9 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 ### Other
 
 - Add integration tests for use cases:
-  - Correct values in the middle (e.g. connection of a sensor to HA did not work for some time)
+  - imp_inside: Correct values in the middle (e.g. connection of a sensor to HA did not work for some time)
+  - imp_inside_holes: Not all values in the DB are overwritten by the import
+  - imp_partly_after: imp_after, but with overlap
   - Correct all values
 
 - Check for import in the future - not allowed

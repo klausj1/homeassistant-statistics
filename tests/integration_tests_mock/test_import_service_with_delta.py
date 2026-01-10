@@ -3,13 +3,12 @@
 import datetime as dt
 import tempfile
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
 from homeassistant.components.recorder.models import StatisticMeanType
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import setup
@@ -21,7 +20,7 @@ from custom_components.import_statistics.const import (
 )
 from custom_components.import_statistics.helpers import DeltaReferenceType, UnitFrom, are_columns_valid
 from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_older_reference, handle_dataframe_delta
-from tests.conftest import mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
 
 
 class TestDeltaImportIntegration:
@@ -78,6 +77,7 @@ class TestDeltaImportIntegration:
             with (
                 patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
             ):
                 mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
@@ -159,6 +159,7 @@ class TestDeltaImportIntegration:
             with (
                 patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
             ):
                 mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
@@ -233,6 +234,7 @@ class TestDeltaImportIntegration:
             with (
                 patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
             ):
                 mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
@@ -294,6 +296,7 @@ class TestDeltaImportIntegration:
             with (
                 patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
                 patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
             ):
                 mock_prepare_delta.return_value = mock_reference
                 await import_handler(call)
@@ -407,7 +410,10 @@ class TestDeltaImportIntegration:
                 },
             )
 
-            with patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import:
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
                 await json_handler(call)
 
                 # Verify async_import_statistics was called
@@ -487,4 +493,3 @@ class TestDeltaImportIntegration:
 
         with pytest.raises(HomeAssistantError):
             are_columns_valid(df_with_mean, UnitFrom.TABLE)
-

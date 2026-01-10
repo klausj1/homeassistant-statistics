@@ -4,8 +4,16 @@ import _socket
 import socket as socket_module
 from collections.abc import Callable
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+
+def create_mock_recorder_instance() -> MagicMock:
+    """Create a mock recorder instance with awaitable async_block_till_done."""
+    mock_instance = MagicMock()
+    mock_instance.async_block_till_done = AsyncMock()
+    return mock_instance
 
 
 async def mock_async_add_executor_job(func: Callable[..., Any], *args: Any) -> Any:
