@@ -118,5 +118,5 @@ From `.ruff.toml`:
 - There is an integration test: test_integration_delta_imports.py
 - This tests tests without mocks, with a running home assistance instance
 - The home assistance instance can be running before the test. If not, the test starts it und kills it at the end of the test
-- This tests needs the environment variable HA_TOKEN set
-- Before running this test, source .env to set HA_TOKEN
+- This tests needs the environment variable HA_TOKEN_DEV set
+- Before running this test, source .env to set HA_TOKEN_DEV

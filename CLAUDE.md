@@ -166,7 +166,7 @@ The architecture separates testable pure functions from HA integration:
 - Tests flow orchestration and delta marker detection
 
 **Integration tests** ([tests/integration_tests/](tests/integration_tests/)):
-- Tests against running HA instance (requires `HA_TOKEN` environment variable)
+- Tests against running HA instance (requires `HA_TOKEN_DEV` environment variable)
 - Validates full import/export workflow with actual database
 - Tests real recorder API interactions
 

@@ -8,7 +8,7 @@
             ],
             "env": {
                 "HA_URL": "http://ha:8123",
-                "HA_TOKEN": "token"
+                "HA_TOKEN_DEV": "token"
             }
         },
         "ha mcp dev": {
@@ -19,7 +19,7 @@
             ],
             "env": {
                 "HA_URL": "http://localhost:8123",
-                "HA_TOKEN": "token"
+                "HA_TOKEN_DEV": "token"
             }
         }
     }

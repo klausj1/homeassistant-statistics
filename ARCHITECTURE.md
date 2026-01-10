@@ -730,7 +730,7 @@ The architecture supports multiple test levels:
 
 3. **Integration Tests with Real HA** (`tests/integration_tests/`):
    - Tests against running Home Assistant instance
-   - Requires HA_TOKEN environment variable
+   - Requires HA_TOKEN_DEV environment variable
    - Validates full import/export workflow with actual database
 
 ---

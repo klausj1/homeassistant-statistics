@@ -30,7 +30,7 @@ class TestIntegrationAll:
 
     ha_process: subprocess.Popen | None = None
     ha_url: str = "http://localhost:8123"
-    ha_token: str = os.getenv("HA_TOKEN", "")
+    ha_token: str = os.getenv("HA_TOKEN_DEV", "")
     ha_started_by_test: bool = False
 
     @classmethod

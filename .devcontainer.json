@@ -41,5 +41,8 @@
         }
     },
     "remoteUser": "vscode",
-    "features": {}
+    "features": {},
+    "containerEnv": {
+        "HA_TOKEN_DEV": "${localEnv:HA_TOKEN_DEV}"
+    }
 }
