@@ -21,7 +21,8 @@
                 "ryanluker.vscode-coverage-gutters",
                 "github.copilot",
                 "rooveterinaryinc.roo-cline",
-                "mhutchie.git-graph"
+                "mhutchie.git-graph",
+                "anthropic.claude-code"
             ],
             "settings": {
                 "files.eol": "\n",

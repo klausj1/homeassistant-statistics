@@ -1,9 +1,5 @@
 # ToDos
 
-## for Export
-
-- Review integration tests and other changes
-
 ## for delta
 
 ### sum and state for sensors with state_class total_increasing explained
@@ -49,11 +45,14 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 - User doc
   - rework AI-created Readme
-    - Explanation from ToDo
+    - Explanation from ToDo or rather review Understanding Counter Statistics
+    - Use delta import should be advertised before
     - Structure
     - Check forward / backward in the use cases
 
-- Check issues in repo. Future is fixed.
+- Change requirements.txt and rebuild the container.
+
+- Check issues in repo. Future is fixed. Add to changelog.
 
 - Write a post
 
