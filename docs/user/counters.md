@@ -11,7 +11,7 @@ Counter statistics (like energy meters) are more complex than sensor statistics.
 | Column | Description | Example |
 |--------|-------------|---------|
 | **state** | The actual meter reading | `6913.045 kWh` (your meter shows this) |
-| **sum** | Cumulative value since sensor creation | Can be identical to `state`, if the sensor started with 0 when connected to HA |
+| **sum** | Cumulative value since sensor creation | Can be identical to `state` if the sensor started at 0 when connected to HA |
 | **delta** | Change of `sum` in previous hour | `0.751 kWh` consumed this hour |
 
 > `last_reset` is not explained. As long as the `sum` attribute increases monotonically, the integration should handle this fine.
@@ -27,7 +27,7 @@ The table below demonstrates how Home Assistant processes sensor state changes a
 - **state**: The current sensor value at that moment (only populated when state changes occur)
 - **statisticsTime**: The timestamp assigned to the statistics record (typically the start of the hour)
 - **statisticsState**: The state value stored in the statistics table for this hour
-- **statisticsSum**: The cumulative sum value stored in the statistics table (used for calculating deltas). The sum value starts with 0 when the sensor has been created, and increases with the same amount as the state.
+- **statisticsSum**: The cumulative sum value stored in the statistics table (used for calculating deltas). The sum value starts at 0 when the sensor is created, and increases by the same amount as the state.
 - **statisticsDelta**: The change of the value from the previous hour's statistics sum
 
 > The statisticsDelta is not stored in the HA database, but it can be used for importing.
@@ -48,7 +48,7 @@ This demonstrates that:
 
 The energy board uses the sum, so the sum is the more important value. Also the delta-attribute in the statistics graph card uses the sum to calculate the delta.
 
-Whats confusing (at least for me) is that in the statistics graph card, the sum in the graph always starts at 0, whereas the state shows the value from the statistics database.
+What's confusing (at least for me) is that in the statistics graph card, the sum in the graph always starts at 0, whereas the state shows the value from the statistics database.
 
 For more details, see
 
@@ -82,7 +82,7 @@ The integration automatically converts deltas to absolute values using an existi
 | **Reference point** | At least one existing database value 1+ hour before or at/after your import range |
 | **Complete coverage** | You must provide values for ALL hours in your import range, which exists in the database (no gaps). This is the case automatically when you start with the exported file |
 
-> **Warning**: Leaving gaps create strange results:
+> **Warning**: Leaving gaps creates strange results:
 > If you don't import all DB values in the import time range, you'll create unexpected values. For example, if the database has values at 09:00, 10:00, 11:00, 12:00, 13:00, 14:00 and you only import deltas at 10:00 and 13:00 (with a gap in between), you will get strange results. You have to provide the values for all timestamps in the DB you are importing, in this example you have to provide values for 10:00, 11:00, 12:00, 13:00.
 
 ### Delta Import Examples
@@ -233,6 +233,3 @@ sensor.imp_after	30.12.2025 11:00	kWh	30
 - 30.12.2025 09:00: sum=13, state=23 (delta: 10, new)
 - 30.12.2025 10:00: sum=33, state=43 (delta: 20, new)
 - 30.12.2025 11:00: sum=63, state=73 (delta: 30, new)
-
-> **Warning**: Leaving "holes" create strange results
-> If you don't import all DB values in the input time range, you'll create unexpected values. For example, if the database has values at 09:00, 10:00, 11:00, 12:00, 13:00, 14:00 and you only import deltas at 09:00 and 13:00, you will get strange results. You have to provide all values.

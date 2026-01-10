@@ -65,9 +65,9 @@ Example files:
 
 | Requirement | Details |
 |-------------|---------|
-| **Timestamp format** | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (it is possible to use other formats as well)|
+| **Timestamp format** | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (other formats are also possible)|
 | **Timestamp constraint** | Minutes must be `:00` (full hours only) |
-| **Timezone** | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones, e.g. Europe/Vienna) |
+| **Timezone** | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., Europe/Vienna) |
 | **File encoding** | UTF-8 (required for special characters like m³ or °C) |
 | **Delimiter** | Tab (default), comma, semicolon, or pipe |
 | **Decimal separator** | `.` (default) or `,` |
@@ -108,7 +108,7 @@ data:
 - **Synchronous operation**: The action completes when all data is saved into the database. This can take a longer time for large input data
 - **Validation errors**: Shown directly in the UI; check logs if import fails silently
 
-> If importing does not work, and you do not get an error directly in the GUI, but there is an error in the home assistant logs, then this is a bug (this happens if the integration misses some checks, which lead to import errors later). Please create an issue.
+> If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
 
 ### Allowed Columns
 
