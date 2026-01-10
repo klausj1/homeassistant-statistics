@@ -184,9 +184,11 @@ def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
     newest_utc = newest_timestamp.astimezone(dt.UTC)
 
     if newest_utc > max_allowed:
+        # Display max_allowed in the same timezone as the input timestamp
+        max_allowed_local = max_allowed.astimezone(newest_timestamp.tzinfo)
         msg = (
             f"Timestamp {newest_timestamp} is too recent. "
-            f"The newest allowed timestamp is {max_allowed} (current time minus 65 minutes, truncated to full hour)."
+            f"The newest allowed timestamp is {max_allowed_local} (current time minus 65 minutes, truncated to full hour)."
         )
         handle_error(msg)
 
