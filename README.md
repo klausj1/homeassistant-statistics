@@ -12,7 +12,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 ## Quick Links
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting](#troubleshooting)
-- [Counter Statistics Explained](#understanding-counter-statistics-sumstate) | [Delta Import](#delta-import-advanced)
+- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
 
 ## Requirements
 
@@ -53,12 +53,13 @@ Your file must contain one type of statistics:
 - **Sensors (state_class == measurement)** (temperature, humidity, etc.): columns `min`, `max`, `mean`
 - **Counters (state_class == increasing or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
 
-> **Before importing counters, make sure to read [Understanding counter statistics in Home Assistant](./docs/user/counters.md)**
-> For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Understanding counter statistics in Home Assistant](./docs/user/counters.md#delta-import)
+> **Before importing counters, make sure to read** [Understanding counter statistics in Home Assistant](./docs/user/counters.md)
+> For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Delta Import](./docs/user/counters.md#delta-import)
 
 Example files:
 - [Sensors (min/max/mean)](./assets/min_max_mean.tsv)
 - [Counters (sum/state)](./assets/state_sum.tsv)
+- [Counters (delta)](./assets/delta.tsv)
 
 ### Step 2: File Format Requirements
 
@@ -87,7 +88,7 @@ Example files:
 3. Select `import_statistics: import_from_file`
 4. Fill in the settings:
 
-![ui_settings](assets/service_ui.png)
+![import from file](assets/service_import_ui.png)
 
 Or use YAML:
 
@@ -146,19 +147,11 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 
 1. Go to **Developer Tools → Actions**
 2. Select `import_statistics: export_statistics`
-3. Configure the export:
+3. Fill in the settings:
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `filename` | Yes | Output filename (e.g., `backup.tsv` or `backup.json`) |
-| `entities` | Yes | List of statistic IDs to export |
-| `start_time` | Yes | Start of time range (full hour, e.g., `2025-12-22 12:00:00`) |
-| `end_time` | Yes | End of time range (full hour) |
-| `timezone_identifier` | No | Timezone for timestamps (default: `Europe/Vienna`) |
-| `delimiter` | No | Column separator: `\t`, `;`, `,`, or `\|` (default: tab) |
-| `decimal` | No | Use comma as decimal separator: `true` or `false` (default: `false` = dot) |
+![export to file](assets/service_export_ui.png)
 
-**YAML example:**
+Or use YAML:
 
 ```yaml
 action: import_statistics.export_statistics

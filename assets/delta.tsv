@@ -1,0 +1,7 @@
+statistic_id	start	unit	delta
+sensor.esp32_gasmonitoring_gasenergykwh	30.12.2025 09:00	kWh	10
+sensor.esp32_gasmonitoring_gasenergykwh	30.12.2025 10:00	kWh	20
+sensor.esp32_gasmonitoring_gasenergykwh	30.12.2025 11:00	kWh	30
+sensor.esp32_gasmonitoring_gasenergykwh	28.12.2025 09:00	kWh	10
+sensor.esp32_gasmonitoring_gasenergykwh	28.12.2025 10:00	kWh	20
+sensor.esp32_gasmonitoring_gasenergykwh	28.12.2025 11:00	kWh	30
