@@ -48,11 +48,12 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 ### Other
 
 - User doc
-  - warning: do export before delta import, as more data are changed
-  - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. If there are, the results are unexpected and hard to understand.
-  - Import is not async anymore
+  - rework AI-created Readme
+    - Explanation from ToDo
+    - Structure
+    - Check forward / backward in the use cases
 
-- Check issues
+- Check issues in repo. Future is fixed.
 
 - Write a post
 
