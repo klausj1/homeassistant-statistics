@@ -47,19 +47,17 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 
 ### Other
 
-- Add integration tests for use cases:
-  - imp_inside_spike: As above, but delta values are not correct
-  - imp_inside_holes: Not all values in the DB are overwritten by the import
-  - imp_partly_after: imp_after, but with overlap
+- Add counters without delta and sensor to integration test. Needs separate input files. For simpler understanding, also use separate export files
+  - I check the reference files.
+  - Check comparison, difference between delta and other tests
+  - Check if there are really errors when I change the reference files
 
 - Checks
   - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
 
-- Add counters without delta and sensor to integration test
-
 - User doc
   - warning: do export before delta import, as more data are changed
-  - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. Alternative: Merge, could make sense as delta is the important part, and I did it for case 2 test intuitively. Alternative: document.
+  - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. If there are, the results are unexpected and hard to understand.
   - Import is not async anymore
 
 - Write a post
@@ -69,9 +67,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 - Setup a job to run the test in the pipeline as well, for pull requests
 - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import
   - Also in normal import an empty value is returned. I do not understand, maybe this is anyhow checked before already?
-- Code duplication between handle_import_from_file and from json
 - Allow import of counter and sensor in one file
-- Why isn't pandas directly used to read json? prepare_json_data_to_import does some manual stuff, necessary?
 - Create arc-doc
 - test_export_service.py: Separate to unit-tests and integration-tests
 - Why is export_json and export_tsv so different? Does it make sense or do we need a refactoring?

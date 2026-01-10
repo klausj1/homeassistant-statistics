@@ -51,3 +51,37 @@ template:
         device_class: energy
         unit_of_measurement: "kWh"
         state: "{{ 3 }}"
+      - name: cnt_all_changed
+        state_class: total_increasing
+        device_class: energy
+        unit_of_measurement: "kWh"
+        state: "{{ 10 }}"
+      - name: cnt_part_overlap_new
+        state_class: total_increasing
+        unit_of_measurement: "m3"
+        state: "{{ 100 }}"
+      - name: cnt_some_changed
+        state_class: total_increasing
+        device_class: energy
+        unit_of_measurement: "kWh"
+        state: "{{ 50 }}"
+      - name: cnt_all_changed_new
+        state_class: total_increasing
+        unit_of_measurement: "L"
+        state: "{{ 200 }}"
+      - name: sens_all_changed
+        state_class: measurement
+        unit_of_measurement: "C"
+        state: "{{ 20 }}"
+      - name: sens_part_overlap_new
+        state_class: measurement
+        unit_of_measurement: "%"
+        state: "{{ 45 }}"
+      - name: sens_some_changed
+        state_class: measurement
+        unit_of_measurement: "C"
+        state: "{{ 5 }}"
+      - name: sens_all_changed_new
+        state_class: measurement
+        unit_of_measurement: "hPa"
+        state: "{{ 1013 }}"

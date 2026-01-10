@@ -18,12 +18,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.usefixtures("allow_socket_for_integration")
-class TestIntegrationDeltaImports:
+class TestIntegrationAll:
     """
-    Integration tests for delta imports with running Home Assistant instance.
+    Integration tests for all import types with running Home Assistant instance.
 
     These tests connect to a running Home Assistant instance (started via scripts/develop)
     and test the import_statistics integration with real database operations.
+
+    Tests run in order: sensor → counter → delta, all sharing the same HA instance.
     """
 
     ha_process: subprocess.Popen | None = None
@@ -230,50 +232,147 @@ class TestIntegrationDeltaImports:
             return [line.split("\t") for line in lines]
 
     @staticmethod
-    def _compare_tsv_files(actual_path: Path, expected_path: Path, tolerance: float = 0.01) -> bool:
-        """
-        Compare two TSV files for equality with numeric tolerance.
+    def _compare_tsv_files_strict(actual_path: Path, expected_path: Path, tolerance: float = 0.01) -> bool:
+        """Compare two TSV files for equality with numeric tolerance (strict mode - raises on mismatch)."""
+        with actual_path.open(encoding="utf-8") as f:
+            actual_rows = [line.split("\t") for line in f.read().strip().split("\n")]
 
-        Args:
-            actual_path: Path to the actual exported file
-            expected_path: Path to the expected reference file
-            tolerance: Tolerance for numeric comparisons
+        with expected_path.open(encoding="utf-8") as f:
+            expected_rows = [line.split("\t") for line in f.read().strip().split("\n")]
 
-        Returns:
-            True if files match within tolerance, False otherwise
+        assert len(actual_rows) == len(expected_rows), f"Row count mismatch: {len(actual_rows)} vs {len(expected_rows)}"
 
-        """
-        actual_rows = TestIntegrationDeltaImports._normalize_tsv_for_comparison(actual_path)
-        expected_rows = TestIntegrationDeltaImports._normalize_tsv_for_comparison(expected_path)
-
-        if len(actual_rows) != len(expected_rows):
-            _LOGGER.error("Row count mismatch: %s vs %s", len(actual_rows), len(expected_rows))
-            return False
-
-        # Skip header row
-        for i, (actual_row, expected_row) in enumerate(zip(actual_rows[1:], expected_rows[1:], strict=False), start=2):
-            if len(actual_row) != len(expected_row):
-                _LOGGER.error("Column count mismatch at row %s: %s vs %s", i, len(actual_row), len(expected_row))
-                return False
+        for i, (actual_row, expected_row) in enumerate(zip(actual_rows, expected_rows, strict=False), start=1):
+            assert len(actual_row) == len(expected_row), f"Column count mismatch at row {i}: {len(actual_row)} vs {len(expected_row)}"
 
             for j, (actual_val, expected_val) in enumerate(zip(actual_row, expected_row, strict=False)):
-                # Try numeric comparison for numeric fields
-                try:
-                    actual_num = float(actual_val)
-                    expected_num = float(expected_val)
-                    if abs(actual_num - expected_num) > tolerance:
-                        _LOGGER.error("Value mismatch at row %s, col %s: %s vs %s", i, j, actual_num, expected_num)
-                        return False
-                except ValueError:
-                    # Non-numeric comparison
-                    if actual_val != expected_val:
-                        _LOGGER.exception("Value mismatch at row %s, col %s: '%s' vs '%s'", i, j, actual_val, expected_val)
-                        return False
+                actual_val = actual_val.strip()
+                expected_val = expected_val.strip()
 
+                try:
+                    if actual_val or expected_val:
+                        actual_num = float(actual_val) if actual_val else 0
+                        expected_num = float(expected_val) if expected_val else 0
+                        assert abs(actual_num - expected_num) <= tolerance, f"Value mismatch at row {i}, col {j}: {actual_val} vs {expected_val}"
+                except ValueError:
+                    assert actual_val == expected_val, f"Value mismatch at row {i}, col {j}: '{actual_val}' vs '{expected_val}'"
+
+        _LOGGER.info("COMPARISON OK: Files match perfectly")
         return True
 
     @pytest.mark.asyncio
-    async def test_import_sum_state_then_delta_unchanged_then_delta_changed(
+    async def test_01_import_sensor_mean_min_max_then_changes(self) -> None:
+        """Test sensor import workflow (mean/min/max) with running Home Assistant."""
+        config_dir = Path(__file__).parent.parent.parent / "config"
+        test_dir = config_dir / "test_sensor"
+
+        # Wait for HA to be fully started (up to 3 minutes)
+        is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
+        assert is_ready, "Home Assistant did not start within 3 minutes"
+        await asyncio.sleep(5)
+
+        # STEP 1: Import sensor_mean_min_max
+        success = await self._call_service(
+            "import_from_file",
+            {"filename": "test_sensor/sensor_mean_min_max.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to import sensor_mean_min_max"
+
+        # Export and verify step 1
+        entities = ["sensor.sens_all_changed", "sensor.sens_part_overlap_new", "sensor:sens_some_changed", "sensor:sens_all_changed_new"]
+        success = await self._call_service(
+            "export_statistics",
+            {"filename": "test_sensor/export_after_step1.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to export after step 1"
+
+        export_file_1 = test_dir / "export_after_step1.tsv"
+        reference_file_1 = test_dir / "expected_after_import.tsv"
+        assert self._compare_tsv_files_strict(export_file_1, reference_file_1), "Step 1 export mismatch"
+
+        # STEP 2: Import changes
+        success = await self._call_service(
+            "import_from_file",
+            {"filename": "test_sensor/sensor_mean_min_max_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to import sensor_mean_min_max_changes"
+
+        # Export and verify step 2
+        success = await self._call_service(
+            "export_statistics",
+            {"filename": "test_sensor/export_after_step2.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to export after step 2"
+
+        export_file_2 = test_dir / "export_after_step2.tsv"
+        reference_file_2 = test_dir / "expected_after_changes.tsv"
+        assert self._compare_tsv_files_strict(export_file_2, reference_file_2), "Step 2 export mismatch"
+
+    @pytest.mark.asyncio
+    async def test_02_import_counter_sum_state_then_changes(self) -> None:
+        """Test counter import workflow (sum/state) with running Home Assistant."""
+        config_dir = Path(__file__).parent.parent.parent / "config"
+        test_dir = config_dir / "test_counter_no_delta"
+
+        # Check if HA is running (will start if needed)
+        is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
+        assert is_ready, "Home Assistant did not start within 3 minutes"
+
+        # STEP 1: Import counter_sum_state
+        success = await self._call_service(
+            "import_from_file",
+            {"filename": "test_counter_no_delta/counter_sum_state.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to import counter_sum_state"
+
+        # Export and verify step 1
+        entities = ["sensor.cnt_all_changed", "sensor.cnt_part_overlap_new", "sensor:cnt_some_changed", "sensor:cnt_all_changed_new"]
+        success = await self._call_service(
+            "export_statistics",
+            {"filename": "test_counter_no_delta/export_after_step1.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to export after step 1"
+
+        export_file_1 = test_dir / "export_after_step1.tsv"
+        reference_file_1 = test_dir / "expected_after_import.tsv"
+        assert self._compare_tsv_files_strict(export_file_1, reference_file_1), "Step 1 export mismatch"
+
+        # STEP 2: Import changes
+        success = await self._call_service(
+            "import_from_file",
+            {"filename": "test_counter_no_delta/counter_sum_state_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to import counter_sum_state_changes"
+
+        # Export and verify step 2
+        success = await self._call_service(
+            "export_statistics",
+            {"filename": "test_counter_no_delta/export_after_step2.tsv", "entities": entities, "start_time": "2025-12-29 00:00:00", "end_time": "2025-12-31 00:00:00", "timezone_identifier": "Europe/Vienna"},
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to export after step 2"
+
+        export_file_2 = test_dir / "export_after_step2.tsv"
+        reference_file_2 = test_dir / "expected_after_changes.tsv"
+        assert self._compare_tsv_files_strict(export_file_2, reference_file_2), "Step 2 export mismatch"
+
+    @pytest.mark.asyncio
+    async def test_03_import_sum_state_then_delta_unchanged_then_delta_changed(
         self,
     ) -> None:
         """
@@ -350,7 +449,7 @@ class TestIntegrationDeltaImports:
         reference_file_1 = test_delta_dir / "expected_after_step1_sum_state.tsv"
         assert export_file_1.exists(), f"Export file not found: {export_file_1}"
         assert reference_file_1.exists(), f"Reference file not found: {reference_file_1}"
-        assert self._compare_tsv_files(export_file_1, reference_file_1), "Step 1 export does not match reference"
+        assert self._compare_tsv_files_strict(export_file_1, reference_file_1), "Step 1 export does not match reference"
 
         # ==================== STEP 2: Import delta_unchanged ====================
         success = await self._call_service(
@@ -400,7 +499,7 @@ class TestIntegrationDeltaImports:
         reference_file_2 = reference_file_1  # Should be the same as after step 1
         assert export_file_2.exists(), f"Export file not found: {export_file_2}"
         assert reference_file_2.exists(), f"Reference file not found: {reference_file_2}"
-        assert self._compare_tsv_files(export_file_2, reference_file_2), "Step 2 export does not match reference"
+        assert self._compare_tsv_files_strict(export_file_2, reference_file_2), "Step 2 export does not match reference"
 
         # ==================== STEP 3: Import delta_changed ====================
         success = await self._call_service(
@@ -450,4 +549,4 @@ class TestIntegrationDeltaImports:
         reference_file_3 = test_delta_dir / "expected_after_step3_delta_changed.tsv"
         assert export_file_3.exists(), f"Export file not found: {export_file_3}"
         assert reference_file_3.exists(), f"Reference file not found: {reference_file_3}"
-        assert self._compare_tsv_files(export_file_3, reference_file_3), "Step 3 export does not match reference"
+        assert self._compare_tsv_files_strict(export_file_3, reference_file_3), "Step 3 export does not match reference"

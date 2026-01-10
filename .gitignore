@@ -18,7 +18,7 @@ htmlcov/
 config/*
 !config/configuration.yaml
 !config/*.csv
-!config/test_delta
+!config/test_*
 
 # mcp with secrets
 mcp.json

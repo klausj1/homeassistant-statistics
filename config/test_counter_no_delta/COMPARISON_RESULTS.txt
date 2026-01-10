@@ -1,0 +1,213 @@
+================================================================================
+COUNTER TEST COMPARISON RESULTS (sum/state without delta import)
+================================================================================
+
+This file shows the complete test workflow for each counter entity:
+- First Import: Initial values imported (absolute sum/state)
+- Second Import: Changed/new values imported (absolute sum/state)
+- Exported Result: What was exported from the database (includes calculated delta)
+- Reference Values: Expected values for comparison
+
+Note: Export files include a calculated 'delta' column that shows the difference
+between consecutive sum values. This is NOT in the import files.
+
+================================================================================
+ENTITY 1: sensor.cnt_all_changed (kWh)
+Pattern: All values changed in second import
+================================================================================
+
+--- FIRST IMPORT (counter_sum_state.txt) ---
+Time                    Sum     State
+29.12.2025 08:00        0       10
+29.12.2025 09:00        1       11
+29.12.2025 10:00        3       13
+29.12.2025 11:00        6       16
+29.12.2025 12:00        10      20
+
+--- SECOND IMPORT (counter_sum_state_changes.txt) ---
+Time                    Sum     State
+29.12.2025 08:00        100     110     ← ALL VALUES REPLACED
+29.12.2025 09:00        101     111     ← ALL VALUES REPLACED
+29.12.2025 10:00        103     113     ← ALL VALUES REPLACED
+29.12.2025 11:00        106     116     ← ALL VALUES REPLACED
+29.12.2025 12:00        110     120     ← ALL VALUES REPLACED
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        100     110     (empty - first value)
+29.12.2025 09:00        101     111     1
+29.12.2025 10:00        103     113     2
+29.12.2025 11:00        106     116     3
+29.12.2025 12:00        110     120     4
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        100     110     (empty)
+29.12.2025 09:00        101     111     1
+29.12.2025 10:00        103     113     2
+29.12.2025 11:00        106     116     3
+29.12.2025 12:00        110     120     4
+
+✓ Result: MATCH - All values correctly replaced, delta calculated
+
+
+================================================================================
+ENTITY 2: sensor.cnt_part_overlap_new (m3)
+Pattern: Partial overlap - some unchanged, some changed, some new
+================================================================================
+
+--- FIRST IMPORT (counter_sum_state.txt) ---
+Time                    Sum     State
+29.12.2025 08:00        0       100
+29.12.2025 09:00        5       105
+29.12.2025 10:00        12      112
+29.12.2025 11:00        20      120
+29.12.2025 12:00        30      130
+
+--- SECOND IMPORT (counter_sum_state_changes.txt) ---
+Time                    Sum     State
+29.12.2025 10:00        50      150     ← REPLACED (was 12, 112)
+29.12.2025 11:00        60      160     ← REPLACED (was 20, 120)
+29.12.2025 12:00        75      175     ← REPLACED (was 30, 130)
+29.12.2025 13:00        95      195     ← NEW ROW
+29.12.2025 14:00        120     220     ← NEW ROW
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        0       100     (empty)    ← UNCHANGED
+29.12.2025 09:00        5       105     5          ← UNCHANGED
+29.12.2025 10:00        50      150     45         ← CHANGED (delta recalculated)
+29.12.2025 11:00        60      160     10         ← CHANGED
+29.12.2025 12:00        75      175     15         ← CHANGED
+29.12.2025 13:00        95      195     20         ← NEW
+29.12.2025 14:00        120     220     25         ← NEW
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        0       100     (empty)
+29.12.2025 09:00        5       105     5
+29.12.2025 10:00        50      150     45
+29.12.2025 11:00        60      160     10
+29.12.2025 12:00        75      175     15
+29.12.2025 13:00        95      195     20
+29.12.2025 14:00        120     220     25
+
+✓ Result: MATCH - Partial overlap handled correctly, delta recalculated
+
+
+================================================================================
+ENTITY 3: sensor:cnt_some_changed (kWh) [External statistic]
+Pattern: Only some values changed (last 2 hours)
+================================================================================
+
+--- FIRST IMPORT (counter_sum_state.txt) ---
+Time                    Sum     State
+29.12.2025 08:00        0       50
+29.12.2025 09:00        2       52
+29.12.2025 10:00        5       55
+29.12.2025 11:00        9       59
+29.12.2025 12:00        14      64
+
+--- SECOND IMPORT (counter_sum_state_changes.txt) ---
+Time                    Sum     State
+29.12.2025 11:00        50      100     ← REPLACED (was 9, 59)
+29.12.2025 12:00        60      110     ← REPLACED (was 14, 64)
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        0       50      (empty)    ← UNCHANGED
+29.12.2025 09:00        2       52      2          ← UNCHANGED
+29.12.2025 10:00        5       55      3          ← UNCHANGED
+29.12.2025 11:00        50      100     45         ← CHANGED (delta recalculated)
+29.12.2025 12:00        60      110     10         ← CHANGED
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        0       50      (empty)
+29.12.2025 09:00        2       52      2
+29.12.2025 10:00        5       55      3
+29.12.2025 11:00        50      100     45
+29.12.2025 12:00        60      110     10
+
+✓ Result: MATCH - Selective updates work correctly, delta recalculated
+
+
+================================================================================
+ENTITY 4: sensor:cnt_all_changed_new (L) [External statistic]
+Pattern: All values changed + new values added
+================================================================================
+
+--- FIRST IMPORT (counter_sum_state.txt) ---
+Time                    Sum     State
+29.12.2025 08:00        0       200
+29.12.2025 09:00        10      210
+29.12.2025 10:00        25      225
+29.12.2025 11:00        45      245
+29.12.2025 12:00        70      270
+
+--- SECOND IMPORT (counter_sum_state_changes.txt) ---
+Time                    Sum     State
+29.12.2025 08:00        500     700     ← REPLACED
+29.12.2025 09:00        510     710     ← REPLACED
+29.12.2025 10:00        525     725     ← REPLACED
+29.12.2025 11:00        545     745     ← REPLACED
+29.12.2025 12:00        570     770     ← REPLACED
+29.12.2025 13:00        600     800     ← NEW ROW
+29.12.2025 14:00        640     840     ← NEW ROW
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        500     700     (empty)
+29.12.2025 09:00        510     710     10
+29.12.2025 10:00        525     725     15
+29.12.2025 11:00        545     745     20
+29.12.2025 12:00        570     770     25
+29.12.2025 13:00        600     800     30
+29.12.2025 14:00        640     840     40
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Sum     State   Delta
+29.12.2025 08:00        500     700     (empty)
+29.12.2025 09:00        510     710     10
+29.12.2025 10:00        525     725     15
+29.12.2025 11:00        545     745     20
+29.12.2025 12:00        570     770     25
+29.12.2025 13:00        600     800     30
+29.12.2025 14:00        640     840     40
+
+✓ Result: MATCH - All changed + new rows handled correctly
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+All 4 counter entities tested successfully:
+
+✓ sensor.cnt_all_changed - All values replaced correctly
+✓ sensor.cnt_part_overlap_new - Partial overlap with unchanged/changed/new rows
+✓ sensor:cnt_some_changed - Selective updates (only last 2 hours)
+✓ sensor:cnt_all_changed_new - All changed + new rows added
+
+Key observations:
+- Import files have sum/state columns (NO delta column)
+- Export files have sum/state/delta columns (delta is CALCULATED on export)
+- Delta is empty for the first row of each entity (no previous value)
+- When values are updated, delta is recalculated based on new sum values
+- Mixed internal (sensor.*) and external (sensor:*) statistics work
+- Timestamps preserved correctly
+- Integer values maintained without decimal places
+
+================================================================================
+VERIFICATION RESULTS
+================================================================================
+
+✅ expected_after_import.tsv matches export_after_step1.tsv PERFECTLY
+✅ expected_after_changes.tsv matches export_after_step2.tsv PERFECTLY
+
+All reference files have been corrected with:
+- Delta column added to match export format
+- Proper column order: statistic_id, unit, start, sum, state, delta
+- Empty delta values for first row of each entity (trailing tab)
+
+The integration tests pass and all exported values match expected values exactly!

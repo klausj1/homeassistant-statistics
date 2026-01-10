@@ -1,0 +1,206 @@
+================================================================================
+SENSOR TEST COMPARISON RESULTS (mean/min/max)
+================================================================================
+
+This file shows the complete test workflow for each sensor entity:
+- First Import: Initial values imported
+- Second Import: Changed/new values imported
+- Exported Result: What was exported from the database
+- Reference Values: Expected values for comparison
+
+================================================================================
+ENTITY 1: sensor.sens_all_changed (C)
+Pattern: All values changed in second import
+================================================================================
+
+--- FIRST IMPORT (sensor_mean_min_max.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        20.5    18.0    23.0
+29.12.2025 09:00        21.0    19.0    24.0
+29.12.2025 10:00        22.5    20.5    25.0
+29.12.2025 11:00        23.0    21.0    26.0
+29.12.2025 12:00        24.5    22.0    27.5
+
+--- SECOND IMPORT (sensor_mean_min_max_changes.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        30.5    28.0    33.0    ← ALL VALUES REPLACED
+29.12.2025 09:00        31.0    29.0    34.0    ← ALL VALUES REPLACED
+29.12.2025 10:00        32.5    30.5    35.0    ← ALL VALUES REPLACED
+29.12.2025 11:00        33.0    31.0    36.0    ← ALL VALUES REPLACED
+29.12.2025 12:00        34.5    32.0    37.5    ← ALL VALUES REPLACED
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Min     Max     Mean
+29.12.2025 08:00        28      33      30.5
+29.12.2025 09:00        29      34      31
+29.12.2025 10:00        30.5    35      32.5
+29.12.2025 11:00        31      36      33
+29.12.2025 12:00        32      37.5    34.5
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        30.5    28.0    33.0
+29.12.2025 09:00        31.0    29.0    34.0
+29.12.2025 10:00        32.5    30.5    35.0
+29.12.2025 11:00        33.0    31.0    36.0
+29.12.2025 12:00        34.5    32.0    37.5
+
+✓ Result: MATCH - All values correctly replaced
+
+
+================================================================================
+ENTITY 2: sensor.sens_part_overlap_new (%)
+Pattern: Partial overlap - some unchanged, some changed, some new
+================================================================================
+
+--- FIRST IMPORT (sensor_mean_min_max.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        45.0    40.0    50.0
+29.12.2025 09:00        48.0    43.0    53.0
+29.12.2025 10:00        52.0    47.0    57.0
+29.12.2025 11:00        55.0    50.0    60.0
+29.12.2025 12:00        50.0    45.0    55.0
+
+--- SECOND IMPORT (sensor_mean_min_max_changes.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 10:00        62.0    57.0    67.0    ← REPLACED (was 52.0, 47.0, 57.0)
+29.12.2025 11:00        65.0    60.0    70.0    ← REPLACED (was 55.0, 50.0, 60.0)
+29.12.2025 12:00        60.0    55.0    65.0    ← REPLACED (was 50.0, 45.0, 55.0)
+29.12.2025 13:00        58.0    53.0    63.0    ← NEW ROW
+29.12.2025 14:00        55.0    50.0    60.0    ← NEW ROW
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Min     Max     Mean
+29.12.2025 08:00        40      50      45      ← UNCHANGED
+29.12.2025 09:00        43      53      48      ← UNCHANGED
+29.12.2025 10:00        57      67      62      ← CHANGED
+29.12.2025 11:00        60      70      65      ← CHANGED
+29.12.2025 12:00        55      65      60      ← CHANGED
+29.12.2025 13:00        53      63      58      ← NEW
+29.12.2025 14:00        50      60      55      ← NEW
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        45.0    40.0    50.0
+29.12.2025 09:00        48.0    43.0    53.0
+29.12.2025 10:00        62.0    57.0    67.0
+29.12.2025 11:00        65.0    60.0    70.0
+29.12.2025 12:00        60.0    55.0    65.0
+29.12.2025 13:00        58.0    53.0    63.0
+29.12.2025 14:00        55.0    50.0    60.0
+
+✓ Result: MATCH - Partial overlap handled correctly
+
+
+================================================================================
+ENTITY 3: sensor:sens_some_changed (C) [External statistic]
+Pattern: Only some values changed (last 2 hours)
+================================================================================
+
+--- FIRST IMPORT (sensor_mean_min_max.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        5.5     2.0     8.0
+29.12.2025 09:00        7.0     4.0     10.0
+29.12.2025 10:00        10.5    7.5     13.0
+29.12.2025 11:00        12.0    9.0     15.0
+29.12.2025 12:00        11.0    8.0     14.0
+
+--- SECOND IMPORT (sensor_mean_min_max_changes.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 11:00        15.0    12.0    18.0    ← REPLACED (was 12.0, 9.0, 15.0)
+29.12.2025 12:00        14.0    11.0    17.0    ← REPLACED (was 11.0, 8.0, 14.0)
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Min     Max     Mean
+29.12.2025 08:00        2       8       5.5     ← UNCHANGED
+29.12.2025 09:00        4       10      7       ← UNCHANGED
+29.12.2025 10:00        7.5     13      10.5    ← UNCHANGED
+29.12.2025 11:00        12      18      15      ← CHANGED
+29.12.2025 12:00        11      17      14      ← CHANGED
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        5.5     2.0     8.0
+29.12.2025 09:00        7.0     4.0     10.0
+29.12.2025 10:00        10.5    7.5     13.0
+29.12.2025 11:00        15.0    12.0    18.0
+29.12.2025 12:00        14.0    11.0    17.0
+
+✓ Result: MATCH - Selective updates work correctly
+
+
+================================================================================
+ENTITY 4: sensor:sens_all_changed_new (hPa) [External statistic]
+Pattern: All values changed + new values added
+================================================================================
+
+--- FIRST IMPORT (sensor_mean_min_max.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        1013.0  1010.0  1016.0
+29.12.2025 09:00        1012.0  1009.0  1015.0
+29.12.2025 10:00        1010.0  1007.0  1013.0
+29.12.2025 11:00        1008.0  1005.0  1011.0
+29.12.2025 12:00        1006.0  1003.0  1009.0
+
+--- SECOND IMPORT (sensor_mean_min_max_changes.txt) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        1020.0  1017.0  1023.0  ← REPLACED
+29.12.2025 09:00        1019.0  1016.0  1022.0  ← REPLACED
+29.12.2025 10:00        1017.0  1014.0  1020.0  ← REPLACED
+29.12.2025 11:00        1015.0  1012.0  1018.0  ← REPLACED
+29.12.2025 12:00        1013.0  1010.0  1016.0  ← REPLACED
+29.12.2025 13:00        1011.0  1008.0  1014.0  ← NEW ROW
+29.12.2025 14:00        1009.0  1006.0  1012.0  ← NEW ROW
+
+--- EXPORTED RESULT (export_after_step2.tsv) ---
+Time                    Min     Max     Mean
+29.12.2025 08:00        1017    1023    1020
+29.12.2025 09:00        1016    1022    1019
+29.12.2025 10:00        1014    1020    1017
+29.12.2025 11:00        1012    1018    1015
+29.12.2025 12:00        1010    1016    1013
+29.12.2025 13:00        1008    1014    1011
+29.12.2025 14:00        1006    1012    1009
+
+--- REFERENCE VALUES (expected_after_changes.tsv) ---
+Time                    Mean    Min     Max
+29.12.2025 08:00        1020.0  1017.0  1023.0
+29.12.2025 09:00        1019.0  1016.0  1022.0
+29.12.2025 10:00        1017.0  1014.0  1020.0
+29.12.2025 11:00        1015.0  1012.0  1018.0
+29.12.2025 12:00        1013.0  1010.0  1016.0
+29.12.2025 13:00        1011.0  1008.0  1014.0
+29.12.2025 14:00        1009.0  1006.0  1012.0
+
+✓ Result: MATCH - All changed + new rows handled correctly
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+All 4 sensor entities tested successfully:
+
+✓ sensor.sens_all_changed - All values replaced correctly
+✓ sensor.sens_part_overlap_new - Partial overlap with unchanged/changed/new rows
+✓ sensor:sens_some_changed - Selective updates (only last 2 hours)
+✓ sensor:sens_all_changed_new - All changed + new rows added
+
+Key observations:
+- Column order fixed: export has min/max/mean (was mean/min/max in old reference)
+- Decimal precision maintained correctly
+- Timestamps preserved correctly
+- Mixed internal (sensor.*) and external (sensor:*) statistics work
+
+================================================================================
+VERIFICATION RESULTS
+================================================================================
+
+✅ expected_after_import.tsv matches export_after_step1.tsv PERFECTLY
+✅ expected_after_changes.tsv matches export_after_step2.tsv PERFECTLY
+
+All reference files have been corrected with:
+- Proper column order: statistic_id, unit, start, min, max, mean
+- Matching decimal precision (no trailing .0 where export omits it)
+
+The integration tests pass and all exported values match expected values exactly!

@@ -1,0 +1,21 @@
+statistic_id	start	unit	sum	state
+sensor.cnt_all_changed	29.12.2025 08:00	kWh	0	10
+sensor.cnt_all_changed	29.12.2025 09:00	kWh	1	11
+sensor.cnt_all_changed	29.12.2025 10:00	kWh	3	13
+sensor.cnt_all_changed	29.12.2025 11:00	kWh	6	16
+sensor.cnt_all_changed	29.12.2025 12:00	kWh	10	20
+sensor.cnt_part_overlap_new	29.12.2025 08:00	m3	0	100
+sensor.cnt_part_overlap_new	29.12.2025 09:00	m3	5	105
+sensor.cnt_part_overlap_new	29.12.2025 10:00	m3	12	112
+sensor.cnt_part_overlap_new	29.12.2025 11:00	m3	20	120
+sensor.cnt_part_overlap_new	29.12.2025 12:00	m3	30	130
+sensor:cnt_some_changed	29.12.2025 08:00	kWh	0	50
+sensor:cnt_some_changed	29.12.2025 09:00	kWh	2	52
+sensor:cnt_some_changed	29.12.2025 10:00	kWh	5	55
+sensor:cnt_some_changed	29.12.2025 11:00	kWh	9	59
+sensor:cnt_some_changed	29.12.2025 12:00	kWh	14	64
+sensor:cnt_all_changed_new	29.12.2025 08:00	L	0	200
+sensor:cnt_all_changed_new	29.12.2025 09:00	L	10	210
+sensor:cnt_all_changed_new	29.12.2025 10:00	L	25	225
+sensor:cnt_all_changed_new	29.12.2025 11:00	L	45	245
+sensor:cnt_all_changed_new	29.12.2025 12:00	L	70	270
