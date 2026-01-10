@@ -48,16 +48,12 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 ### Other
 
 - Add integration tests for use cases:
-  - imp_inside: Correct values in the middle (e.g. connection of a sensor to HA did not work for some time)
   - imp_inside_spike: As above, but delta values are not correct
   - imp_inside_holes: Not all values in the DB are overwritten by the import
   - imp_partly_after: imp_after, but with overlap
-  - Add to export!!
 
 - Checks
   - Test what happens with a delta import when there is no entry in the DB at all: homeassistant.exceptions.HomeAssistantError: No metadata found for statistics: ['sensor:test_case_2_ext'] Error Could be returned as info to the UI, do not use delta when there is no reference at all
-
-- Sort test input files
 
 - Add counters without delta and sensor to integration test
 
@@ -66,8 +62,6 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
   - all values in import must overwrite existing values in DB, there must not be additional values in DB between oldest and youngest import. Alternative: Merge, could make sense as delta is the important part, and I did it for case 2 test intuitively. Alternative: document.
   - Import is not async anymore
 
-- Add non-delta imports to the integration test
-
 - Write a post
 
 ### Later
@@ -75,7 +69,7 @@ https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_
 - Setup a job to run the test in the pipeline as well, for pull requests
 - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import
   - Also in normal import an empty value is returned. I do not understand, maybe this is anyhow checked before already?
-- Code duplication between handle_import_from_file and json
+- Code duplication between handle_import_from_file and from json
 - Allow import of counter and sensor in one file
 - Why isn't pandas directly used to read json? prepare_json_data_to_import does some manual stuff, necessary?
 - Create arc-doc

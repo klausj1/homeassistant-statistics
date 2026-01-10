@@ -338,7 +338,6 @@ class TestIntegrationDeltaImports:
                     "sensor:imp_inside_holes",
                     "sensor:imp_partly_after",
                 ],
-
                 "start_time": "2025-06-29 00:00:00",
                 "end_time": "2025-12-31 00:00:00",
                 "timezone_identifier": "Europe/Vienna",

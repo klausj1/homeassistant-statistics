@@ -25,6 +25,34 @@ from custom_components.import_statistics.const import (
 from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
 
 
+def _validate_and_detect_delta(df: "pd.DataFrame", unit_from_entity: UnitFrom) -> bool:
+    """
+    Validate DataFrame columns and detect delta mode.
+
+    Args:
+    ----
+        df: DataFrame to validate
+        unit_from_entity: Source of unit values (TABLE or ENTITY)
+
+    Returns:
+    -------
+        True if delta mode is detected, False otherwise
+
+    Raises:
+    ------
+        HomeAssistantError: If column validation fails
+
+    """
+    _LOGGER.debug("Columns: %s", df.columns)
+
+    if not helpers.are_columns_valid(df, unit_from_entity):
+        helpers.handle_error(
+            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
+        )
+
+    return "delta" in df.columns
+
+
 def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     """
     Load and prepare data from CSV/TSV file for import.
@@ -52,15 +80,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
 
-    _LOGGER.debug("Columns: %s", my_df.columns)
-
-    if not helpers.are_columns_valid(my_df, unit_from_entity):
-        helpers.handle_error(
-            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
-        )
-
-    # Detect if this is delta mode (presence of delta column)
-    is_delta = "delta" in my_df.columns
+    is_delta = _validate_and_detect_delta(my_df, unit_from_entity)
 
     return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
@@ -109,15 +129,7 @@ def prepare_json_data_to_import(call: ServiceCall) -> tuple:
 
     my_df = pd.DataFrame(data, columns=columns)
 
-    _LOGGER.debug("Columns: %s", my_df.columns)
-
-    if not helpers.are_columns_valid(my_df, unit_from_entity):
-        helpers.handle_error(
-            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
-        )
-
-    # Detect if this is delta mode (presence of delta column)
-    is_delta = "delta" in my_df.columns
+    is_delta = _validate_and_detect_delta(my_df, unit_from_entity)
 
     return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
@@ -188,12 +200,6 @@ def handle_dataframe_no_delta(
 
     """
     columns = df.columns
-    _LOGGER.debug("Columns: %s", columns)
-
-    if not helpers.are_columns_valid(df, unit_from_where):
-        helpers.handle_error(
-            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
-        )
 
     stats = {}
     timezone = zoneinfo.ZoneInfo(timezone_identifier)

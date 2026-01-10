@@ -11,7 +11,10 @@ from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 from custom_components.import_statistics.helpers import UnitFrom
-from custom_components.import_statistics.import_service_helper import handle_dataframe_no_delta
+from custom_components.import_statistics.import_service_helper import (
+    _validate_and_detect_delta,
+    handle_dataframe_no_delta,
+)
 
 
 def test_handle_dataframe_mean() -> None:
@@ -369,12 +372,11 @@ def test_handle_dataframe_multiple_mean() -> None:
 
 def test_handle_dataframe_mean_sum() -> None:
     """
-    Test the _handle_dataframe function with a DataFrame that contains 'mean' and 'sum' values.
+    Test that _validate_and_detect_delta rejects a DataFrame with both 'mean' and 'sum' columns.
 
-    This function creates a DataFrame with two rows of data, each representing a different date with 'mean', 'min', and 'max' values.
-    It then defines the expected output, calls the _handle_dataframe function with the DataFrame and checks that the output matches the expected result.
+    This validates the constraint that mean/min/max columns cannot be combined with sum/state columns.
     """
-    # Create a sample dataframe with 'mean'
+    # Create a sample dataframe with invalid combination of 'min', 'max' and 'sum'
     my_df = pd.DataFrame(
         [
             ["stat1.mean", "01.01.2022 00:00", "unit1", 1, 10, 5],
@@ -387,7 +389,7 @@ def test_handle_dataframe_mean_sum() -> None:
         HomeAssistantError,
         match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)"),
     ):
-        _stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+        _validate_and_detect_delta(my_df, UnitFrom.TABLE)
 
 
 def test_handle_dataframe_mean_unit_from_entity() -> None:
