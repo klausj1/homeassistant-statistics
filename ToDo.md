@@ -2,18 +2,6 @@
 
 ## for delta
 
-### sum and state for sensors with state_class total_increasing explained
-
-**Table Explanation:**
-
-
-### Other
-
-- User doc
-  - rework AI-created Readme
-    - Check forward / backward in the use cases
-    - search for > §KJ:
-
 - Remove startup of HA in integration test, throw error instead
 
 - Check issues in repo. Future is fixed. Add to changelog.

@@ -82,9 +82,12 @@ The integration automatically converts deltas to absolute values using an existi
 | **Reference point** | At least one existing database value 1+ hour before or at/after your import range |
 | **Complete coverage** | You must provide values for ALL hours in your import range, which exists in the database (no gaps). This is the case automatically when you start with the exported file |
 
-> §KJ: Gaps see above or below??
+> **Warning**: Leaving gaps create strange results:
+> If you don't import all DB values in the import time range, you'll create unexpected values. For example, if the database has values at 09:00, 10:00, 11:00, 12:00, 13:00, 14:00 and you only import deltas at 10:00 and 13:00 (with a gap in between), you will get strange results. You have to provide the values for all timestamps in the DB you are importing, in this example you have to provide values for 10:00, 11:00, 12:00, 13:00.
 
 ### Delta Import Examples
+
+To better understand what the delta import does, expand and check the examples below.
 
 <details>
 <summary><strong>Example 1: Add historical data before sensor existed</strong></summary>
@@ -159,11 +162,54 @@ sensor:imp_inside	29.12.2025 14:00	kWh	5
 - 29.12.2025 16:00: sum=36, state=46 (delta: 8, unchanged)
 
 > **Important**: Please note there is no "spike" at 29.12.2025 15:00 because the sum of the deltas between 29.12.2025 09:00 and 29.12.2025 14:00 is identical in the database and in the import (both are 21). If there is a difference, then the delta at 29.12.2025 15:00 would be different than before the import, which results in a wrong value at this timestamp e.g. in the energy board.
+> See next example for such a spike
 
 </details>
 
 <details>
-<summary><strong>Example 3: Add values after existing data</strong></summary>
+<summary><strong>Example 3: Correct values in the middle (with spike)</strong></summary>
+
+Use case: Your sensor was offline and recorded wrong values. There is a problem in the import file which creates a spike.
+
+**Database before import:**
+- 29.12.2025 08:00: sum=0, state=10
+- 29.12.2025 09:00: sum=1, state=11 (delta: 1)
+- 29.12.2025 10:00: sum=3, state=13 (delta: 2)
+- 29.12.2025 11:00: sum=6, state=16 (delta: 3)
+- 29.12.2025 12:00: sum=10, state=20 (delta: 4)
+- 29.12.2025 13:00: sum=15, state=25 (delta: 5)
+- 29.12.2025 14:00: sum=21, state=31 (delta: 6)
+- 29.12.2025 15:00: sum=28, state=38 (delta: 7)
+- 29.12.2025 16:00: sum=36, state=46 (delta: 8)
+
+**Values to import:**
+```tsv
+statistic_id	start	unit	delta
+sensor:imp_inside_spike	29.12.2025 09:00	kWh	12
+sensor:imp_inside_spike	29.12.2025 10:00	kWh	12
+sensor:imp_inside_spike	29.12.2025 11:00	kWh	12
+sensor:imp_inside_spike	29.12.2025 12:00	kWh	15
+sensor:imp_inside_spike	29.12.2025 13:00	kWh	15
+sensor:imp_inside_spike	29.12.2025 14:00	kWh	15
+```
+
+**Result after import:**
+- 29.12.2025 08:00: sum=0, state=10 (unchanged, reference point)
+- 29.12.2025 09:00: sum=12, state=22 (delta: 12, corrected - much higher than original 1)
+- 29.12.2025 10:00: sum=24, state=34 (delta: 12, corrected)
+- 29.12.2025 11:00: sum=36, state=46 (delta: 12, corrected)
+- 29.12.2025 12:00: sum=51, state=61 (delta: 15, corrected)
+- 29.12.2025 13:00: sum=66, state=76 (delta: 15, corrected)
+- 29.12.2025 14:00: sum=81, state=91 (delta: 15, corrected)
+- 29.12.2025 15:00: sum=28, state=38 (delta: -53, **spike!** - negative value to compensate)
+- 29.12.2025 16:00: sum=36, state=46 (delta: 8, unchanged)
+
+> **Warning: Spike at the boundary!** Because the sum of imported deltas (12+12+12+15+15+15 = 81) is much larger than the original database deltas (1+2+3+4+5+6 = 21), the integration creates a negative delta of -53 at 29.12.2025 15:00 to reconnect to the existing database value. This spike will appear in visualizations like the energy board. To avoid this, ensure the total sum of your corrected deltas matches the total sum of the original values in that time range.
+
+</details>
+
+<details>
+<summary><strong>Example 4: Add values after existing data</strong></summary>
 
 Use case: Manually add consumption data for hours not yet in the database.
 
