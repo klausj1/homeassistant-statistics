@@ -4,14 +4,13 @@
 
 - Write a post
 
-- Release and post
-
 ### Later
 
 - Check copilot review comments, see mail from 2026-01-10
 - Do not fail silently also for other imports
 - In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00
-- Export has a timezine identifier as default, import not
+  - Not nice, but its not important for the performance. Committing the values to the DB takes the most time
+- Export has a timezone identifier as default, import not. Or probably wrong, that only happens when you change from an empty Yaml back to the GUI
 - Remove startup of HA in integration test, throw error instead
 
 - Developer doc
