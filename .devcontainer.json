@@ -1,7 +1,7 @@
 {
     "name": "klausj1/homeassistant-statistics",
     "image": "mcr.microsoft.com/devcontainers/python:3.13",
-    "postCreateCommand": "scripts/setup",
+    "postCreateCommand": "set -a && set +a && scripts/setup",
     "forwardPorts": [
         8123
     ],
@@ -18,7 +18,11 @@
                 "github.vscode-pull-request-github",
                 "ms-python.python",
                 "ms-python.vscode-pylance",
-                "ryanluker.vscode-coverage-gutters"
+                "ryanluker.vscode-coverage-gutters",
+                "github.copilot",
+                "rooveterinaryinc.roo-cline",
+                "mhutchie.git-graph",
+                "anthropic.claude-code"
             ],
             "settings": {
                 "files.eol": "\n",
@@ -37,5 +41,8 @@
         }
     },
     "remoteUser": "vscode",
-    "features": {}
+    "features": {},
+    "containerEnv": {
+        "HA_TOKEN_DEV": "${localEnv:HA_TOKEN_DEV}"
+    }
 }

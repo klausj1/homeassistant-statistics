@@ -1,0 +1,25 @@
+statistic_id	unit	start	min	max	mean
+sensor.sens_all_changed	C	29.12.2025 08:00	28	33	30.5
+sensor.sens_all_changed	C	29.12.2025 09:00	29	34	31
+sensor.sens_all_changed	C	29.12.2025 10:00	30.5	35	32.5
+sensor.sens_all_changed	C	29.12.2025 11:00	31	36	33
+sensor.sens_all_changed	C	29.12.2025 12:00	32	37.5	34.5
+sensor.sens_part_overlap_new	%	29.12.2025 08:00	40	50	45
+sensor.sens_part_overlap_new	%	29.12.2025 09:00	43	53	48
+sensor.sens_part_overlap_new	%	29.12.2025 10:00	57	67	62
+sensor.sens_part_overlap_new	%	29.12.2025 11:00	60	70	65
+sensor.sens_part_overlap_new	%	29.12.2025 12:00	55	65	60
+sensor.sens_part_overlap_new	%	29.12.2025 13:00	53	63	58
+sensor.sens_part_overlap_new	%	29.12.2025 14:00	50	60	55
+sensor:sens_all_changed_new	hPa	29.12.2025 08:00	1017	1023	1020
+sensor:sens_all_changed_new	hPa	29.12.2025 09:00	1016	1022	1019
+sensor:sens_all_changed_new	hPa	29.12.2025 10:00	1014	1020	1017
+sensor:sens_all_changed_new	hPa	29.12.2025 11:00	1012	1018	1015
+sensor:sens_all_changed_new	hPa	29.12.2025 12:00	1010	1016	1013
+sensor:sens_all_changed_new	hPa	29.12.2025 13:00	1008	1014	1011
+sensor:sens_all_changed_new	hPa	29.12.2025 14:00	1006	1012	1009
+sensor:sens_some_changed	C	29.12.2025 08:00	2	8	5.5
+sensor:sens_some_changed	C	29.12.2025 09:00	4	10	7
+sensor:sens_some_changed	C	29.12.2025 10:00	7.5	13	10.5
+sensor:sens_some_changed	C	29.12.2025 11:00	12	18	15
+sensor:sens_some_changed	C	29.12.2025 12:00	11	17	14

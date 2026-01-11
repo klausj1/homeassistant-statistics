@@ -1,6 +1,7 @@
 """Helpers for the import_statistics integration."""
 
 import datetime as dt
+import datetime as dt_module
 import logging
 import zoneinfo
 from enum import Enum
@@ -21,6 +22,13 @@ class UnitFrom(Enum):
 
     TABLE = 1
     ENTITY = 2
+
+
+class DeltaReferenceType(Enum):
+    """Type of reference used for delta conversion."""
+
+    OLDER_REFERENCE = "older"  # Reference is 1+ hour before oldest import
+    NEWER_REFERENCE = "newer"  # Reference is at or after newest import
 
 
 def get_source(statistic_id: str) -> str:
@@ -120,6 +128,73 @@ def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: s
     return {}
 
 
+def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
+    """
+    Extract delta statistic from a row.
+
+    Args:
+    ----
+        row (pd.Series): The input row containing the statistics data.
+        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
+        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
+
+    Returns:
+    -------
+        dict: A dictionary containing 'start' (datetime with timezone) and 'delta' (float).
+        dict: Empty dict {} if validation fails (silent failure pattern).
+
+    """
+    try:
+        if is_full_hour(row["start"], datetime_format) and is_valid_float(row["delta"]):
+            return {
+                "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+                "delta": float(row["delta"]),
+            }
+    except HomeAssistantError:
+        # Silent failure pattern - return empty dict on validation error
+        pass
+    return {}
+
+
+def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
+    """
+    Check if the newest timestamp is not too recent (in the future from HA perspective).
+
+    Home Assistant requires statistics to be at least 1 hour old.
+    The newest allowed time is: current time - 65 minutes, truncated to the full hour.
+
+    Args:
+    ----
+        newest_timestamp (dt.datetime): The newest timestamp in the import data (with timezone).
+
+    Returns:
+    -------
+        bool: True if the timestamp is valid (not too recent).
+
+    Raises:
+    ------
+        HomeAssistantError: If the timestamp is too recent (in the future).
+
+    """
+    now = dt.datetime.now(dt.UTC)
+    # Subtract 65 minutes and truncate to full hour
+    max_allowed = (now - dt.timedelta(minutes=65)).replace(minute=0, second=0, microsecond=0)
+
+    # Convert newest_timestamp to UTC for comparison
+    newest_utc = newest_timestamp.astimezone(dt.UTC)
+
+    if newest_utc > max_allowed:
+        # Display max_allowed in the same timezone as the input timestamp
+        max_allowed_local = max_allowed.astimezone(newest_timestamp.tzinfo)
+        msg = (
+            f"Timestamp {newest_timestamp} is too recent. "
+            f"The newest allowed timestamp is {max_allowed_local} (current time minus 65 minutes, truncated to full hour)."
+        )
+        handle_error(msg)
+
+    return True
+
+
 def is_full_hour(timestamp_str: str, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> bool:
     """
     Check if the given timestamp is a full hour.
@@ -209,17 +284,31 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
 
     """
     columns = df.columns
+
+    # Check required columns: statistic_id, start, and unit (unless from entity)
+    # Determine if this is delta or non-delta data first
+    has_delta = "delta" in columns
+
     if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_where == UnitFrom.ENTITY)):
         handle_error(
             "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
         )
-    if not (("mean" in columns and "min" in columns and "max" in columns) or ("sum" in columns)):
-        handle_error("The file must contain either the columns 'mean', 'min' and 'max' or the column 'sum' (check delimiter)")
-    if ("mean" in columns or "min" in columns or "max" in columns) and ("sum" in columns or "state" in columns):
+
+    # Check for value column requirements and incompatible combinations
+    has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
+    has_sum_state = "sum" in columns or "state" in columns
+
+    if has_delta:
+        # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
+        if "sum" in columns or "state" in columns or has_mean_min_max:
+            handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)")
+    # Non-delta: cannot mix mean/min/max with sum/state
+    elif has_mean_min_max and has_sum_state:
         handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
 
-    # Define allowed columns based on whether unit is from entity or table
-    allowed_columns = {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
+    # Define allowed columns based on data type and unit source
+    allowed_columns = {"statistic_id", "start", "delta"} if has_delta else {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
+
     if unit_from_where == UnitFrom.TABLE:
         allowed_columns.add("unit")
 
@@ -329,7 +418,6 @@ def validate_filename(filename: str, config_dir: str) -> str:
     - The filename is a string
     - No absolute paths
     - No .. directory traversal sequences
-    - No path separators (/)
     - The resolved path stays within config_dir
 
     Args:
@@ -356,10 +444,6 @@ def validate_filename(filename: str, config_dir: str) -> str:
     if filename.startswith("/"):
         handle_error(f"Filename cannot be an absolute path: {filename}")
 
-    # Reject path separators
-    if "/" in filename or "\\" in filename:
-        handle_error(f"Filename cannot contain path separators: {filename}")
-
     # Reject .. sequences
     if ".." in filename:
         handle_error(f"Filename cannot contain .. directory traversal: {filename}")
@@ -375,3 +459,54 @@ def validate_filename(filename: str, config_dir: str) -> str:
         handle_error(f"Filename would resolve outside config directory: {filename}")
 
     return str(file_path)
+
+
+def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, format_str: str) -> str:
+    """
+    Format a datetime object to string in specified timezone and format.
+
+    Args:
+         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
+         timezone: Target timezone
+         format_str: Format string
+
+    Returns:
+         str: Formatted datetime string
+
+    """
+    # Handle Unix timestamp (float) from recorder API
+    if isinstance(dt_obj, float):
+        dt_obj = dt_module.datetime.fromtimestamp(dt_obj, tz=dt.UTC)
+    elif dt_obj.tzinfo is None:
+        # Assume UTC if naive
+        dt_obj = dt_obj.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
+
+    # Convert to target timezone
+    local_dt = dt_obj.astimezone(timezone)
+
+    return local_dt.strftime(format_str)
+
+
+def format_decimal(value: float | None, *, use_comma: bool = False) -> str:
+    """
+    Format a numeric value with specified decimal separator.
+
+    Handles numeric values including min, max, mean, sum, state, and delta values.
+
+    Args:
+         value: Numeric value to format
+         use_comma: Use comma (True) or dot (False) as decimal separator
+
+    Returns:
+         str: Formatted number string
+
+    """
+    if value is None:
+        return ""
+
+    formatted = f"{float(value):.10g}"  # Avoid scientific notation, remove trailing zeros
+
+    if use_comma:
+        formatted = formatted.replace(".", ",")
+
+    return formatted

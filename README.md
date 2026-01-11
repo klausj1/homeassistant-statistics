@@ -1,143 +1,157 @@
-# Import statistics integration
+# Import Statistics
 
-This HA integration allows to import / export long term statistics from / to a file like csv or tsv, or JSON.
+A Home Assistant custom integration to import and export long-term statistics from CSV, TSV, or JSON files.
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
-
-<!-- ![Project Maintenance][maintenance-shield] -->
-
 [![Community Forum][forum-shield]][forum]
 
-**This integration just offers actions (previously known as services)**
+> **Note:** This integration provides actions only (no entities or dashboard cards). You call its actions from Developer Tools or automations.
+
+## Quick Links
+
+- [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting](#troubleshooting)
+- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
+
+## Requirements
+
+- Home Assistant 2026.1.0 or newer
 
 ## Installation
 
-> This integration requires HA 2025.12.0 or newer
+### Option 1: HACS (Recommended)
 
-### HACS
+1. Install via HACS, or click: [![Open HACS Repository][hacs-repo-badge]][hacs-repo]
+2. Restart Home Assistant
+3. Add the integration: [![Add Integration][config-flow-badge]][config-flow]
 
-The preferred way is to use HACS:
+### Option 2: Manual
 
-1. Search and download this integration to your HA installation via HACS, or click:
+1. Download all files from `custom_components/import_statistics/` in this repository
+2. Copy them to `<config>/custom_components/import_statistics/` (create folders if needed)
+3. Add `import_statistics:` to your `configuration.yaml`
+4. Restart Home Assistant
 
-   [![Open HACS Repository][hacs-repo-badge]][hacs-repo]
+## Available Actions
 
-1. Restart home assistant
+| Action | Description |
+|--------|-------------|
+| `import_statistics.import_from_file` | Import statistics from a CSV/TSV file |
+| `import_statistics.import_from_json` | Import statistics from JSON (UI or API) |
+| `import_statistics.export_statistics` | Export statistics to CSV/TSV or JSON |
 
-1. Add this integration to Home Assistant, or click:
+> As this integration uses database-independent methods, it works with all databases supported by Home Assistant.
 
-   [![Add Integration][config-flow-badge]][config-flow]
+---
 
-### Manual installation
+## Importing Statistics
 
-1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
-1. If you do not have a `custom_components` directory (folder) there, you need to create it.
-1. In the `custom_components` directory (folder) create a new folder called `import_statistics`.
-1. Download _all_ the files from the `custom_components/import_statistics/` directory (folder) in this repository.
-1. Place the files you downloaded in the new directory (folder) you created.
-1. Add `import_statistics:` to your configuration .yaml (if it is possible to do this in the UI in some way without directly editing the yaml file, please let me know)
-1. Restart Home Assistant
+### Step 1: Prepare Your File
 
-## Usage
+Your file must contain one type of statistics:
+- **Sensors (state_class == measurement)** (temperature, humidity, etc.): columns `min`, `max`, `mean`
+- **Counters (state_class == increasing or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
 
-This integration offers the action `import_from_file` to import statistics from a file and `import_from_json` to import from an uploaded JSON.
+> **Before importing counters, make sure to read** [Understanding counter statistics in Home Assistant](./docs/user/counters.md)
+> For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Delta Import](./docs/user/counters.md#delta-import)
 
-> As this integration uses database-independent methods of the recorder to do the import, it does not depend on the used database - it should work for all databases supported by HA.
+Example files:
+- [Sensors (min/max/mean)](./assets/min_max_mean.tsv)
+- [Counters (sum/state)](./assets/state_sum.tsv)
+- [Counters (delta)](./assets/delta.tsv)
 
-### import_from_file
+### Step 2: File Format Requirements
 
-First, create your file. The structure is different for statistics with min/max/mean and counter statistics with state/sum.
+| Requirement | Details |
+|-------------|---------|
+| **Timestamp format** | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (other formats are also possible)|
+| **Timestamp constraint** | Minutes must be `:00` (full hours only) |
+| **Timezone** | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., Europe/Vienna) |
+| **File encoding** | UTF-8 (required for special characters like m³ or °C) |
+| **Delimiter** | Tab (default), comma, semicolon, or pipe |
+| **Decimal separator** | `.` (default) or `,` |
 
-Here you can find example files for both.
+### Step 3: Statistic ID Format
 
-- [min/max/mean](./assets/min_max_mean.tsv)
-- [Counters (state/sum)](./assets/state_sum.tsv)
+| Type | Format | Example | When to use |
+|------|--------|---------|-------------|
+| **Internal** | `sensor.name` (with `.`) | `sensor.temperature` | For existing Home Assistant entities |
+| **External** | `domain:name` (with `:`) | `sensor:imported_energy` | For external (custom/synthetic) statistics |
 
-The examples are hopefully self-explaining, just some additional information:
+> Internal statistics must match an existing entity.
 
-- You can either import **min/max/mean or counters**, but you cannot mix them in one file
-- You can import the same or changed data as often as you like, there will not be duplicate data (as **existing values will be overwritten**). So, you can use this integration to add values or to correct existing values
-- You can use different **settings** for the **delimiter** (default is tab (tsv))
-- For floats, the **decimal separator** can be **'.' or ','**
-- You should be able to find your **timezone** [here](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), or check the python documentation (pytz). Keep in mind that the times are local times of the HA server.
-- The timestamp (column `start`) **must** be of the **format "%d.%m.%Y %H:%M" (e.g. "17.03.2024 02:00")**
-  - Always use 2 digits for all parts except the year, which needs 4 digits - just like the example above
-- If you do not import values for every hour, you will get **gaps in the graphs** (depending on the used card and its settings)
-- The **minutes of the timestamp must be zero**. This is due to the [long-term statistics](https://data.home-assistant.io/docs/statistics/#:~:text=Home%20Assistant%20has%20support%20for,of%20the%20short%2Dterm%20statistics.), which only store hourly values.
-- If you use non-ASCII-characters (like m³) the codepage of your file must be **UTF-8**
-- You can import:
-    - Either statistics for **existing sensors** (internal statistics). These sensors have a '.' in its name, e.g. sensor.sun_solar_azimuth
-        - If you try to import such a sensor which does not exist, you will see this sensor under developer tools / statistics, with an error. You can fix the error there, whereas fix means, remove it from database again
-    - Or statistics for **not existing sensors** (external statistics). These sensors have a ':' in its name, e.g. sensor:not_existing_sun_solar_azimuth
-- min/max/mean are pretty straight forward, whereas counters are more complex. To understand what `sum`and `state` means, you can e.g. check [this](https://developers.home-assistant.io/blog/2021/08/16/state_class_total/)
-    - To be sure that the energy board and your graphs show correct values, import state and sum. You can use the same value for sum and state.
-    - You have to align the imported values with the first current value in your database, otherwise there will be a spike, as the difference between e.g. to energy values at 00:00 and 01:00 is the used energy for the hour starting at 00:00
-- **Unknown columns are rejected**: Any columns in your file that are not recognized (e.g. typos in column names or extra data columns) will cause an import error. Only the following columns are allowed: `statistic_id`, `start`, `unit` (only allowed if unit comes from the file), `min`, `max`, `mean`, `sum`, `state`
-- **Mean always uses average**: The mean value is calculated as a simple arithmetic average. This means that for circular/angular values (like wind direction, compass bearings), the average will give incorrect results.
+### Step 4: Run the Import
 
-Then, copy your file to your HA configuration (where you find `configuration.yaml`).
+1. Copy your file to your Home Assistant config folder
+2. Go to **Developer Tools → Actions**
+3. Select `import_statistics: import_from_file`
+4. Fill in the settings:
 
-Then, go to `Developer tools / Actions` (called Services in former HA versions), and select the action `import_statistics: import_from_file`.
+![import from file](assets/service_import_ui.png)
 
-Fill out the settings in the UI:
-
-![ui_settings](assets/service_ui.png)
-
-or use the yaml syntax:
+Or use YAML:
 
 ```yaml
 action: import_statistics.import_from_file
 data:
+  filename: my_statistics.tsv
   timezone_identifier: Europe/Vienna
   delimiter: \t
   decimal: false
-  filename: counterdata.tsv
 ```
 
-Last, call the action. You will get feedback directly in the GUI.
+### Import Behavior
 
-> The importing is an async operation. Depending on the size of the import, it can take some time until the import is finished, even though you already get an OK as feedback in the GUI
+- **Overwrites existing data**: Importing the same timestamps replaces old values
+- **Gaps are preserved**: Missing hours will show as gaps in graphs
+- **Synchronous operation**: The action completes when all data is saved into the database. This can take a longer time for large input data
+- **Validation errors**: Shown directly in the UI; check logs if import fails silently
 
-> If importing does not work, and you do not get an error directly in the GUI, but there is an error in the home assistant logs, then this is a bug (this happens if the integration misses some checks, which lead to import errors later). Please create an issue.
+> If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
 
-### import_from_json
+### Allowed Columns
 
-This works similarly to the file import, but can _also_ be called via the homeassistant api.
+Only these columns are accepted (unknown columns cause an error):
 
-The JSON format is shown here:
+| Column | Required | Description |
+|--------|----------|-------------|
+| `statistic_id` | Yes | The sensor identifier |
+| `start` | Yes | Timestamp |
+| `unit` | Sometimes | Required for external statistics |
+| `min`, `max`, `mean` | For sensors | Cannot mix with counter columns |
+| `sum`, `state` | For counters | Cannot mix with sensor columns |
+| `delta` | For counters | Alternative to sum/state (see below) |
 
-- [state_sum.json](./assets/state_sum.json)
+### JSON Import
 
-You can upload the json via the api at: `https://<homeassistant.url>/api/services/import_statistics/import_from_json` with the JSON file as the request body.
+You can also import via JSON, either through the UI or the Home Assistant API.
 
-## Export
+Example format: [state_sum.json](./assets/state_sum.json)
 
-This integration also offers the action `export_statistics` to export statistics to a file (TSV/CSV format, or JSON format).
-
-> The export operation is asynchronous. Depending on the size of the export, it can take some time until the export is finished.
-
-First, go to `Developer tools / Actions`, and select the action `import_statistics: export_statistics`.
-
-Fill out the settings in the UI:
-
-- **Filename**: The name of the file to export to (relative to your configuration directory). E.g., `exported_statistics.tsv`. If the suffix is .json, the file is exported as JSON.
-- **Entities**: List of entity IDs or statistic IDs to export. You can export both:
-  - **Internal statistics**: Existing sensors like `sensor.temperature` (format with '.')
-  - **External statistics**: Custom statistics like `sensor:my_custom_statistic` (format with ':')
-  - Make sure to use a Yaml list like:
-```yaml
-- sensor.temperature
-- sensor:my_custom_statistic
+**Via API:**
 ```
-- **Start time**: The beginning of the time range to export (must be a full hour, e.g., "2025-12-22 12:00:00")
-- **End time**: The end of the time range to export (must be a full hour, e.g., "2025-12-25 12:00:00")
-- **Timezone identifier** (optional, default: "Europe/Vienna"): Timezone for formatting the timestamps in the exported file
-- **Delimiter** (optional, default: tab): Column separator for the export file. Options: tab (`\t`), semicolon (`;`), comma (`,`), or pipe (`|`)
-- **Decimal** (optional, default: false==dot): Use comma (true) or dot (false) as decimal separator in numeric values
+POST https://<your-ha-url>/api/services/import_statistics/import_from_json
+Content-Type: application/json
 
-Or use the YAML syntax, e.g.:
+<JSON content>
+```
+
+---
+
+## Exporting Statistics
+
+Export your statistics to a file e.g. for backup, analysis, preparing a counter import with delta, or transfer to another Home Assistant instance.
+
+### How to Export
+
+1. Go to **Developer Tools → Actions**
+2. Select `import_statistics: export_statistics`
+3. Fill in the settings:
+
+![export to file](assets/service_export_ui.png)
+
+Or use YAML:
 
 ```yaml
 action: import_statistics.export_statistics
@@ -146,6 +160,7 @@ data:
   entities:
     - sensor.temperature
     - sensor.energy_consumption
+    - sensor:ext_value
   start_time: "2025-12-22 12:00:00"
   end_time: "2025-12-25 12:00:00"
   timezone_identifier: Europe/Vienna
@@ -153,28 +168,41 @@ data:
   decimal: false
 ```
 
-The exported file will contain the following columns:
-- `statistic_id`: The ID of the statistic
-- `unit`: The unit of measurement
-- `start`: The timestamp of the data point (in your specified timezone and format)
-- For **sensors**: `min`, `max`, `mean` - the minimum, maximum, and average values for the hour
-- For **counters**: `sum`, `state` - the summed value and the state value for the hour
+### Export Output
 
-You can then import this file back into Home Assistant (or another instance) using the `import_from_file` action.
+The exported file contains:
 
-You can mix sensors and counters in one export. However, in this case a direct import is not possible, as `import_from_file` can only import either sensors or counters in one file.
+| For Sensors | For Counters |
+|-------------|--------------|
+| `min`, `max`, `mean` | `sum`, `state`, `delta` |
 
-## Concrete examples
+> **Note:** You can export sensors and counters together, but you'll need to split them into separate files before re-importing (import only accepts one type per file).
 
-[Loading, Manipulating, Recovering and Moving Long Term Statistics in Home Assistant](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802) describes concrete examples to enhance/repair your historical data, esp. explaining the complex topic with state and sum. If you have troubles with state/sum, make sure you read this. Thx to Geoffrey!
+---
 
-A guide to migrate from Jeedom statistics data is available [here](./misc/jeedom.md).
+## Additional Resources
 
-## Contributions are welcome!
+- **[Community Guide: Loading, Manipulating, and Recovering Statistics](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802)** — Detailed examples for fixing historical data (thanks to Geoffrey!)
+- **[Jeedom Migration Guide](./misc/jeedom.md)** — How to import statistics from Jeedom
 
-If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
+---
 
-***
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Import shows no error but data doesn't appear | Check Home Assistant logs for details, and create a bug in the repo |
+| "Unknown column" error | Check for typos in column names; see [Allowed Columns](#allowed-columns) |
+| Spikes in Energy Dashboard after import | Your `sum` values don't align with existing data; see [Counter Statistics](./docs/user/counters.md#understanding-counter-statistics-sumstate) |
+| Mean values wrong for compass/wind direction | Mean uses arithmetic average, which doesn't work for circular values |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read the [Contribution Guidelines](CONTRIBUTING.md).
+
+---
 
 [import_statistics]: https://github.com/klausj1/homeassistant-statistics
 [commits-shield]: https://img.shields.io/github/commit-activity/y/klausj1/homeassistant-statistics.svg

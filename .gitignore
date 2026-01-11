@@ -11,9 +11,17 @@ __pycache__
 .vscode
 coverage.xml
 .ruff_cache
+htmlcov/
 
 
 # Home Assistant configuration
 config/*
 !config/configuration.yaml
 !config/*.csv
+!config/test_*
+
+# mcp with secrets
+mcp.json
+
+# environment variables
+.env
