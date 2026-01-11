@@ -14,6 +14,8 @@ A Home Assistant custom integration to import and export long-term statistics fr
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting](#troubleshooting)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
 
+This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
+
 ## Requirements
 
 - Home Assistant 2026.1.0 or newer

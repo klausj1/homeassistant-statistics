@@ -1,4 +1,4 @@
-# Architecture Description: Home Assistant Statistics Import/Export Integration
+# Architecture Description
 
 ## Overview
 
@@ -77,47 +77,42 @@ Minimal configuration flow using empty config schema.
 
 This section describes the internal module dependencies within the integration and the external dependencies to a running Home Assistant. The architecture follows a layered approach where pure validation functions ([`helpers.py`](custom_components/import_statistics/helpers.py)) have minimal dependencies, while service handlers coordinate between Home Assistant APIs and business logic.
 
-### Internal Module Dependencies
+```mermaid
+graph TB
+    subgraph import_statistics["import_statistics"]
+        const[const]
+        helpers[helpers]
+        import_service[import_service]
+        import_service_helper[import_service_helper]
+        import_service_delta_helper[import_service_delta_helper]
+        delta_database_access[delta_database_access]
+        export_service[export_service]
+        export_service_helper[export_service_helper]
+        init[__init__]
+        config_flow[config_flow]
+    end
 
-```plantuml
-@startuml Module Dependencies
+    ha_core[Running HA]
 
-package "import_statistics" {
-  component "const"
-  component "helpers"
-  component "import_service"
-  component "import_service_helper"
-  component "import_service_delta_helper"
-  component "delta_database_access"
-  component "export_service"
-  component "export_service_helper"
-  component "init"
-  component "config_flow"
-}
+    %% Internal dependencies
+    helpers --> const
+    import_service --> import_service_helper
+    import_service --> delta_database_access
+    import_service --> import_service_delta_helper
+    import_service --> helpers
+    import_service_helper --> helpers
+    import_service_delta_helper --> helpers
+    delta_database_access --> helpers
+    export_service --> export_service_helper
+    export_service --> helpers
+    export_service_helper --> helpers
+    init --> import_service
+    init --> export_service
 
-  component "Running HA" as ha_core
-
-' Internal dependencies
-helpers --> const
-import_service --> import_service_helper
-import_service --> delta_database_access
-import_service --> import_service_delta_helper
-import_service --> helpers
-import_service_helper --> helpers
-import_service_delta_helper --> helpers
-delta_database_access --> helpers
-export_service --> export_service_helper
-export_service --> helpers
-export_service_helper --> helpers
-init --> import_service
-init --> export_service
-
-' Home Assistant Core dependencies
-init --> ha_core
-import_service --> ha_core
-export_service --> ha_core
-
-@enduml
+    %% Home Assistant Core dependencies
+    init --> ha_core
+    import_service --> ha_core
+    export_service --> ha_core
 ```
 
 ---
