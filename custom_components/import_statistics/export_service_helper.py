@@ -113,6 +113,8 @@ def prepare_export_data(
                 },
                 all_columns=all_columns,
             )
+            # Store the original numeric timestamp for sorting
+            row_dict["_sort_timestamp"] = stat_record["start"]
             rows.append(row_dict)
 
     # Calculate deltas for counter exports
@@ -134,11 +136,13 @@ def prepare_export_data(
     if has_deltas:
         column_order.append("delta")
 
-    # Sort rows by statistic_id first (alphabetical), then by start timestamp (chronological)
-    # This ensures statistic_ids are grouped together and timestamps within each group are in chronological order
-    rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
+    # Sort rows by statistic_id first (alphabetical), then by numeric timestamp (chronological)
+    # Use the stored numeric timestamp (_sort_timestamp) to ensure correct chronological order
+    # regardless of the datetime format string chosen by the user
+    rows = sorted(rows, key=lambda r: (r["statistic_id"], r["_sort_timestamp"]))
 
     # Convert row dicts to tuples in column order, filling empty cells
+    # Exclude the internal _sort_timestamp field from output
     data_rows = [tuple(row_dict.get(col, "") for col in column_order) for row_dict in rows]
 
     _LOGGER.debug("Export data prepared with columns: %s", column_order)
@@ -338,7 +342,7 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
     The first record of each statistic_id has an empty delta (no previous value).
 
     Args:
-         rows: List of row dicts with statistic_id, start, sum, and/or state fields
+         rows: List of row dicts with statistic_id, _sort_timestamp (numeric), start (formatted string), sum, and/or state fields
          decimal_comma: Use comma (True) or dot (False) as decimal separator for output
 
     Returns:
@@ -348,9 +352,9 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
     if not rows:
         return []
 
-    # Sort rows by statistic_id first, then by start timestamp (sorted as string works if format is consistent)
-    # Start is in datetime format like "26.01.2024 12:00" - sort as string works if format is consistent
-    sorted_rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
+    # Sort rows by statistic_id first, then by numeric timestamp (_sort_timestamp)
+    # This ensures correct chronological order regardless of datetime format string
+    sorted_rows = sorted(rows, key=lambda r: (r["statistic_id"], r["_sort_timestamp"]))
 
     result = []
     previous_sum_by_id = {}
@@ -391,5 +395,4 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
 
         result.append(new_row)
 
-    # Sort result by statistic_id and start to ensure consistent output order
-    return sorted(result, key=lambda r: (r["statistic_id"], r["start"]))
+    return result

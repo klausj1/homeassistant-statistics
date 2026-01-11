@@ -166,8 +166,8 @@ def test_convert_delta_dataframe_with_references_external_statistics() -> None:
     assert metadata["has_sum"] is True
 
 
-def test_convert_delta_dataframe_with_references_invalid_rows_filtered() -> None:
-    """Test handle_dataframe_delta silently filters invalid rows."""
+def test_convert_delta_dataframe_with_references_invalid_rows_throws_error() -> None:
+    """Test handle_dataframe_delta throws an error for invalid rows."""
     tz_id = "Europe/Vienna"
     tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
@@ -188,9 +188,5 @@ def test_convert_delta_dataframe_with_references_invalid_rows_filtered() -> None
         }
     }
 
-    result = handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
-
-    # Only valid row should be included
-    _metadata, stats = result["sensor.temperature"]
-    assert len(stats) == 1
-    assert stats[0]["sum"] == 105.2
+    with pytest.raises(HomeAssistantError, match="Invalid delta row for"):
+        handle_dataframe_delta(df, tz_id, datetime_format, UnitFrom.TABLE, references)
