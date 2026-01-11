@@ -9,8 +9,8 @@ from homeassistant.exceptions import HomeAssistantError
 from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_older_reference
 
 
-def test_convert_deltas_case_1_single_delta() -> None:
-    """Test convert_deltas_case_1 with single delta row."""
+def test_convert_deltas_older_ref_single_delta() -> None:
+    """Test convert_deltas_older_ref with single delta row."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {
@@ -27,8 +27,8 @@ def test_convert_deltas_case_1_single_delta() -> None:
     assert result[0]["state"] == 110.5
 
 
-def test_convert_deltas_case_1_multiple_deltas() -> None:
-    """Test convert_deltas_case_1 with multiple delta rows."""
+def test_convert_deltas_older_ref_multiple_deltas() -> None:
+    """Test convert_deltas_older_ref with multiple delta rows."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 10.5},
@@ -47,8 +47,8 @@ def test_convert_deltas_case_1_multiple_deltas() -> None:
     assert result[2]["state"] == 118.8
 
 
-def test_convert_deltas_case_1_negative_deltas() -> None:
-    """Test convert_deltas_case_1 with negative deltas."""
+def test_convert_deltas_older_ref_negative_deltas() -> None:
+    """Test convert_deltas_older_ref with negative deltas."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": -10.5},
@@ -64,8 +64,8 @@ def test_convert_deltas_case_1_negative_deltas() -> None:
     assert result[1]["state"] == 84.3
 
 
-def test_convert_deltas_case_1_zero_delta() -> None:
-    """Test convert_deltas_case_1 with zero delta."""
+def test_convert_deltas_older_ref_zero_delta() -> None:
+    """Test convert_deltas_older_ref with zero delta."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 0.0},
@@ -78,8 +78,8 @@ def test_convert_deltas_case_1_zero_delta() -> None:
     assert result[0]["state"] == 100.0
 
 
-def test_convert_deltas_case_1_mixed_deltas() -> None:
-    """Test convert_deltas_case_1 with mixed positive and negative deltas."""
+def test_convert_deltas_older_ref_mixed_deltas() -> None:
+    """Test convert_deltas_older_ref with mixed positive and negative deltas."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 10.0},
@@ -95,8 +95,8 @@ def test_convert_deltas_case_1_mixed_deltas() -> None:
     assert result[2]["sum"] == 108.0
 
 
-def test_convert_deltas_case_1_large_values() -> None:
-    """Test convert_deltas_case_1 with large delta values."""
+def test_convert_deltas_older_ref_large_values() -> None:
+    """Test convert_deltas_older_ref with large delta values."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 999999.99},
@@ -109,8 +109,8 @@ def test_convert_deltas_case_1_large_values() -> None:
     assert result[0]["state"] == 1999999.99
 
 
-def test_convert_deltas_case_1_unsorted_rows_raises_error() -> None:
-    """Test convert_deltas_case_1 raises error for unsorted rows."""
+def test_convert_deltas_older_ref_unsorted_rows_raises_error() -> None:
+    """Test convert_deltas_older_ref raises error for unsorted rows."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 2, 0, tzinfo=tz), "delta": 3.1},
@@ -122,15 +122,15 @@ def test_convert_deltas_case_1_unsorted_rows_raises_error() -> None:
         convert_deltas_with_older_reference(delta_rows, sum_oldest=100.0, state_oldest=100.0)
 
 
-def test_convert_deltas_case_1_empty_rows() -> None:
-    """Test convert_deltas_case_1 with empty rows."""
+def test_convert_deltas_older_ref_empty_rows() -> None:
+    """Test convert_deltas_older_ref with empty rows."""
     result = convert_deltas_with_older_reference([], sum_oldest=100.0, state_oldest=100.0)
 
     assert result == []
 
 
-def test_convert_deltas_case_1_preserves_order() -> None:
-    """Test convert_deltas_case_1 preserves chronological order."""
+def test_convert_deltas_older_ref_preserves_order() -> None:
+    """Test convert_deltas_older_ref preserves chronological order."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     delta_rows = [
         {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 1.0},

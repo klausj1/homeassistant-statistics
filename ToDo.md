@@ -2,16 +2,9 @@
 
 ## for delta
 
-- Write a post
+- Section development details
 
-### Later
-
-- Check copilot review comments, see mail from 2026-01-10
-- Do not fail silently also for other imports
-- In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00
-  - Not nice, but its not important for the performance. Committing the values to the DB takes the most time
-- Export has a timezone identifier as default, import not. Or probably wrong, that only happens when you change from an empty Yaml back to the GUI
-- Remove startup of HA in integration test, throw error instead
+- Explain testing
 
 - Developer doc
   - Open in devcontainer
@@ -24,6 +17,19 @@
     - or
       - set env variable in container (.env)
       - make sure that before running pytest HA_TOKEN_DEV is set
+
+- young -> new
+
+### Later
+
+- Check copilot review comments, see mail from 2026-01-10
+- Do not fail silently also for other imports
+- In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00
+  - Not nice, but its not important for the performance. Committing the values to the DB takes the most time
+- Export has a timezone identifier as default, import not. Or probably wrong, that only happens when you change from an empty Yaml back to the GUI
+- Remove startup of HA in integration test, throw error instead
+
+
 - Test repo in other local storage, create developer documentation
 - Setup a job to run the test in the pipeline as well, for pull requests
 - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import

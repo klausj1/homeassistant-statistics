@@ -8,7 +8,7 @@ from custom_components.import_statistics.helpers import DeltaReferenceType, Unit
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 
 
-def test_convert_delta_dataframe_case_1_older_reference() -> None:
+def test_convert_delta_dataframe_1_older_reference() -> None:
     """Test that OLDER_REFERENCE is used when reference is before import data."""
     # Reference at 09:00 (before import data starting at 10:00)
     ref_start = dt.datetime(2025, 1, 1, 9, 0, tzinfo=dt.UTC)
@@ -44,7 +44,7 @@ def test_convert_delta_dataframe_case_1_older_reference() -> None:
     assert stats[1]["sum"] == 130.0  # 100 + 10 + 20
 
 
-def test_convert_delta_dataframe_case_2_newer_reference() -> None:
+def test_convert_delta_dataframe_newer_reference() -> None:
     """Test that NEWER_REFERENCE is used when reference is after import data."""
     # Reference at 11:00 (at newest import data time)
     ref_start = dt.datetime(2025, 1, 1, 11, 0, tzinfo=dt.UTC)
