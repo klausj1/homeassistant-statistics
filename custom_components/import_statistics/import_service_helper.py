@@ -205,8 +205,20 @@ def handle_dataframe_no_delta(
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
     # Validate that newest timestamp is not too recent
-    newest_timestamp_str = df["start"].max()
-    newest_dt = dt.datetime.strptime(newest_timestamp_str, datetime_format).replace(tzinfo=timezone)
+    # Parse all timestamps first to find true newest chronologically
+    # Using string max would give alphabetical order, not chronological
+    newest_dt = None
+    for timestamp_str in df["start"]:
+        try:
+            dt_obj = dt.datetime.strptime(timestamp_str, datetime_format).replace(tzinfo=timezone)
+            if newest_dt is None or dt_obj > newest_dt:
+                newest_dt = dt_obj
+        except (ValueError, TypeError) as e:
+            helpers.handle_error(f"Invalid timestamp format: {timestamp_str}: {e}")
+
+    if newest_dt is None:
+        helpers.handle_error("No valid timestamps found in import data")
+
     helpers.is_not_in_future(newest_dt)
 
     has_mean = "mean" in columns

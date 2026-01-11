@@ -2,7 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - Delta Import Feature
+## [3.0.1] - Bug Fixes For Delta Import/Export Feature
+
+### Fixed
+
+#### Timestamp Sorting and Processing
+- **Fixed timestamp sorting in CSV/TSV exports**: Export now sorts by numeric timestamps instead of formatted strings
+  - Before the values in the delta column have been wrong because of the wrong sorting
+- **Fixed timestamp range detection for imports**:
+  - Previously used string min/max which gave alphabetical order instead of chronological
+  - Affects both delta and non-delta imports when validating timestamp ranges
+  - Could cause incorrect reference selection for delta conversion or incorrect future timestamp validation
+  - Now ensures correct chronological order when determining import time ranges
+
+## [3.0.0] - Delta Import Feature
 
 ### Added
 
@@ -35,3 +48,4 @@ All notable changes to this project will be documented in this file.
 This is a backward-compatible change. Existing imports using sum/state columns continue to work as before. The new delta import functionality is automatically activated when a `delta` column is detected in the import file.
 
 No action required for existing users. New delta import feature is opt-in by using the delta column.
+

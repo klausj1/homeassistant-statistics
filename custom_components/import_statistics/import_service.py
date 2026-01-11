@@ -148,15 +148,23 @@ async def prepare_delta_handling(
 
     for statistic_id in df["statistic_id"].unique():
         group = df[df["statistic_id"] == statistic_id]
-        oldest_timestamp_str = group["start"].min()
-        newest_timestamp_str = group["start"].max()
 
-        # Parse the timestamps to get datetime objects
-        try:
-            oldest_dt = dt.datetime.strptime(oldest_timestamp_str, datetime_format).replace(tzinfo=timezone)
-            newest_dt = dt.datetime.strptime(newest_timestamp_str, datetime_format).replace(tzinfo=timezone)
-        except (ValueError, TypeError) as e:
-            handle_error(f"Invalid timestamp format for delta processing: {oldest_timestamp_str}: {e}")
+        # Parse all timestamps first to find true oldest/newest chronologically
+        # Using string min/max would give alphabetical order, not chronological
+        timestamps_dt = []
+        for timestamp_str in group["start"]:
+            try:
+                dt_obj = dt.datetime.strptime(timestamp_str, datetime_format).replace(tzinfo=timezone)
+                timestamps_dt.append(dt_obj)
+            except (ValueError, TypeError) as e:
+                handle_error(f"Invalid timestamp format for delta processing: {timestamp_str}: {e}")
+
+        if not timestamps_dt:
+            handle_error(f"No valid timestamps found for statistic_id {statistic_id}")
+
+        # Find oldest and newest by chronological order
+        oldest_dt = min(timestamps_dt)
+        newest_dt = max(timestamps_dt)
 
         # Validate that newest timestamp is not too recent
         is_not_in_future(newest_dt)
