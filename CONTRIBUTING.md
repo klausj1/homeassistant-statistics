@@ -44,7 +44,7 @@ People *love* thorough bug reports. I'm not even kidding.
 
 ## Use a Consistent Coding Style
 
-Use [black](https://github.com/ambv/black) to make sure the code follows the style.
+Use [ruff](https://github.com/astral-sh/ruff) to format and lint the code. Run `scripts/lint` to check for issues.
 
 ## Test your code modification
 
