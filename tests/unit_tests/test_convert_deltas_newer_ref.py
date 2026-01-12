@@ -9,7 +9,7 @@ from custom_components.import_statistics.import_service_delta_helper import conv
 
 
 def test_convert_deltas_newer_ref_basic() -> None:
-    """Test Case 2 conversion with basic delta rows."""
+    """Test newer ref conversion with basic delta rows."""
     # Reference is 100, and we have three deltas: 10, 20, 30 (from oldest to newest)
     # Working backward from 100:
     # - Row 1 (oldest): 100 - 30 = 70 (subtract the last delta first)
@@ -26,7 +26,7 @@ def test_convert_deltas_newer_ref_basic() -> None:
 
     result = convert_deltas_with_newer_reference(delta_rows, 100.0, 100.0, reference_time)
 
-    # With Case 2, we work backward from 100:
+    # With newer ref, we work backward from 100:
     # After processing row 3 (delta=30): 100 - 30 = 70
     # After processing row 2 (delta=20): 70 - 20 = 50
     # After processing row 1 (delta=10): 50 - 10 = 40
@@ -43,7 +43,7 @@ def test_convert_deltas_newer_ref_basic() -> None:
 
 
 def test_convert_deltas_newer_ref_single_row() -> None:
-    """Test Case 2 conversion with single delta row."""
+    """Test newer ref conversion with single delta row."""
     tz = dt.UTC
     delta_rows = [
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 25.0},
@@ -60,7 +60,7 @@ def test_convert_deltas_newer_ref_single_row() -> None:
 
 
 def test_convert_deltas_newer_ref_empty_rows() -> None:
-    """Test Case 2 conversion with no delta rows."""
+    """Test newer ref conversion with no delta rows."""
     reference_time = dt.datetime(2025, 1, 1, 10, 0, tzinfo=dt.UTC)
     result = convert_deltas_with_newer_reference([], 100.0, 100.0, reference_time)
 
@@ -68,7 +68,7 @@ def test_convert_deltas_newer_ref_empty_rows() -> None:
 
 
 def test_convert_deltas_newer_ref_negative_deltas() -> None:
-    """Test Case 2 conversion with negative delta values."""
+    """Test newer ref conversion with negative delta values."""
     tz = dt.UTC
     delta_rows = [
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": -5.0},
@@ -89,7 +89,7 @@ def test_convert_deltas_newer_ref_negative_deltas() -> None:
 
 
 def test_convert_deltas_newer_ref_unsorted_rows() -> None:
-    """Test that Case 2 raises error for unsorted rows."""
+    """Test that newer ref raises error for unsorted rows."""
     tz = dt.UTC
     delta_rows = [
         {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 20.0},  # Second
@@ -102,7 +102,7 @@ def test_convert_deltas_newer_ref_unsorted_rows() -> None:
 
 
 def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
-    """Test that Case 2 preserves original timestamps in correct order."""
+    """Test that newer ref preserves original timestamps in correct order."""
     tz = dt.UTC
     time0 = dt.datetime(2025, 1, 1, 9, 0, tzinfo=tz)
     time1 = dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz)
@@ -125,7 +125,7 @@ def test_convert_deltas_newer_ref_preserves_timestamps() -> None:
 
 
 def test_convert_deltas_newer_ref_float_precision() -> None:
-    """Test Case 2 with floating point values."""
+    """Test newer ref with floating point values."""
     tz = dt.UTC
     delta_rows = [
         {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 10.5},
