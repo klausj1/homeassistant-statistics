@@ -4,7 +4,7 @@ import datetime as dt
 import zoneinfo
 
 from homeassistant.components.recorder import get_instance
-from homeassistant.components.recorder.statistics import get_metadata, statistics_during_period
+from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from custom_components.import_statistics import helpers
@@ -25,7 +25,7 @@ from custom_components.import_statistics.helpers import _LOGGER
 
 
 async def get_statistics_from_recorder(
-    hass: HomeAssistant, entities_input: list[str], start_time_str: str, end_time_str: str, timezone_identifier: str = "Europe/Vienna"
+    hass: HomeAssistant, entities_input: list[str] | None, start_time_str: str, end_time_str: str, timezone_identifier: str = "Europe/Vienna"
 ) -> tuple[dict, dict]:
     """
     Fetch statistics from Home Assistant recorder API.
@@ -34,7 +34,7 @@ async def get_statistics_from_recorder(
 
     Args:
         hass: Home Assistant instance
-        entities_input: List of entity IDs or statistic IDs
+        entities_input: List of entity IDs or statistic IDs, or None to export all statistics
         start_time_str: Start time in format "YYYY-MM-DD HH:MM:SS" (interpreted in timezone_identifier)
         end_time_str: End time in format "YYYY-MM-DD HH:MM:SS" (interpreted in timezone_identifier)
         timezone_identifier: Timezone for interpreting the start/end times (default: "Europe/Vienna")
@@ -71,18 +71,29 @@ async def get_statistics_from_recorder(
     if end_dt.minute != 0 or end_dt.second != 0:
         helpers.handle_error("end_time must be a full hour (minutes and seconds must be 0)")
 
-    # Convert string entity/statistic IDs to statistic_ids for recorder API
-    statistic_ids = []
-    for entity in entities_input:
-        # Both "sensor.temperature" and "sensor:external_temp" formats supported
-        # The get_source() helper validates the format
-        helpers.get_source(entity)  # Validate
-        statistic_ids.append(entity)
-
-    # Use recorder API to get statistics
+    # Get recorder instance
     recorder_instance = get_instance(hass)
     if recorder_instance is None:
         helpers.handle_error("Recorder component is not running")
+
+    # Convert string entity/statistic IDs to statistic_ids for recorder API
+    # If no entities specified, fetch all available statistic IDs from database
+    if entities_input is None or len(entities_input) == 0:
+        _LOGGER.info("No entities specified, fetching all statistics from database")
+        # Get all statistic IDs from recorder
+        all_stats = await recorder_instance.async_add_executor_job(lambda: list_statistic_ids(hass))
+        statistic_ids = [stat["statistic_id"] for stat in all_stats]
+        _LOGGER.info("Found %d statistics in database", len(statistic_ids))
+    else:
+        # Validate and use provided entities
+        statistic_ids = []
+        for entity in entities_input:
+            # Both "sensor.temperature" and "sensor:external_temp" formats supported
+            # The get_source() helper validates the format
+            helpers.get_source(entity)  # Validate
+            statistic_ids.append(entity)
+
+    # Use recorder API to get statistics (recorder_instance already obtained above)
 
     # Fetch metadata to get units (single call for all entities) - use recorder executor for database access
     metadata = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=set(statistic_ids)))
@@ -131,7 +142,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
 
     _LOGGER.info("Service handle_export_statistics called")
-    _LOGGER.info("Exporting entities: %s", entities_input)
+    _LOGGER.info("Exporting entities: %s", entities_input if entities_input else "ALL")
     _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
     _LOGGER.info("Output file: %s", filename)
 

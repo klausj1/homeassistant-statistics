@@ -113,14 +113,19 @@ hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 
 **Architecture Pattern:**
 1. **Parameter Validation**: Extract and validate service parameters
-2. **Database Query**: Fetch statistics using recorder API
-3. **Data Formatting**: Use helper for formatting and file writing
-4. **File Output**: Write to config directory with security validation
+2. **Entity Resolution**: If entities list is empty/None, fetch all statistics from database using `list_statistic_ids()`
+3. **Database Query**: Fetch statistics using recorder API
+4. **Data Formatting**: Use helper for formatting and file writing
+5. **File Output**: Write to config directory with security validation
+
+**Key Features:**
+- **Optional Entities Parameter**: When entities field is omitted or empty, exports all statistics in the database
+- **Flexible Export**: Supports both targeted exports (specific entities) and full database exports
 
 **Connection Points:**
 - **Calls**: `export_service_helper.py`
 - **Uses**: `helpers.py` for validation
-- **Database**: Home Assistant recorder API (`statistics_during_period`, `get_metadata`)
+- **Database**: Home Assistant recorder API (`statistics_during_period`, `get_metadata`, `list_statistic_ids`)
 
 ---
 
@@ -251,12 +256,13 @@ hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
 **Service Definitions:**
 - `import_from_file`: File-based import parameters
 - `import_from_json`: JSON-based import parameters
-- `export_statistics`: Export parameters
+- `export_statistics`: Export parameters (entities field is optional - omit to export all statistics)
 
 **Parameter Specifications:**
 - Data types and validation rules
 - Default values and examples
 - UI selectors and options
+- Optional vs required field markers
 
 ### [`translations/`](custom_components/import_statistics/translations/)
 **Role**: Localization support
@@ -608,10 +614,48 @@ sequenceDiagram
 
 ---
 
+## Usage Examples
+
+### Export Statistics Service
+
+#### Export Specific Entities
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: exported_statistics.tsv
+  entities:
+    - sensor.temperature
+    - sensor.energy_consumption
+    - sensor:ext_value
+  start_time: "2025-12-22 12:00:00"
+  end_time: "2025-12-25 12:00:00"
+  timezone_identifier: Europe/Vienna
+  delimiter: \t
+  decimal: false
+```
+
+#### Export All Statistics (New Feature)
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: all_statistics.tsv
+  # entities field omitted - exports all statistics in database
+  start_time: "2025-12-22 12:00:00"
+  end_time: "2025-12-25 12:00:00"
+  timezone_identifier: Europe/Vienna
+```
+
+**Note**: When the `entities` field is omitted or empty, the service automatically queries the recorder database using `list_statistic_ids()` to fetch all available statistics and exports them. This is useful for:
+- Full database backups
+- Discovering what statistics are available
+- Migrating all data to another system
+
+---
+
 ## External System Integration
 
 ### Home Assistant APIs Used
-- **Recorder Statistics**: `statistics_during_period`, `async_import_statistics`, `get_metadata`
+- **Recorder Statistics**: `statistics_during_period`, `async_import_statistics`, `get_metadata`, `list_statistic_ids`
 - **Database Access**: Direct recorder database access for delta references
 - **Entity Validation**: `valid_entity_id`, `valid_statistic_id`
 - **Error Handling**: `HomeAssistantError` exception hierarchy

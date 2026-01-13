@@ -60,7 +60,7 @@ export_statistics:
         text:
 
     entities:
-      required: true
+      required: false
       example: |
         - sensor.temperature
         - sensor:external_stat
