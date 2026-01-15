@@ -36,13 +36,7 @@
                 "python.defaultInterpreterPath": "/usr/local/bin/python",
                 "[python]": {
                     "editor.defaultFormatter": "charliermarsh.ruff"
-                },
-                "terminal.integrated.profiles.linux": {
-                    "zsh": {
-                        "path": "/usr/bin/zsh"
-                    }
-                },
-                "terminal.integrated.defaultProfile.linux": "zsh"
+                }
             }
         }
     },
