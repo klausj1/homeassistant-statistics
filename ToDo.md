@@ -1,10 +1,8 @@
 # ToDos
 
-## for delta
-
-
 ### Later
 
+- Troubleshooting section, explain columns, UTF-8, spikes
 - Check copilot review comments, see mail from 2026-01-10
 - Do not fail silently also for other imports
 - In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00
