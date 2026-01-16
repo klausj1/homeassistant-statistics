@@ -84,7 +84,7 @@ Configuration: Uses Ruff with Home Assistant's style rules (see [.ruff.toml](.ru
 CSV with delta column → [sync] detect delta → [async] fetch DB references → [sync] convert to absolute
 ```
 - Stage 1: [import_service_helper.py](custom_components/import_statistics/import_service_helper.py) detects delta column, returns marker tuple
-- Stage 2: [delta_database_access.py](custom_components/import_statistics/delta_database_access.py) async queries for reference values (before oldest, after youngest)
+- Stage 2: [delta_database_access.py](custom_components/import_statistics/delta_database_access.py) async queries for reference values (before oldest, after newest)
 - Stage 3: [import_service_delta_helper.py](custom_components/import_statistics/import_service_delta_helper.py) converts deltas via accumulation (before oldest) or backward subtraction (at/after newest)
 
 **3. Validation Pipeline**

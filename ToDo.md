@@ -1,27 +1,8 @@
 # ToDos
 
-## for delta
-
-- Section development details
-
-- Explain testing
-
-- Developer doc
-  - Open in devcontainer
-  - run ha with scripts/develop manually
-  - get token
-  - now
-    - either
-      - In host, set environment variable
-      - rebuild container (then in all shells the variable is set, including AI clients)
-    - or
-      - set env variable in container (.env)
-      - make sure that before running pytest HA_TOKEN_DEV is set
-
-- young -> new
-
 ### Later
 
+- Troubleshooting section, explain columns, UTF-8, spikes
 - Check copilot review comments, see mail from 2026-01-10
 - Do not fail silently also for other imports
 - In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00

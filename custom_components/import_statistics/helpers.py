@@ -290,9 +290,13 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     has_delta = "delta" in columns
 
     if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_where == UnitFrom.ENTITY)):
-        handle_error(
-            "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
-        )
+        found_columns_num = len(columns)
+        # embrace each column name with quotes for clarity
+        found_columns_quoted = [f"'{col}'" for col in columns]
+        found_columns_str = ", ".join(sorted(found_columns_quoted))
+        error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false)"
+        error_str += f" (check delimiter). Number of found columns: {found_columns_num}. Found columns: {found_columns_str}"
+        handle_error(error_str)
 
     # Check for value column requirements and incompatible combinations
     has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
@@ -301,10 +305,10 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     if has_delta:
         # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
         if "sum" in columns or "state" in columns or has_mean_min_max:
-            handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)")
+            handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns")
     # Non-delta: cannot mix mean/min/max with sum/state
     elif has_mean_min_max and has_sum_state:
-        handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)")
+        handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'")
 
     # Define allowed columns based on data type and unit source
     allowed_columns = {"statistic_id", "start", "delta"} if has_delta else {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
@@ -466,7 +470,7 @@ def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, fo
     Format a datetime object to string in specified timezone and format.
 
     Args:
-         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
+         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float/int)
          timezone: Target timezone
          format_str: Format string
 
@@ -474,10 +478,17 @@ def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, fo
          str: Formatted datetime string
 
     """
-    # Handle Unix timestamp (float) from recorder API
-    if isinstance(dt_obj, float):
+    # Handle Unix timestamp (float or int) from recorder API
+    if isinstance(dt_obj, (float, int)):
         dt_obj = dt_module.datetime.fromtimestamp(dt_obj, tz=dt.UTC)
-    elif dt_obj.tzinfo is None:
+
+    # At this point, dt_obj is guaranteed to be a datetime
+    if not isinstance(dt_obj, dt.datetime):
+        # This should never happen, but satisfies type checker
+        msg = f"Expected datetime object, got {type(dt_obj)}"
+        raise HomeAssistantError(msg)
+
+    if dt_obj.tzinfo is None:
         # Assume UTC if naive
         dt_obj = dt_obj.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
 

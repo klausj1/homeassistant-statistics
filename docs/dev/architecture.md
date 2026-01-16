@@ -180,7 +180,7 @@ Service ->> Helper: prepare_data_to_import() [executor]
   Helper ->> Validation: handle_dataframe()
     Validation ->> Validation: Detect delta column
     Validation ->> Validation: Extract unique statistic_ids
-    Validation ->> Validation: Find oldest/youngest\ntimestamps per id
+    Validation ->> Validation: Find oldest/newest\ntimestamps per id
   Helper <-- Validation: Delta marker tuple
 Service <-- Helper: ("_DELTA_PROCESSING_NEEDED",\ndf, references_needed, ...)
 
@@ -190,7 +190,7 @@ Service ->> DeltaDB: get_oldest_statistics_before(references_needed) [async]
   DeltaDB <-- HA_API: References or None
 
   opt Missing references
-    DeltaDB ->> HA_API: Query refs after youngest delta
+    DeltaDB ->> HA_API: Query refs after newest delta
     HA_API ->> HA_API: Database lookup
     DeltaDB <-- HA_API: References or None
   end
@@ -312,7 +312,7 @@ CSV with delta column
   ↓
 [Stage 1] prepare_data_to_import() [sync via executor]
   - Detect delta column
-  - Extract statistic_ids with oldest/youngest timestamps
+  - Extract statistic_ids with oldest/newest timestamps
   - Return marker tuple
   ↓
 [Stage 2] get_oldest_statistics_before() [async]
@@ -478,8 +478,8 @@ Silent failures occur only at row-level during extraction:
     "_DELTA_PROCESSING_NEEDED",  # Marker string
     df,                          # DataFrame with delta column
     {                            # references_needed dict
-        "sensor.energy": (oldest_dt_utc, youngest_dt_utc),
-        "power:total": (oldest_dt_utc, youngest_dt_utc),
+        "sensor.energy": (oldest_dt_utc, newest_dt_utc),
+        "power:total": (oldest_dt_utc, newest_dt_utc),
     },
     "Europe/Vienna",             # timezone_identifier
     "%d.%m.%Y %H:%M",           # datetime_format

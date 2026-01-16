@@ -7,6 +7,7 @@ No hass object needed.
 import datetime as dt
 import zoneinfo
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 import pytz
@@ -207,7 +208,7 @@ def handle_dataframe_no_delta(
     # Validate that newest timestamp is not too recent
     # Parse all timestamps first to find true newest chronologically
     # Using string max would give alphabetical order, not chronological
-    newest_dt = None
+    newest_dt: dt.datetime | None = None
     for timestamp_str in df["start"]:
         try:
             dt_obj = dt.datetime.strptime(timestamp_str, datetime_format).replace(tzinfo=timezone)
@@ -219,7 +220,9 @@ def handle_dataframe_no_delta(
     if newest_dt is None:
         helpers.handle_error("No valid timestamps found in import data")
 
-    helpers.is_not_in_future(newest_dt)
+    # At this point, newest_dt is guaranteed to be a datetime (not None)
+    # Cast to satisfy type checker after the None check above
+    helpers.is_not_in_future(cast("dt.datetime", newest_dt))
 
     has_mean = "mean" in columns
     has_sum = "sum" in columns
