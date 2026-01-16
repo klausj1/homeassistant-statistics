@@ -3,17 +3,17 @@
 import datetime as dt
 from typing import Any
 
-from homeassistant.components.recorder import get_instance, statistics
+from homeassistant.components.recorder import statistics
 from homeassistant.components.recorder.db_schema import Statistics
 from homeassistant.components.recorder.statistics import _statistics_at_time, get_metadata, statistics_during_period
-from homeassistant.components.recorder.util import session_scope
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.recorder import get_instance, session_scope
 from homeassistant.util import dt as dt_util
 
 from custom_components.import_statistics.helpers import _LOGGER, handle_error
 
 
-def _get_reference_stats(mid: int, ts: dt.datetime, inst: Any) -> tuple | None:
+def _get_reference_stats(mid: int, ts: dt.datetime, inst: Any) -> Any:
     """Query database for reference statistics."""
     with session_scope(session=inst.get_session(), read_only=True) as sess:
         result = _statistics_at_time(
@@ -93,7 +93,7 @@ async def _get_newest_db_statistic(hass: HomeAssistant, statistic_id: str) -> di
 
     # Get the first (and only) entry from the list
     newest_stat = stats_list[0]
-    result_dt = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
+    result_dt = dt.datetime.fromtimestamp(newest_stat.get("start", 0), tz=dt.UTC)
     result_sum = newest_stat.get("sum")
     result_state = newest_stat.get("state")
 
@@ -237,7 +237,7 @@ async def _get_reference_at_or_after_timestamp(
         return None
 
     newest_stat = newest_dict[statistic_id][0]
-    t_newest_db = dt.datetime.fromtimestamp(newest_stat["start"], tz=dt.UTC)
+    t_newest_db = dt.datetime.fromtimestamp(newest_stat.get("start", 0), tz=dt.UTC)
 
     # Query all statistics between timestamp and the newest DB record + 1 hour
     # The +1 hour is needed because statistics_during_period uses inclusive lower bound and exclusive upper bound
@@ -247,10 +247,10 @@ async def _get_reference_at_or_after_timestamp(
                 hass,
                 timestamp,
                 t_newest_db + dt.timedelta(hours=1),
-                [statistic_id],
+                {statistic_id},
                 "hour",
                 None,
-                ["sum", "state"],
+                {"sum", "state"},
             )
         )
     except Exception as exc:  # noqa: BLE001
@@ -263,7 +263,7 @@ async def _get_reference_at_or_after_timestamp(
 
     # Take the oldest value from the period (which is the oldest value >= timestamp)
     oldest_in_period = stats_dict[statistic_id][0]  # First element is oldest in the period
-    result_dt = dt.datetime.fromtimestamp(oldest_in_period["start"], tz=dt.UTC)
+    result_dt = dt.datetime.fromtimestamp(oldest_in_period.get("start", 0), tz=dt.UTC)
     result_sum = oldest_in_period.get("sum")
     result_state = oldest_in_period.get("state")
     _LOGGER.debug(

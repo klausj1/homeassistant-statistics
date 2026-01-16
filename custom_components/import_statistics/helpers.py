@@ -466,7 +466,7 @@ def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, fo
     Format a datetime object to string in specified timezone and format.
 
     Args:
-         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float)
+         dt_obj: Datetime object (may be UTC or already localized) or Unix timestamp (float/int)
          timezone: Target timezone
          format_str: Format string
 
@@ -474,10 +474,17 @@ def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, fo
          str: Formatted datetime string
 
     """
-    # Handle Unix timestamp (float) from recorder API
-    if isinstance(dt_obj, float):
+    # Handle Unix timestamp (float or int) from recorder API
+    if isinstance(dt_obj, (float, int)):
         dt_obj = dt_module.datetime.fromtimestamp(dt_obj, tz=dt.UTC)
-    elif dt_obj.tzinfo is None:
+
+    # At this point, dt_obj is guaranteed to be a datetime
+    if not isinstance(dt_obj, dt.datetime):
+        # This should never happen, but satisfies type checker
+        msg = f"Expected datetime object, got {type(dt_obj)}"
+        raise HomeAssistantError(msg)
+
+    if dt_obj.tzinfo is None:
         # Assume UTC if naive
         dt_obj = dt_obj.replace(tzinfo=zoneinfo.ZoneInfo("UTC"))
 
