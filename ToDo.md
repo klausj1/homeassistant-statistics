@@ -2,23 +2,6 @@
 
 ## for delta
 
-- Section development details
-
-- Explain testing
-
-- Developer doc
-  - Open in devcontainer
-  - run ha with scripts/develop manually
-  - get token
-  - now
-    - either
-      - In host, set environment variable
-      - rebuild container (then in all shells the variable is set, including AI clients)
-    - or
-      - set env variable in container (.env)
-      - make sure that before running pytest HA_TOKEN_DEV is set
-
-- young -> new
 
 ### Later
 
