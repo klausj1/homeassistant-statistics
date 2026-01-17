@@ -19,6 +19,7 @@ config/*
 !config/configuration.yaml
 !config/*.csv
 !config/test_*
+config/dcz*.csv
 
 # mcp with secrets
 mcp.json
