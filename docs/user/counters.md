@@ -50,7 +50,7 @@ The energy board uses the sum, so the sum is the more important value. Also the 
 
 What's confusing (at least for me) is that in the statistics graph card, the sum in the graph always starts at 0, whereas the state shows the value from the statistics database.
 
-> In case only a few existing entries should be corrected, its probably easier to use the [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab) to correct them. The value which is corrected there is the delta of the selected hour, not the sum.
+> In case only a few existing entries should be corrected, its probably easier to use the [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab) to correct them. The `adjustment value` entered there is the delta of the selected hour, not the sum. What happens in the database is that starting from the selected time, the `adjustment value` is added to all existing sum values.
 
 For more details regarding long term statistics, see
 

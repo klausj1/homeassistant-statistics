@@ -1,5 +1,11 @@
 # Developer Documentation
 
+## Contributing
+
+Contributions are welcome! Please read the [Contribution Guidelines](CONTRIBUTING.md).
+
+---
+
 ## Quick Start
 
 For experienced developers who want to get started immediately:
