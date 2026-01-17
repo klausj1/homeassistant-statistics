@@ -79,7 +79,10 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     if not Path(file_path).exists():
         helpers.handle_error(f"path {file_path} does not exist.")
 
-    my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
+    # Validate file encoding before attempting to read
+    helpers.validate_file_encoding(file_path)
+
+    my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python", encoding="utf-8")
 
     is_delta = _validate_and_detect_delta(my_df, unit_from_entity)
 
