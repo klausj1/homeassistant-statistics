@@ -39,13 +39,21 @@
     "cSpell.words": [
         "charliermarsh",
         "codeowners",
+        "Coolzic",
+        "dataframe",
         "devcontainers",
         "hass",
         "homeassistant",
         "klausj",
         "mhutchie",
+        "pkill",
         "pylance",
+        "pytest",
+        "pytz",
         "rooveterinaryinc",
-        "ryanluker"
+        "ryanluker",
+        "statisticdata",
+        "TESTFILEPATHS",
+        "zoneinfo"
     ]
 }

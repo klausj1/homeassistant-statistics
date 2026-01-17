@@ -1,9 +1,9 @@
 # Home Assistant Statistics Integration - Implementation Summary
 
 ## Project Overview
-Home Assistant custom integration for importing/exporting long-term statistics from CSV/TSV/JSON files. Python 3.12, uses pandas, zoneinfo, Home Assistant recorder API.
+Home Assistant custom integration for importing/exporting long-term statistics from CSV/TSV/JSON files. Python 3.13, uses pandas, zoneinfo, Home Assistant recorder API.
 
-## Recent Implementation Work (Jan 2025)
+## Recent Implementation Work (Jan 2025) :
 
 ### Optional Entities Export Feature
 **Status**: ✅ COMPLETED
@@ -76,6 +76,7 @@ What if the database has no statistics in the time range?
 In the Home Assistant UI, when required: false:
 - Field will be optional
 - User can leave it blank
+
 **Status**: Confirmed working as expected
 
 ## Development Workflow
