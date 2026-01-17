@@ -1,4 +1,4 @@
-# Import Statistics
+# Import Statistics Integration
 
 A Home Assistant custom integration to import and export long-term statistics from CSV, TSV, or JSON files.
 
@@ -12,7 +12,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 ## Quick Links
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting](#troubleshooting)
-- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
+- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 
 This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
 
@@ -182,27 +182,47 @@ The exported file contains:
 
 ---
 
-## Additional Resources
+## Best Practices
 
-- **[Community Guide: Loading, Manipulating, and Recovering Statistics](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802)** — Detailed examples for fixing historical data (thanks to Geoffrey!)
-- **[Jeedom Migration Guide](./misc/jeedom.md)** — How to import statistics from Jeedom
+### Importing counters (state_class `total_increasing / increasing`)
+
+- Import `delta`, not `sum` and `state`
+- Export first
+- Modify the exported file
+- Import
+
+See [Delta Import](./docs/user/counters.md#delta-import)
+
+### Testing and Validation
+
+- Always make a backup before importing
+  - Consider using the export functionality for backup as well
+- Test with a small dataset first (10-20 rows)
+- Create a test sensor for initial imports
+- Verify data in History graph before checking Energy Dashboard
+- Enable debug logging to see detailed error messages
+- Existing values can be overwritten - use this to correct mistakes
+
+### Data Preparation
+
+- Use Excel, Google Sheets or similar to prepare the data
+- Verify column headers match exactly
+- Check for consistent data types in each column
+- Check for consistent usage of delimiters
+- Validate timestamps are full hours
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Import shows no error but data doesn't appear | Check Home Assistant logs for details, and create a bug in the repo |
-| "Unknown column" error | Check for typos in column names; see [Allowed Columns](#allowed-columns) |
-| Spikes in Energy Dashboard after import | Your `sum` values don't align with existing data; see [Counter Statistics](./docs/user/counters.md#understanding-counter-statistics-sumstate) |
-| Mean values wrong for compass/wind direction | Mean uses arithmetic average, which doesn't work for circular values |
+For troubleshooting tips, see [Troubleshooting Tips for Import Statistics Integration](./docs/user/troubleshooting-tips.md).
 
 ---
 
-## Contributing
+## Additional Resources
 
-Contributions are welcome! Please read the [Contribution Guidelines](CONTRIBUTING.md).
+- **[Community Guide: Loading, Manipulating, and Recovering Statistics](https://community.home-assistant.io/t/loading-manipulating-recovering-and-moving-long-term-statistics-in-home-assistant/953802)** — Detailed examples for fixing historical data (thanks to Geoffrey!)
+- **[Jeedom Migration Guide](./misc/jeedom.md)** — How to import statistics from Jeedom
 
 ---
 
