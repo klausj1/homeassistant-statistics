@@ -42,8 +42,16 @@ This file provides non-obvious coding rules discovered by reading this repositor
 - Raises `HomeAssistantError` immediately if violated
 - Called in validation chain, not optional
 
+### File Encoding Validation (Import Only)
+[`validate_file_encoding()`](custom_components/import_statistics/helpers.py:417) validates UTF-8 encoding:
+- Reads entire file with strict UTF-8 decoding to detect encoding errors
+- Detects common mojibake patterns (Â° for °, Â³ for ³)
+- Detects Unicode replacement character (�)
+- Called before pandas reads CSV/TSV files in [`prepare_data_to_import()`](custom_components/import_statistics/import_service_helper.py:57)
+- Provides clear error messages for encoding issues with special characters
+
 ### File Path Security (Export Only)
-[`validate_filename()`](custom_components/import_statistics/helpers.py:324) prevents traversal:
+[`validate_filename()`](custom_components/import_statistics/helpers.py:467) prevents traversal:
 - Rejects absolute paths (`/` at start)
 - Rejects path separators (both `/` and `\`)
 - Rejects `..` sequences

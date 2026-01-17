@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - File Encoding Validation and Documentation Improvements
+
+### Added
+
+#### File Encoding Validation
+
+- **UTF-8 encoding validation for import files**: Automatically detects and reports encoding issues before processing
+  - Prevents import failures due to encoding problems with special characters in units
+
+#### Documentation
+- **New troubleshooting guide**: Added comprehensive [`docs/user/troubleshooting-tips.md`](docs/user/troubleshooting-tips.md) covering:
+  - Installation issues
+  - File format problems (column names, delimiters, encoding)
+  - Timestamp format requirements
+  - Common error messages and solutions
+- **Enhanced developer documentation**: Improved [`docs/dev/README.md`](docs/dev/README.md) with detailed setup and testing instructions
+- **Improved counter documentation**: Enhanced [`docs/user/counters.md`](docs/user/counters.md) with clearer explanations
+- **Architecture documentation**: Moved and improved architecture documentation to [`docs/dev/architecture.md`](docs/dev/architecture.md)
+
+### Changed
+
+#### Error Messages
+- **Improved column validation error messages**: More descriptive errors when unknown columns are detected
+  - Now lists all invalid columns found in the file
+  - Helps users quickly identify delimiter problems, typos, incorrect column names
+
+### Fixed
+
+- **Type hints and code quality**: Fixed Pylance type checking issues throughout the codebase
+
 ## [3.0.1] - Bug Fixes For Delta Import/Export Feature
 
 ### Fixed

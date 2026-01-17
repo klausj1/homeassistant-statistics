@@ -414,6 +414,66 @@ def validate_delimiter(delimiter: str | None) -> str:
     return delimiter
 
 
+def validate_file_encoding(file_path: str, expected_encoding: str = "utf-8") -> bool:
+    """
+    Validate that a file can be read with the expected encoding.
+
+    Checks if the file contains valid UTF-8 (or other specified encoding) and
+    detects common encoding issues that could cause problems with special characters
+    like ° (degree) or ³ (superscript).
+
+    Args:
+    ----
+        file_path: Path to the file to validate
+        expected_encoding: Expected encoding (default: "utf-8")
+
+    Returns:
+    -------
+        bool: True if the file is valid
+
+    Raises:
+    ------
+        HomeAssistantError: If the file has encoding issues
+
+    """
+    try:
+        with Path(file_path).open(encoding=expected_encoding, errors="strict") as f:
+            # Read the entire file to detect any encoding errors
+            content = f.read()
+
+            # Check for common problematic characters that might indicate wrong encoding
+            # These are replacement characters or mojibake patterns
+            problematic_patterns = [
+                "\ufffd",  # Unicode replacement character (�)
+                "Â°",  # Common mojibake for ° when UTF-8 read as Latin-1
+                "Â³",  # Common mojibake for ³ when UTF-8 read as Latin-1
+            ]
+
+            for pattern in problematic_patterns:
+                if pattern in content:
+                    handle_error(
+                        f"File '{file_path}' contains invalid characters ('{pattern}'). "
+                        f"This usually indicates the file was saved with incorrect encoding. "
+                        f"Please ensure the file is saved as UTF-8 encoding. "
+                        f"Common issues: degree symbol (°), superscript (³), or other special characters."
+                    )
+
+            _LOGGER.debug("File encoding validation passed for: %s", file_path)
+            return True
+
+    except UnicodeDecodeError as e:
+        handle_error(
+            f"File '{file_path}' has encoding errors and cannot be read as {expected_encoding}. "
+            f"Error at position {e.start}: {e.reason}. "
+            f"Please ensure the file is saved with UTF-8 encoding, especially if it contains "
+            f"special characters like ° (degree), ³ (superscript), or other non-ASCII characters."
+        )
+    except OSError as e:
+        handle_error(f"Cannot read file '{file_path}': {e}")
+
+    return False
+
+
 def validate_filename(filename: str, config_dir: str) -> str:
     """
     Validate and normalize a filename to prevent directory traversal attacks.
