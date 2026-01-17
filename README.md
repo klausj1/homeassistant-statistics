@@ -195,7 +195,7 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 
 ![export to file](assets/service_export_ui.png)
 
-#### Example using YAML:
+#### Examples using YAML:
 
 ##### Export selected entities
 
@@ -222,6 +222,15 @@ data:
   filename: exported_statistics.tsv
   start_time: "2025-12-22 12:00:00"
   end_time: "2025-12-25 12:00:00"
+```
+
+##### Export all statistics (any time) into separate files
+
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: exported_statistics.tsv
+  split_statistics: true
 ```
 
 ##### Export and split sensors/counters into two files
