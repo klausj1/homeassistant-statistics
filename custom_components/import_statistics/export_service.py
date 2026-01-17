@@ -2,10 +2,11 @@
 
 import datetime as dt
 import zoneinfo
+from typing import cast
 
-from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.recorder import get_instance
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.const import (
@@ -109,18 +110,18 @@ async def get_statistics_from_recorder(
     _LOGGER.debug("Fetching statistics from %s to %s for %s", start_dt, end_dt, statistic_ids)
 
     # Use recorder's executor for blocking database call
+    # Calculate end_dt_plus_hour as datetime (not timedelta)
+    end_dt_plus_hour = cast("dt.datetime", end_dt + dt.timedelta(hours=1))
     statistics_dict = await recorder_instance.async_add_executor_job(
         lambda: statistics_during_period(
             hass,
             start_dt,
-            end_dt
-            + dt.timedelta(
-                hours=1
-            ),  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00, and this value should be included
-            statistic_ids,
+            end_dt_plus_hour,  # We always use 1h interval, so e.g. endtime 04:00 contains the value valid between 04:00 and 05:00,
+            # and this value should be included
+            set(statistic_ids),
             "hour",  # period
             None,  # units
-            ["max", "mean", "min", "state", "sum"],  # types
+            {"max", "mean", "min", "state", "sum"},  # types
         )
     )
 
@@ -130,10 +131,31 @@ async def get_statistics_from_recorder(
 
 async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
     """Handle export_statistics service implementation."""
-    filename = call.data.get(ATTR_FILENAME)
-    entities_input = call.data.get(ATTR_ENTITIES)
-    start_time_str = call.data.get(ATTR_START_TIME)
-    end_time_str = call.data.get(ATTR_END_TIME)
+    # Get parameters from service call
+    filename_raw = call.data.get(ATTR_FILENAME)
+    entities_input_raw = call.data.get(ATTR_ENTITIES)
+    start_time_str_raw = call.data.get(ATTR_START_TIME)
+    end_time_str_raw = call.data.get(ATTR_END_TIME)
+
+    # Validate required parameters
+    if not filename_raw or not isinstance(filename_raw, str):
+        helpers.handle_error("filename is required and must be a string")
+    if entities_input_raw is not None and not isinstance(entities_input_raw, list):
+        helpers.handle_error("entities must be a list")
+    if not start_time_str_raw or not isinstance(start_time_str_raw, str):
+        helpers.handle_error("start_time is required and must be a string")
+    if not end_time_str_raw or not isinstance(end_time_str_raw, str):
+        helpers.handle_error("end_time is required and must be a string")
+
+    # Type narrowing: after validation, we know these are the correct types
+    filename: str = cast("str", filename_raw)
+    entities_input: list[str] | None
+    if entities_input_raw is None:
+        entities_input = None
+    else:
+        entities_input = cast("list[str]", entities_input_raw)
+    start_time_str: str = cast("str", start_time_str_raw)
+    end_time_str: str = cast("str", end_time_str_raw)
 
     # Extract other parameters (with defaults matching services.yaml)
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")

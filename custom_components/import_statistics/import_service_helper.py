@@ -7,6 +7,7 @@ No hass object needed.
 import datetime as dt
 import zoneinfo
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 import pytz
@@ -78,7 +79,10 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     if not Path(file_path).exists():
         helpers.handle_error(f"path {file_path} does not exist.")
 
-    my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python")
+    # Validate file encoding before attempting to read
+    helpers.validate_file_encoding(file_path)
+
+    my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python", encoding="utf-8")
 
     is_delta = _validate_and_detect_delta(my_df, unit_from_entity)
 
@@ -207,7 +211,7 @@ def handle_dataframe_no_delta(
     # Validate that newest timestamp is not too recent
     # Parse all timestamps first to find true newest chronologically
     # Using string max would give alphabetical order, not chronological
-    newest_dt = None
+    newest_dt: dt.datetime | None = None
     for timestamp_str in df["start"]:
         try:
             dt_obj = dt.datetime.strptime(timestamp_str, datetime_format).replace(tzinfo=timezone)
@@ -219,7 +223,9 @@ def handle_dataframe_no_delta(
     if newest_dt is None:
         helpers.handle_error("No valid timestamps found in import data")
 
-    helpers.is_not_in_future(newest_dt)
+    # At this point, newest_dt is guaranteed to be a datetime (not None)
+    # Cast to satisfy type checker after the None check above
+    helpers.is_not_in_future(cast("dt.datetime", newest_dt))
 
     has_mean = "mean" in columns
     has_sum = "sum" in columns

@@ -5,9 +5,9 @@ import zoneinfo
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.recorder import get_instance
 
 from custom_components.import_statistics.const import ATTR_FILENAME
 from custom_components.import_statistics.delta_database_access import (

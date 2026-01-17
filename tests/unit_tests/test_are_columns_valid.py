@@ -39,7 +39,7 @@ def test_are_columns_valid_invalid_columns_combination() -> None:
     my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "mean", "sum"])
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)"),
+        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -107,7 +107,7 @@ def test_are_columns_valid_delta_plus_sum_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -118,7 +118,7 @@ def test_are_columns_valid_delta_plus_state_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -129,7 +129,7 @@ def test_are_columns_valid_delta_plus_mean_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -140,7 +140,7 @@ def test_are_columns_valid_delta_plus_min_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 
@@ -151,7 +151,7 @@ def test_are_columns_valid_delta_plus_max_error() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns (check delimiter)"),
+        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
     ):
         are_columns_valid(my_df, UnitFrom.TABLE)
 

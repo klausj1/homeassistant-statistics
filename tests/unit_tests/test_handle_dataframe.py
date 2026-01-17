@@ -387,7 +387,7 @@ def test_handle_dataframe_mean_sum() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max' (check delimiter)"),
+        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'"),
     ):
         _validate_and_detect_delta(my_df, UnitFrom.TABLE)
 
