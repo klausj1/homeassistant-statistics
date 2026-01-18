@@ -50,6 +50,10 @@
                     "name": "end_time",
                     "description": "Optional. The end time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). If omitted, export ends at the most recent available statistic. Make sure to use quotes around the timestamp in Yaml."
                 },
+                "split_by": {
+                    "name": "split_by",
+                    "description": "Optional. Split output into multiple files by statistic type: 'none' (default, combined file), 'sensor' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _sensors and _counters before the extension."
+                },
                 "timezone_identifier": {
                     "name": "timezone_identifier",
                     "description": "Timezone identifier for start/end-time and timestamp output formatting (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)"

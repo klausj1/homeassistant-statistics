@@ -16,6 +16,7 @@ from custom_components.import_statistics.const import (
     ATTR_END_TIME,
     ATTR_ENTITIES,
     ATTR_FILENAME,
+    ATTR_SPLIT_BY,
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
@@ -123,6 +124,132 @@ class TestExportIntegration:
             generated = self.normalize_file_content(str(export_file))
             reference = self.normalize_file_content("tests/testfiles/export_sensor_data.tsv")
             assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
+
+    @pytest.mark.asyncio
+    async def test_export_split_both_tsv(self) -> None:
+        """Test exporting mixed statistics with split_by=both creates two files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": 1706270400.0,
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ],
+                "counter.energy_consumed": [
+                    {
+                        "start": 1706270400.0,
+                        "sum": 10.5,
+                        "state": 100.0,
+                    }
+                ],
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export_split.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature", "counter.energy_consumed"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 14:00:00",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_SPLIT_BY: "both",
+                },
+            )
+
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
+                mock_units = {"sensor.temperature": "°C", "counter.energy_consumed": "kWh"}
+                mock_get_stats.return_value = (mock_statistics, mock_units)
+                await service_handler(call)
+
+            sensors_file = Path(tmpdir) / "export_split_sensors.tsv"
+            counters_file = Path(tmpdir) / "export_split_counters.tsv"
+            assert sensors_file.exists(), "Sensors split file should be created"
+            assert counters_file.exists(), "Counters split file should be created"
+
+            sensors_content = sensors_file.read_text(encoding="utf-8")
+            assert "mean" in sensors_content
+            assert "sum" not in sensors_content
+
+            counters_content = counters_file.read_text(encoding="utf-8")
+            assert "sum" in counters_content
+            assert "mean" not in counters_content
+
+    @pytest.mark.asyncio
+    async def test_export_split_both_json(self) -> None:
+        """Test exporting mixed statistics to JSON with split_by=both creates two JSON files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": 1706270400.0,
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ],
+                "counter.energy_consumed": [
+                    {
+                        "start": 1706270400.0,
+                        "sum": 10.5,
+                        "state": 100.0,
+                    }
+                ],
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export_split.json",
+                    ATTR_ENTITIES: ["sensor.temperature", "counter.energy_consumed"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 14:00:00",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_SPLIT_BY: "both",
+                },
+            )
+
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
+                mock_units = {"sensor.temperature": "°C", "counter.energy_consumed": "kWh"}
+                mock_get_stats.return_value = (mock_statistics, mock_units)
+                await service_handler(call)
+
+            sensors_file = Path(tmpdir) / "export_split_sensors.json"
+            counters_file = Path(tmpdir) / "export_split_counters.json"
+            assert sensors_file.exists(), "Sensors split JSON file should be created"
+            assert counters_file.exists(), "Counters split JSON file should be created"
+
+            sensors_json = json.loads(sensors_file.read_text(encoding="utf-8"))
+            assert len(sensors_json) == 1
+            assert sensors_json[0]["id"] == "sensor.temperature"
+
+            counters_json = json.loads(counters_file.read_text(encoding="utf-8"))
+            assert len(counters_json) == 1
+            assert counters_json[0]["id"] == "counter.energy_consumed"
 
     @pytest.mark.asyncio
     async def test_export_sensor_statistics_tsv_without_time_range(self) -> None:

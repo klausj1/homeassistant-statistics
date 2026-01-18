@@ -79,6 +79,19 @@ export_statistics:
       selector:
         datetime:
 
+    split_by:
+      required: false
+      default: "none"
+      example: "both"
+      selector:
+        select:
+          custom_value: true
+          options:
+            - "none"
+            - "sensor"
+            - "counter"
+            - "both"
+
     timezone_identifier:
       required: false
       default: "Europe/Vienna"

@@ -39,6 +39,33 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
         helpers.handle_error(f"Failed to write export file {file_path}: {e}")
 
 
+def split_statistics_by_type(statistics_dict: dict, *, units_dict: dict | None = None) -> tuple[dict, dict, dict, dict]:
+    sensor_statistics_dict: dict = {}
+    counter_statistics_dict: dict = {}
+
+    if units_dict is None:
+        units_dict = {}
+
+    sensor_units_dict: dict = {}
+    counter_units_dict: dict = {}
+
+    for statistic_id, statistics_list in statistics_dict.items():
+        if not statistics_list:
+            continue
+
+        stat_type = _detect_statistic_type(statistics_list)
+        if stat_type == "sensor":
+            sensor_statistics_dict[statistic_id] = statistics_list
+            if statistic_id in units_dict:
+                sensor_units_dict[statistic_id] = units_dict[statistic_id]
+        elif stat_type == "counter":
+            counter_statistics_dict[statistic_id] = statistics_list
+            if statistic_id in units_dict:
+                counter_units_dict[statistic_id] = units_dict[statistic_id]
+
+    return sensor_statistics_dict, counter_statistics_dict, sensor_units_dict, counter_units_dict
+
+
 def prepare_export_data(
     statistics_dict: dict,
     timezone_identifier: str,

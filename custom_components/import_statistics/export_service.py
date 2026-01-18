@@ -16,13 +16,20 @@ from custom_components.import_statistics.const import (
     ATTR_END_TIME,
     ATTR_ENTITIES,
     ATTR_FILENAME,
+    ATTR_SPLIT_BY,
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
     DATETIME_DEFAULT_FORMAT,
     DATETIME_INPUT_FORMAT,
 )
 from custom_components.import_statistics.export_database_access import get_global_statistics_time_range
-from custom_components.import_statistics.export_service_helper import prepare_export_data, prepare_export_json, write_export_file, write_export_json
+from custom_components.import_statistics.export_service_helper import (
+    prepare_export_data,
+    prepare_export_json,
+    split_statistics_by_type,
+    write_export_file,
+    write_export_json,
+)
 from custom_components.import_statistics.helpers import _LOGGER
 
 
@@ -170,6 +177,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     entities_input_raw = call.data.get(ATTR_ENTITIES)
     start_time_str_raw = call.data.get(ATTR_START_TIME)
     end_time_str_raw = call.data.get(ATTR_END_TIME)
+    split_by_raw = call.data.get(ATTR_SPLIT_BY, "none")
 
     # Validate required parameters
     if not filename_raw or not isinstance(filename_raw, str):
@@ -180,6 +188,8 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
         helpers.handle_error("start_time must be a string")
     if end_time_str_raw is not None and not isinstance(end_time_str_raw, str):
         helpers.handle_error("end_time must be a string")
+    if split_by_raw is not None and not isinstance(split_by_raw, str):
+        helpers.handle_error("split_by must be a string")
 
     # Type narrowing: after validation, we know these are the correct types
     filename: str = cast("str", filename_raw)
@@ -199,6 +209,15 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     else:
         end_time_str = cast("str", end_time_str_raw)
 
+    split_by: str
+    if split_by_raw is None:
+        split_by = "none"
+    else:
+        split_by = cast("str", split_by_raw)
+    valid_split_values = {"none", "sensor", "counter", "both"}
+    if split_by not in valid_split_values:
+        helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
+
     # Extract other parameters (with defaults matching services.yaml)
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
     delimiter = call.data.get(ATTR_DELIMITER, "\t")
@@ -210,8 +229,11 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     _LOGGER.info("Time range: %s to %s", start_time_str if start_time_str is not None else "AUTO", end_time_str if end_time_str is not None else "AUTO")
     _LOGGER.info("Output file: %s", filename)
 
-    # Validate filename and build safe file path
-    file_path = helpers.validate_filename(filename, hass.config.config_dir)
+    def _filename_with_suffix(input_filename: str, suffix: str) -> str:
+        if "." in input_filename:
+            base, ext = input_filename.rsplit(".", 1)
+            return f"{base}{suffix}.{ext}"
+        return f"{input_filename}{suffix}"
 
     # Validate delimiter and set default
     delimiter = helpers.validate_delimiter(delimiter)
@@ -219,7 +241,64 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Get statistics from recorder API (using user's timezone for start/end times)
     statistics_dict, units_dict = await get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str, timezone_identifier)
 
+    if split_by != "none":
+        sensor_stats, counter_stats, sensor_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
+
+        write_sensors = split_by in {"sensor", "both"}
+        write_counters = split_by in {"counter", "both"}
+
+        if filename.lower().endswith(".json"):
+            if write_sensors and sensor_stats:
+                sensor_filename = _filename_with_suffix(filename, "_sensors")
+                sensor_file_path = helpers.validate_filename(sensor_filename, hass.config.config_dir)
+                sensor_json_data = await hass.async_add_executor_job(
+                    lambda: prepare_export_json(sensor_stats, timezone_identifier, datetime_format, sensor_units)
+                )
+                await hass.async_add_executor_job(lambda: write_export_json(sensor_file_path, sensor_json_data))
+
+            if write_counters and counter_stats:
+                counter_filename = _filename_with_suffix(filename, "_counters")
+                counter_file_path = helpers.validate_filename(counter_filename, hass.config.config_dir)
+                counter_json_data = await hass.async_add_executor_job(
+                    lambda: prepare_export_json(counter_stats, timezone_identifier, datetime_format, counter_units)
+                )
+                await hass.async_add_executor_job(lambda: write_export_json(counter_file_path, counter_json_data))
+
+        else:
+            if write_sensors and sensor_stats:
+                sensor_filename = _filename_with_suffix(filename, "_sensors")
+                sensor_file_path = helpers.validate_filename(sensor_filename, hass.config.config_dir)
+                sensor_columns, sensor_rows = await hass.async_add_executor_job(
+                    lambda: prepare_export_data(
+                        sensor_stats,
+                        timezone_identifier,
+                        datetime_format,
+                        decimal_comma=decimal,
+                        units_dict=sensor_units,
+                    )
+                )
+                await hass.async_add_executor_job(lambda: write_export_file(sensor_file_path, sensor_columns, sensor_rows, delimiter))
+
+            if write_counters and counter_stats:
+                counter_filename = _filename_with_suffix(filename, "_counters")
+                counter_file_path = helpers.validate_filename(counter_filename, hass.config.config_dir)
+                counter_columns, counter_rows = await hass.async_add_executor_job(
+                    lambda: prepare_export_data(
+                        counter_stats,
+                        timezone_identifier,
+                        datetime_format,
+                        decimal_comma=decimal,
+                        units_dict=counter_units,
+                    )
+                )
+                await hass.async_add_executor_job(lambda: write_export_file(counter_file_path, counter_columns, counter_rows, delimiter))
+
+        hass.states.async_set("import_statistics.export_statistics", "OK")
+        _LOGGER.info("Export completed successfully")
+        return
+
     # Prepare data for export (HA-independent)
+    file_path = helpers.validate_filename(filename, hass.config.config_dir)
     if filename.lower().endswith(".json"):
         # Export as JSON - run in executor to avoid blocking I/O
         json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
