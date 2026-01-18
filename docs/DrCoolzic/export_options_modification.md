@@ -45,7 +45,7 @@ Allow exporting *all* statistics when no entities are provided.
 #### Status for all statistics export
 
 - [X] Implemented (partially done)
-- [ ] Tested
+- [X] Tested
 
 #### Notes for all statistics export
 
@@ -67,8 +67,8 @@ Allow omitting `start_time` to export from the earliest available statistics rec
 
 #### Status for optional start_time
 
-- [ ] Implemented
-- [ ] Tested
+- [X] Implemented
+- [X] Tested
 
 ### 3) Optional `end_time`
 
@@ -86,8 +86,8 @@ Allow omitting `end_time` to export from `start_time` up to the most recent avai
 
 #### Status for optional end_time
 
-- [ ] Implemented
-- [ ] Tested
+- [X] Implemented
+- [X] Tested
 
 ### 4) Split sensors and counters into multiple files
 
@@ -113,8 +113,8 @@ Add an option to write sensor-like statistics and counter-like statistics into s
 
 #### Status for split statistics
 
-- [ ] Implemented
-- [ ] Tested
+- [X] Implemented
+- [X] Tested
 
 #### Notes
 
@@ -131,22 +131,19 @@ Exporting statistics (especially “all statistics”) can generate very large f
 Add an option to cap the number of statistic IDs included in one export operation.
 
 - **New option**
-  - `max_statistics: <int>` (optional, default: `1000`)
+  - `max_statistics: <int>` (optional, default: `100000`)
 - **Behavior**
-  - If omitted, use the default (`1000`).
+  - If omitted, use the default (`100000`).
   - If provided:
     - Must be a positive integer (`>= 1`).
     - Only the first `max_statistics` statistic IDs (after sorting) are exported.
-    - Sorting should be deterministic (e.g., alphabetical by `statistic_id`).
+    - Sorting is done alphabetical by `statistic_id`.
 - **UI**
   - Optional number field with validation.
 
 #### Notes for export limit
 
-- This is independent of “export all”. It can be used with either:
-  - a provided `entities` list, or
-  - no `entities` list (once modification #1 is supported).
-- Default value `10000` is a proposal and should be confirmed based on real-world datasets.
+- Default value `100000` is a proposal and should be confirmed based on real-world datasets.
 
 #### Status for export limit
 

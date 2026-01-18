@@ -37,14 +37,17 @@
         ".coverage"
     ],
     "cSpell.words": [
+        "automations",
         "charliermarsh",
         "codeowners",
         "Coolzic",
         "dataframe",
         "devcontainers",
+        "HACS",
         "hass",
         "homeassistant",
         "htmlcov",
+        "Jeedom",
         "klausj",
         "mhutchie",
         "pkill",
