@@ -170,13 +170,13 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
   - List of statistic IDs or entity IDs to export. Make sure to use a YAML list with `-`
   - Leave empty to export all available statistics.
 - **`start_time` (optional)**
-  - Start of the export range format: `%Y-m%-%d %H.%M.%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
+  - Start of the export range format: `%Y-%m-%d %H:%M:%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
   - Must be a full hour (`MM:SS` must be `00:00`).
-  - If omitted, export starts from the earliest available statistic.
+  - If omitted, export starts from the earliest available long-term (hourly) statistic.
 - **`end_time` (optional)**
-  - End of the export range format: `%Y-m%-%d %H.%M.%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
+  - End of the export range format: `%Y-%m-%d %H:%M:%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
   - Must be a full hour (`MM:SS` must be `00:00`).
-  - If omitted, export ends at the most recent available statistic.
+  - If omitted, export ends at the most recent available long-term (hourly) statistic.
 - **`timezone_identifier` (optional, default: `Europe/Vienna`)**
   - Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Timezone is used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
 - **`datetime_format` (optional, default: `%d.%m.%Y %H:%M`)**
@@ -186,11 +186,17 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
   - Use `\t` for tab-separated output.
 - **`decimal` (optional, default: `false`)**
   - If `true`, decimals are written with a comma instead of a dot.
-- **`split_statistics` (optional, default: `false`)**
-  - If `true`, export sensors and counters into separate files.
-  - Useful if you want to re-import the export, because `import_from_file` accepts only one type per file.
-- **`max_statistics` (optional, default: `10000`)**
-  - Limits the maximum number of statistic IDs exported in one operation (after deterministic sorting).
+- **`split_by` (optional, default: `none`)**
+  - Split output into multiple files by statistic type:
+    - `none`: default; write a single combined file
+    - `sensor`: write only sensor statistics (mean/min/max)
+    - `counter`: write only counter statistics (sum/state/delta)
+    - `both`: write both files
+  - Output files use suffixes `_sensors` and `_counters` before the extension.
+
+> **Note:** If you omit `start_time`/`end_time`, the action will auto-detect the time range from the recorder.
+> This requires long-term (hourly) statistics to exist. On new Home Assistant instances you may only have short-term statistics at first;
+> in that case, wait until long-term statistics are generated, or provide explicit `start_time` and `end_time`.
 
 #### Example using the UI:
 
@@ -221,20 +227,18 @@ data:
 action: import_statistics.export_statistics
 data:
   filename: exported_statistics.tsv
-  start_time: "2025-12-22 12:00:00"
-  end_time: "2025-12-25 12:00:00"
 ```
 
-##### Export all statistics (any time) into separate files
+##### Export all statistics into separate files (sensors + counters)
 
 ```yaml
 action: import_statistics.export_statistics
 data:
   filename: exported_statistics.tsv
-  split_statistics: true
+  split_by: both
 ```
 
-##### Export and split sensors/counters into two files
+##### Export only sensors
 
 ```yaml
 action: import_statistics.export_statistics
@@ -245,18 +249,7 @@ data:
     - sensor.energy_consumption
   start_time: "2025-12-22 00:00:00"
   end_time: "2025-12-23 00:00:00"
-  split_statistics: true
-```
-
-##### Export with a maximum number of statistic IDs
-
-```yaml
-action: import_statistics.export_statistics
-data:
-  filename: exported_statistics.tsv
-  start_time: "2025-12-22 00:00:00"
-  end_time: "2025-12-23 00:00:00"
-  max_statistics: 1000
+  split_by: sensor
 ```
 
 ### Export Output
