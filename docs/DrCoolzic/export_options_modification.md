@@ -33,7 +33,7 @@ This document proposes several changes to make exporting more flexible, especial
 
 ### 1) Allow exporting all statistics (make `entities` optional)
 
-#### Specification
+#### Specification for all statistics export
 
 Allow exporting *all* statistics when no entities are provided.
 
@@ -42,18 +42,18 @@ Allow exporting *all* statistics when no entities are provided.
 - **UI**
   - Leaving the entities field empty exports all statistics.
 
-#### Status
+#### Status for all statistics export
 
 - [X] Implemented (partially done)
 - [ ] Tested
 
-#### Notes
+#### Notes for all statistics export
 
 - This is a standalone change. It should not be coupled to file splitting or limiting.
 
 ### 2) Optional `start_time`
 
-#### Specification
+#### Specification for optional start_time
 
 Allow omitting `start_time` to export from the earliest available statistics record up to `end_time`.
 
@@ -65,14 +65,14 @@ Allow omitting `start_time` to export from the earliest available statistics rec
   - If provided, `start_time` must still be a full hour.
   - The selected/assumed timezone is still `timezone_identifier`.
 
-#### Status
+#### Status for optional start_time
 
 - [ ] Implemented
 - [ ] Tested
 
 ### 3) Optional `end_time`
 
-#### Specification
+#### Specification for optional end_time
 
 Allow omitting `end_time` to export from `start_time` up to the most recent available statistics record.
 
@@ -84,14 +84,14 @@ Allow omitting `end_time` to export from `start_time` up to the most recent avai
   - If provided, `end_time` must still be a full hour.
   - The selected/assumed timezone is still `timezone_identifier`.
 
-#### Status
+#### Status for optional end_time
 
 - [ ] Implemented
 - [ ] Tested
 
 ### 4) Split sensors and counters into multiple files
 
-#### Specification
+#### Specification for split statistics
 
 Add an option to write sensor-like statistics and counter-like statistics into separate files instead of mixing them.
 
@@ -111,7 +111,7 @@ Add an option to write sensor-like statistics and counter-like statistics into s
     - `export_sensors.json`
     - `export_counters.json`
 
-#### Status
+#### Status for split statistics
 
 - [ ] Implemented
 - [ ] Tested
@@ -122,11 +122,11 @@ Add an option to write sensor-like statistics and counter-like statistics into s
 
 ### 5) Limit the maximum number of exported statistics IDs
 
-#### Motivation
+#### Motivation for export limit
 
 Exporting statistics (especially “all statistics”) can generate very large files. A limit helps reduce runtime, memory use, and file size.
 
-#### Specification
+#### Specification for export limit
 
 Add an option to cap the number of statistic IDs included in one export operation.
 
@@ -141,14 +141,14 @@ Add an option to cap the number of statistic IDs included in one export operatio
 - **UI**
   - Optional number field with validation.
 
-#### Notes
+#### Notes for export limit
 
 - This is independent of “export all”. It can be used with either:
   - a provided `entities` list, or
   - no `entities` list (once modification #1 is supported).
 - Default value `10000` is a proposal and should be confirmed based on real-world datasets.
 
-#### Status
+#### Status for export limit
 
 - [ ] Implemented
 - [ ] Tested
