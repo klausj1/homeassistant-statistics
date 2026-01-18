@@ -21,12 +21,17 @@ from custom_components.import_statistics.const import (
     DATETIME_DEFAULT_FORMAT,
     DATETIME_INPUT_FORMAT,
 )
+from custom_components.import_statistics.export_database_access import get_global_statistics_time_range
 from custom_components.import_statistics.export_service_helper import prepare_export_data, prepare_export_json, write_export_file, write_export_json
 from custom_components.import_statistics.helpers import _LOGGER
 
 
 async def get_statistics_from_recorder(
-    hass: HomeAssistant, entities_input: list[str] | None, start_time_str: str, end_time_str: str, timezone_identifier: str = "Europe/Vienna"
+    hass: HomeAssistant,
+    entities_input: list[str] | None,
+    start_time_str: str | None,
+    end_time_str: str | None,
+    timezone_identifier: str = "Europe/Vienna",
 ) -> tuple[dict, dict]:
     """
     Fetch statistics from Home Assistant recorder API.
@@ -52,25 +57,34 @@ async def get_statistics_from_recorder(
     """
     _LOGGER.info("Fetching statistics from recorder API")
 
-    # Parse datetime strings (format: "2025-12-01 12:00:00")
-    # Times are provided in the user's selected timezone
-    try:
-        # Apply the user's timezone to the naive datetimes
-        tz = zoneinfo.ZoneInfo(timezone_identifier)
-        start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz)
-        end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz)
+    tz = zoneinfo.ZoneInfo(timezone_identifier)
 
-        # Convert to UTC for the recorder API
-        start_dt = start_dt.astimezone(dt.UTC)
-        end_dt = end_dt.astimezone(dt.UTC)
-    except ValueError as e:
-        helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
+    # Validate/parse provided start/end strings early, before any awaited DB calls.
+    # This keeps error behavior consistent even in unit tests where recorder is mocked.
+    start_dt: dt.datetime | None = None
+    end_dt: dt.datetime | None = None
 
-    # Normalize to full hours
-    if start_dt.minute != 0 or start_dt.second != 0:
-        helpers.handle_error("start_time must be a full hour (minutes and seconds must be 0)")
-    if end_dt.minute != 0 or end_dt.second != 0:
-        helpers.handle_error("end_time must be a full hour (minutes and seconds must be 0)")
+    if start_time_str is not None:
+        if not isinstance(start_time_str, str):
+            helpers.handle_error("start_time must be a string")
+        try:
+            start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz).astimezone(dt.UTC)
+        except ValueError as e:
+            helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
+
+        if start_dt.minute != 0 or start_dt.second != 0:
+            helpers.handle_error("start_time must be a full hour (minutes and seconds must be 0)")
+
+    if end_time_str is not None:
+        if not isinstance(end_time_str, str):
+            helpers.handle_error("end_time must be a string")
+        try:
+            end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz).astimezone(dt.UTC)
+        except ValueError as e:
+            helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
+
+        if end_dt.minute != 0 or end_dt.second != 0:
+            helpers.handle_error("end_time must be a full hour (minutes and seconds must be 0)")
 
     # Get recorder instance
     recorder_instance = get_instance(hass)
@@ -103,6 +117,26 @@ async def get_statistics_from_recorder(
     units_dict = {}
     for statistic_id, (_meta_id, meta_data) in metadata.items():
         units_dict[statistic_id] = meta_data.get("unit_of_measurement", "")
+
+    if start_dt is None or end_dt is None:
+        metadata_ids = {meta_id for _stat_id, (meta_id, _meta_data) in metadata.items()}
+        db_start_dt, db_end_dt = await get_global_statistics_time_range(hass, metadata_ids=metadata_ids)
+
+        if db_start_dt.minute != 0 or db_start_dt.second != 0:
+            helpers.handle_error("Earliest available statistic timestamp is not a full hour (unexpected)")
+        if db_end_dt.minute != 0 or db_end_dt.second != 0:
+            helpers.handle_error("Most recent available statistic timestamp is not a full hour (unexpected)")
+
+        if start_dt is None:
+            start_dt = db_start_dt
+        if end_dt is None:
+            end_dt = db_end_dt
+
+    if start_dt is None or end_dt is None:
+        helpers.handle_error("Implementation error: start/end time resolution failed")
+
+    if start_dt > end_dt:
+        helpers.handle_error(f"start_time ({start_dt}) must be before or equal to end_time ({end_dt})")
 
     # statistics_during_period returns data as:
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
@@ -142,10 +176,10 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
         helpers.handle_error("filename is required and must be a string")
     if entities_input_raw is not None and not isinstance(entities_input_raw, list):
         helpers.handle_error("entities must be a list")
-    if not start_time_str_raw or not isinstance(start_time_str_raw, str):
-        helpers.handle_error("start_time is required and must be a string")
-    if not end_time_str_raw or not isinstance(end_time_str_raw, str):
-        helpers.handle_error("end_time is required and must be a string")
+    if start_time_str_raw is not None and not isinstance(start_time_str_raw, str):
+        helpers.handle_error("start_time must be a string")
+    if end_time_str_raw is not None and not isinstance(end_time_str_raw, str):
+        helpers.handle_error("end_time must be a string")
 
     # Type narrowing: after validation, we know these are the correct types
     filename: str = cast("str", filename_raw)
@@ -154,8 +188,16 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
         entities_input = None
     else:
         entities_input = cast("list[str]", entities_input_raw)
-    start_time_str: str = cast("str", start_time_str_raw)
-    end_time_str: str = cast("str", end_time_str_raw)
+    start_time_str: str | None
+    end_time_str: str | None
+    if start_time_str_raw is None:
+        start_time_str = None
+    else:
+        start_time_str = cast("str", start_time_str_raw)
+    if end_time_str_raw is None:
+        end_time_str = None
+    else:
+        end_time_str = cast("str", end_time_str_raw)
 
     # Extract other parameters (with defaults matching services.yaml)
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
@@ -165,7 +207,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
 
     _LOGGER.info("Service handle_export_statistics called")
     _LOGGER.info("Exporting entities: %s", entities_input if entities_input else "ALL")
-    _LOGGER.info("Time range: %s to %s", start_time_str, end_time_str)
+    _LOGGER.info("Time range: %s to %s", start_time_str if start_time_str is not None else "AUTO", end_time_str if end_time_str is not None else "AUTO")
     _LOGGER.info("Output file: %s", filename)
 
     # Validate filename and build safe file path

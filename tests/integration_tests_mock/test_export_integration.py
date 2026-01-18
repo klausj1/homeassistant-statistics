@@ -125,6 +125,50 @@ class TestExportIntegration:
             assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
 
     @pytest.mark.asyncio
+    async def test_export_sensor_statistics_tsv_without_time_range(self) -> None:
+        """Test exporting sensor statistics without specifying start_time/end_time."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": 1706270400.0,  # 2024-01-26 12:00:00 UTC
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export_sensor_data_auto.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                },
+            )
+
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
+                mock_units = {"sensor.temperature": "°C"}
+                mock_get_stats.return_value = (mock_statistics, mock_units)
+                await service_handler(call)
+
+            export_file = Path(tmpdir) / "export_sensor_data_auto.tsv"
+            assert export_file.exists(), "Export file should be created"
+            assert export_file.stat().st_size > 0, "Export file should have content"
+
+    @pytest.mark.asyncio
     async def test_export_counter_statistics_csv(self) -> None:
         """Test exporting counter statistics to CSV format."""
         with tempfile.TemporaryDirectory() as tmpdir:
