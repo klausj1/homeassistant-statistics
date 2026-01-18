@@ -37,9 +37,8 @@ This is the user guide. If you are a developer, check the [Developer Documentati
 
 ## Available Actions
 
-
 | Action                                | Description                             |
-| --------------------------------------- | ----------------------------------------- |
+| ------------------------------------- | --------------------------------------- |
 | `import_statistics.import_from_file`  | Import statistics from a CSV/TSV file   |
 | `import_statistics.import_from_json`  | Import statistics from JSON (UI or API) |
 | `import_statistics.export_statistics` | Export statistics to CSV/TSV or JSON    |
@@ -68,21 +67,19 @@ Example files:
 
 ### Step 2: File Format Requirements
 
-
 | Requirement              | Details                                                                                                                                                |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Timestamp format**     | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (other formats are also possible)                                                                        |
 | **Timestamp constraint** | Minutes must be`:00` (full hours only)                                                                                                                 |
 | **Timezone**             | Timestamps are interpreted as local time; find yours at[Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., Europe/Vienna) |
-| **File encoding**        | UTF-8 (required for special characters like m³ or °C)                                                                                                |
+| **File encoding**        | UTF-8 (required for special characters like m³ or °C)                                                                                                  |
 | **Delimiter**            | Tab (default), comma, semicolon, or pipe                                                                                                               |
 | **Decimal separator**    | `.` (default) or `,`                                                                                                                                   |
 
 ### Step 3: Statistic ID Format
 
-
 | Type         | Format                   | Example                  | When to use                                |
-| -------------- | -------------------------- | -------------------------- | -------------------------------------------- |
+| ------------ | ------------------------ | ------------------------ | ------------------------------------------ |
 | **Internal** | `sensor.name` (with `.`) | `sensor.temperature`     | For existing Home Assistant entities       |
 | **External** | `domain:name` (with `:`) | `sensor:imported_energy` | For external (custom/synthetic) statistics |
 
@@ -121,9 +118,8 @@ data:
 
 Only these columns are accepted (unknown columns cause an error):
 
-
 | Column               | Required     | Description                          |
-| ---------------------- | -------------- | -------------------------------------- |
+| -------------------- | ------------ | ------------------------------------ |
 | `statistic_id`       | Yes          | The sensor identifier                |
 | `start`              | Yes          | Timestamp                            |
 | `unit`               | Sometimes    | Required for external statistics     |
@@ -139,7 +135,7 @@ Example format: [state_sum.json](./assets/state_sum.json)
 
 **Via API:**
 
-```
+```http
 POST https://<your-ha-url>/api/services/import_statistics/import_from_json
 Content-Type: application/json
 
@@ -178,7 +174,7 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
   - Must be a full hour (`MM:SS` must be `00:00`).
   - If omitted, export ends at the most recent available long-term (hourly) statistic.
 - **`timezone_identifier` (optional, default: `Europe/Vienna`)**
-  - Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Timezone is used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
+  - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>). Timezone is used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
 - **`datetime_format` (optional, default: `%d.%m.%Y %H:%M`)**
   - Output format of the `datetime`strings in the exported file.
 - **`delimiter` (optional, default: `\t`)**
@@ -198,11 +194,11 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 > This requires long-term (hourly) statistics to exist. On new Home Assistant instances you may only have short-term statistics at first;
 > in that case, wait until long-term statistics are generated, or provide explicit `start_time` and `end_time`.
 
-#### Example using the UI:
+#### Example using the UI
 
 ![export to file](assets/service_export_ui.png)
 
-#### Examples using YAML:
+#### Examples using YAML
 
 ##### Export selected entities
 
@@ -256,9 +252,8 @@ data:
 
 The exported file contains:
 
-
 | For Sensors          | For Counters            |
-| ---------------------- | ------------------------- |
+| -------------------- | ----------------------- |
 | `min`, `max`, `mean` | `sum`, `state`, `delta` |
 
 > **Note:** You can export sensors and counters together, but you'll need to split them into separate files before re-importing (import only accepts one type per file).
@@ -309,10 +304,8 @@ For troubleshooting tips, see [Troubleshooting Tips for Import Statistics Integr
 
 ---
 
-[import_statistics]: https://github.com/klausj1/homeassistant-statistics
 [commits-shield]: https://img.shields.io/github/commit-activity/y/klausj1/homeassistant-statistics.svg
 [commits]: https://github.com/klausj1/homeassistant-statistics/commits/main
-[exampleimg]: example.png
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg
 [forum]: https://community.home-assistant.io/t/custom-integration-to-import-long-term-statistics-from-a-file-like-csv-or-tsv
 [license-shield]: https://img.shields.io/github/license/klausj1/homeassistant-statistics.svg
