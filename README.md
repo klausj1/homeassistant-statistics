@@ -157,6 +157,9 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 1. Go to **Developer Tools → Actions**
 2. Select `import_statistics: export_statistics`
 3. Fill in the settings (from the UI or YAML)
+4. Click `perform action` to start the export.
+
+### Settings Description
 
 - **`filename` (required)**
   - Output file name (relative to Home Assistant config directory).
@@ -164,32 +167,30 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
     - `.json` for JSON export
     - anything else for TSV/CSV export (controlled by `delimiter`)
 - **`entities` (optional)**
-  - List of statistic IDs or entity IDs to export.
+  - List of statistic IDs or entity IDs to export. Make sure to use a YAML list with `-`
   - Leave empty to export all available statistics.
 - **`start_time` (optional)**
-  - Start of the export range (format: `YYYY-MM-DD HH:MM:SS`).
+  - Start of the export range format: `%Y-m%-%d %H.%M.%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
   - Must be a full hour (`MM:SS` must be `00:00`).
   - If omitted, export starts from the earliest available statistic.
 - **`end_time` (optional)**
-  - End of the export range (format: `YYYY-MM-DD HH:MM:SS`).
+  - End of the export range format: `%Y-m%-%d %H.%M.%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
   - Must be a full hour (`MM:SS` must be `00:00`).
   - If omitted, export ends at the most recent available statistic.
 - **`timezone_identifier` (optional, default: `Europe/Vienna`)**
-  - Timezone used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
+  - Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Timezone is used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
 - **`datetime_format` (optional, default: `%d.%m.%Y %H:%M`)**
-  - Output format of the `start` datetime column.
+  - Output format of the `datetime`strings in the exported file.
 - **`delimiter` (optional, default: `\t`)**
-  - Delimiter for TSV/CSV export.
+  - Delimiter between columns for TSV/CSV export.
   - Use `\t` for tab-separated output.
 - **`decimal` (optional, default: `false`)**
   - If `true`, decimals are written with a comma instead of a dot.
 - **`split_statistics` (optional, default: `false`)**
   - If `true`, export sensors and counters into separate files.
   - Useful if you want to re-import the export, because `import_from_file` accepts only one type per file.
-- **`max_statistics` (optional, default: `1000`)**
+- **`max_statistics` (optional, default: `10000`)**
   - Limits the maximum number of statistic IDs exported in one operation (after deterministic sorting).
-
-4. Click `perform action` to start the export.
 
 #### Example using the UI:
 

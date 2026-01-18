@@ -146,7 +146,7 @@ Add an option to cap the number of statistic IDs included in one export operatio
 - This is independent of “export all”. It can be used with either:
   - a provided `entities` list, or
   - no `entities` list (once modification #1 is supported).
-- Default value `1000` is a proposal and should be confirmed based on real-world datasets.
+- Default value `10000` is a proposal and should be confirmed based on real-world datasets.
 
 #### Status
 
