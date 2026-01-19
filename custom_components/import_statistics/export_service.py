@@ -2,11 +2,14 @@
 
 import datetime as dt
 import zoneinfo
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.recorder import get_instance
+
+if TYPE_CHECKING:
+    from homeassistant.components.recorder.core import Recorder
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.const import (
@@ -31,6 +34,70 @@ from custom_components.import_statistics.export_service_helper import (
     write_export_json,
 )
 from custom_components.import_statistics.helpers import _LOGGER
+
+
+def _parse_and_validate_time(time_str: str | None, tz: zoneinfo.ZoneInfo, time_name: str) -> dt.datetime | None:
+    """Parse and validate a time string to datetime."""
+    if time_str is None:
+        return None
+
+    if not isinstance(time_str, str):
+        helpers.handle_error(f"{time_name} must be a string")
+
+    try:
+        time_dt = dt.datetime.strptime(time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz).astimezone(dt.UTC)
+    except ValueError as e:
+        helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
+
+    if time_dt.minute != 0 or time_dt.second != 0:
+        helpers.handle_error(f"{time_name} must be a full hour (minutes and seconds must be 0)")
+
+    return time_dt
+
+
+async def _get_statistic_ids(hass: HomeAssistant, entities_input: list[str] | None, recorder_instance: "Recorder") -> list[str]:
+    """Get statistic IDs from entities input or fetch all from database."""
+    if entities_input is None or len(entities_input) == 0:
+        _LOGGER.info("No entities specified, fetching all statistics from database")
+        all_stats = await recorder_instance.async_add_executor_job(lambda: list_statistic_ids(hass))
+        statistic_ids = [stat["statistic_id"] for stat in all_stats]
+        _LOGGER.info("Found %d statistics in database", len(statistic_ids))
+        return statistic_ids
+
+    # Validate and use provided entities
+    statistic_ids = []
+    for entity in entities_input:
+        helpers.get_source(entity)  # Validate
+        statistic_ids.append(entity)
+    return statistic_ids
+
+
+async def _resolve_time_range(
+    hass: HomeAssistant,
+    start_dt: dt.datetime | None,
+    end_dt: dt.datetime | None,
+    metadata: dict,
+) -> tuple[dt.datetime, dt.datetime]:
+    """Resolve start and end times, fetching from database if needed."""
+    if start_dt is None or end_dt is None:
+        metadata_ids = {meta_id for _stat_id, (meta_id, _meta_data) in metadata.items()}
+        db_start_dt, db_end_dt = await get_global_statistics_time_range(hass, metadata_ids=metadata_ids)
+
+        if db_start_dt.minute != 0 or db_start_dt.second != 0:
+            helpers.handle_error("Earliest available statistic timestamp is not a full hour (unexpected)")
+        if db_end_dt.minute != 0 or db_end_dt.second != 0:
+            helpers.handle_error("Most recent available statistic timestamp is not a full hour (unexpected)")
+
+        start_dt = start_dt or db_start_dt
+        end_dt = end_dt or db_end_dt
+
+    if start_dt is None or end_dt is None:
+        helpers.handle_error("Implementation error: start/end time resolution failed")
+
+    if start_dt > end_dt:
+        helpers.handle_error(f"start_time ({start_dt}) must be before or equal to end_time ({end_dt})")
+
+    return start_dt, end_dt
 
 
 async def get_statistics_from_recorder(
@@ -66,84 +133,26 @@ async def get_statistics_from_recorder(
 
     tz = zoneinfo.ZoneInfo(timezone_identifier)
 
-    # Validate/parse provided start/end strings early, before any awaited DB calls.
-    # This keeps error behavior consistent even in unit tests where recorder is mocked.
-    start_dt: dt.datetime | None = None
-    end_dt: dt.datetime | None = None
-
-    if start_time_str is not None:
-        if not isinstance(start_time_str, str):
-            helpers.handle_error("start_time must be a string")
-        try:
-            start_dt = dt.datetime.strptime(start_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz).astimezone(dt.UTC)
-        except ValueError as e:
-            helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
-
-        if start_dt.minute != 0 or start_dt.second != 0:
-            helpers.handle_error("start_time must be a full hour (minutes and seconds must be 0)")
-
-    if end_time_str is not None:
-        if not isinstance(end_time_str, str):
-            helpers.handle_error("end_time must be a string")
-        try:
-            end_dt = dt.datetime.strptime(end_time_str, DATETIME_INPUT_FORMAT).replace(tzinfo=tz).astimezone(dt.UTC)
-        except ValueError as e:
-            helpers.handle_error(f"Invalid datetime format. Expected 'YYYY-MM-DD HH:MM:SS': {e}")
-
-        if end_dt.minute != 0 or end_dt.second != 0:
-            helpers.handle_error("end_time must be a full hour (minutes and seconds must be 0)")
+    # Parse and validate time strings
+    start_dt = _parse_and_validate_time(start_time_str, tz, "start_time")
+    end_dt = _parse_and_validate_time(end_time_str, tz, "end_time")
 
     # Get recorder instance
     recorder_instance = get_instance(hass)
     if recorder_instance is None:
         helpers.handle_error("Recorder component is not running")
 
-    # Convert string entity/statistic IDs to statistic_ids for recorder API
-    # If no entities specified, fetch all available statistic IDs from database
-    if entities_input is None or len(entities_input) == 0:
-        _LOGGER.info("No entities specified, fetching all statistics from database")
-        # Get all statistic IDs from recorder
-        all_stats = await recorder_instance.async_add_executor_job(lambda: list_statistic_ids(hass))
-        statistic_ids = [stat["statistic_id"] for stat in all_stats]
-        _LOGGER.info("Found %d statistics in database", len(statistic_ids))
-    else:
-        # Validate and use provided entities
-        statistic_ids = []
-        for entity in entities_input:
-            # Both "sensor.temperature" and "sensor:external_temp" formats supported
-            # The get_source() helper validates the format
-            helpers.get_source(entity)  # Validate
-            statistic_ids.append(entity)
+    # Get statistic IDs
+    statistic_ids = await _get_statistic_ids(hass, entities_input, recorder_instance)
 
-    # Use recorder API to get statistics (recorder_instance already obtained above)
-
-    # Fetch metadata to get units (single call for all entities) - use recorder executor for database access
+    # Fetch metadata to get units
     metadata = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=set(statistic_ids)))
 
     # Extract units from metadata
-    units_dict = {}
-    for statistic_id, (_meta_id, meta_data) in metadata.items():
-        units_dict[statistic_id] = meta_data.get("unit_of_measurement", "")
+    units_dict = {statistic_id: meta_data.get("unit_of_measurement", "") for statistic_id, (_meta_id, meta_data) in metadata.items()}
 
-    if start_dt is None or end_dt is None:
-        metadata_ids = {meta_id for _stat_id, (meta_id, _meta_data) in metadata.items()}
-        db_start_dt, db_end_dt = await get_global_statistics_time_range(hass, metadata_ids=metadata_ids)
-
-        if db_start_dt.minute != 0 or db_start_dt.second != 0:
-            helpers.handle_error("Earliest available statistic timestamp is not a full hour (unexpected)")
-        if db_end_dt.minute != 0 or db_end_dt.second != 0:
-            helpers.handle_error("Most recent available statistic timestamp is not a full hour (unexpected)")
-
-        if start_dt is None:
-            start_dt = db_start_dt
-        if end_dt is None:
-            end_dt = db_end_dt
-
-    if start_dt is None or end_dt is None:
-        helpers.handle_error("Implementation error: start/end time resolution failed")
-
-    if start_dt > end_dt:
-        helpers.handle_error(f"start_time ({start_dt}) must be before or equal to end_time ({end_dt})")
+    # Resolve time range
+    start_dt, end_dt = await _resolve_time_range(hass, start_dt, end_dt, metadata)
 
     # statistics_during_period returns data as:
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
@@ -170,9 +179,8 @@ async def get_statistics_from_recorder(
     return statistics_dict, units_dict
 
 
-async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Handle export_statistics service implementation."""
-    # Get parameters from service call
+def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | None, str | None, str | None, str]:
+    """Validate and extract service call parameters."""
     filename_raw = call.data.get(ATTR_FILENAME)
     entities_input_raw = call.data.get(ATTR_ENTITIES)
     start_time_str_raw = call.data.get(ATTR_START_TIME)
@@ -191,36 +199,118 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     if split_by_raw is not None and not isinstance(split_by_raw, str):
         helpers.handle_error("split_by must be a string")
 
-    # Type narrowing: after validation, we know these are the correct types
+    # Type narrowing
     filename: str = cast("str", filename_raw)
-    entities_input: list[str] | None
-    if entities_input_raw is None:
-        entities_input = None
-    else:
-        entities_input = cast("list[str]", entities_input_raw)
-    start_time_str: str | None
-    end_time_str: str | None
-    if start_time_str_raw is None:
-        start_time_str = None
-    else:
-        start_time_str = cast("str", start_time_str_raw)
-    if end_time_str_raw is None:
-        end_time_str = None
-    else:
-        end_time_str = cast("str", end_time_str_raw)
+    entities_input: list[str] | None = None if entities_input_raw is None else cast("list[str]", entities_input_raw)
+    start_time_str: str | None = None if start_time_str_raw is None else cast("str", start_time_str_raw)
+    end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
+    split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)
 
-    split_by: str
-    if split_by_raw is None:
-        split_by = "none"
-    else:
-        split_by = cast("str", split_by_raw)
     valid_split_values = {"none", "sensor", "counter", "both"}
     if split_by not in valid_split_values:
         helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
 
+    return filename, entities_input, start_time_str, end_time_str, split_by
+
+
+def _filename_with_suffix(input_filename: str, suffix: str) -> str:
+    """Add suffix to filename before extension."""
+    if "." in input_filename:
+        base, ext = input_filename.rsplit(".", 1)
+        return f"{base}{suffix}.{ext}"
+    return f"{input_filename}{suffix}"
+
+
+async def _export_split_file(  # noqa: PLR0913
+    hass: HomeAssistant,
+    filename: str,
+    stats_dict: dict,
+    units_dict: dict,
+    suffix: str,
+    timezone_identifier: str,
+    datetime_format: str,
+    *,
+    decimal: bool,
+    delimiter: str,
+) -> None:
+    """Export a single split file (sensor or counter)."""
+    if not stats_dict:
+        return
+
+    output_filename = _filename_with_suffix(filename, suffix)
+    file_path = helpers.validate_filename(output_filename, hass.config.config_dir)
+
+    if filename.lower().endswith(".json"):
+        json_data = await hass.async_add_executor_job(lambda: prepare_export_json(stats_dict, timezone_identifier, datetime_format, units_dict))
+        await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
+    else:
+        columns, rows = await hass.async_add_executor_job(
+            lambda: prepare_export_data(stats_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+        )
+        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+
+
+async def _export_split_statistics(  # noqa: PLR0913
+    hass: HomeAssistant,
+    filename: str,
+    statistics_dict: dict,
+    units_dict: dict,
+    split_by: str,
+    timezone_identifier: str,
+    datetime_format: str,
+    *,
+    decimal: bool,
+    delimiter: str,
+) -> None:
+    """Export statistics split by type."""
+    sensor_stats, counter_stats, sensor_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
+
+    write_sensors = split_by in {"sensor", "both"}
+    write_counters = split_by in {"counter", "both"}
+
+    if write_sensors:
+        await _export_split_file(
+            hass, filename, sensor_stats, sensor_units, "_sensors", timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter
+        )
+
+    if write_counters:
+        await _export_split_file(
+            hass, filename, counter_stats, counter_units, "_counters", timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter
+        )
+
+
+async def _export_single_file(  # noqa: PLR0913
+    hass: HomeAssistant,
+    filename: str,
+    statistics_dict: dict,
+    units_dict: dict,
+    timezone_identifier: str,
+    datetime_format: str,
+    *,
+    decimal: bool,
+    delimiter: str,
+) -> None:
+    """Export all statistics to a single file."""
+    file_path = helpers.validate_filename(filename, hass.config.config_dir)
+
+    if filename.lower().endswith(".json"):
+        json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
+        await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
+    else:
+        columns, rows = await hass.async_add_executor_job(
+            lambda: prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+        )
+        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+
+
+async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Handle export_statistics service implementation."""
+    # Validate and extract parameters
+    filename, entities_input, start_time_str, end_time_str, split_by = _validate_service_parameters(call)
+
     # Extract other parameters (with defaults matching services.yaml)
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
-    delimiter = call.data.get(ATTR_DELIMITER, "\t")
+    delimiter = helpers.validate_delimiter(call.data.get(ATTR_DELIMITER, "\t"))
     decimal = call.data.get(ATTR_DECIMAL, False)
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
 
@@ -229,86 +319,16 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     _LOGGER.info("Time range: %s to %s", start_time_str if start_time_str is not None else "AUTO", end_time_str if end_time_str is not None else "AUTO")
     _LOGGER.info("Output file: %s", filename)
 
-    def _filename_with_suffix(input_filename: str, suffix: str) -> str:
-        if "." in input_filename:
-            base, ext = input_filename.rsplit(".", 1)
-            return f"{base}{suffix}.{ext}"
-        return f"{input_filename}{suffix}"
-
-    # Validate delimiter and set default
-    delimiter = helpers.validate_delimiter(delimiter)
-
-    # Get statistics from recorder API (using user's timezone for start/end times)
+    # Get statistics from recorder API
     statistics_dict, units_dict = await get_statistics_from_recorder(hass, entities_input, start_time_str, end_time_str, timezone_identifier)
 
+    # Export based on split_by parameter
     if split_by != "none":
-        sensor_stats, counter_stats, sensor_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
-
-        write_sensors = split_by in {"sensor", "both"}
-        write_counters = split_by in {"counter", "both"}
-
-        if filename.lower().endswith(".json"):
-            if write_sensors and sensor_stats:
-                sensor_filename = _filename_with_suffix(filename, "_sensors")
-                sensor_file_path = helpers.validate_filename(sensor_filename, hass.config.config_dir)
-                sensor_json_data = await hass.async_add_executor_job(
-                    lambda: prepare_export_json(sensor_stats, timezone_identifier, datetime_format, sensor_units)
-                )
-                await hass.async_add_executor_job(lambda: write_export_json(sensor_file_path, sensor_json_data))
-
-            if write_counters and counter_stats:
-                counter_filename = _filename_with_suffix(filename, "_counters")
-                counter_file_path = helpers.validate_filename(counter_filename, hass.config.config_dir)
-                counter_json_data = await hass.async_add_executor_job(
-                    lambda: prepare_export_json(counter_stats, timezone_identifier, datetime_format, counter_units)
-                )
-                await hass.async_add_executor_job(lambda: write_export_json(counter_file_path, counter_json_data))
-
-        else:
-            if write_sensors and sensor_stats:
-                sensor_filename = _filename_with_suffix(filename, "_sensors")
-                sensor_file_path = helpers.validate_filename(sensor_filename, hass.config.config_dir)
-                sensor_columns, sensor_rows = await hass.async_add_executor_job(
-                    lambda: prepare_export_data(
-                        sensor_stats,
-                        timezone_identifier,
-                        datetime_format,
-                        decimal_comma=decimal,
-                        units_dict=sensor_units,
-                    )
-                )
-                await hass.async_add_executor_job(lambda: write_export_file(sensor_file_path, sensor_columns, sensor_rows, delimiter))
-
-            if write_counters and counter_stats:
-                counter_filename = _filename_with_suffix(filename, "_counters")
-                counter_file_path = helpers.validate_filename(counter_filename, hass.config.config_dir)
-                counter_columns, counter_rows = await hass.async_add_executor_job(
-                    lambda: prepare_export_data(
-                        counter_stats,
-                        timezone_identifier,
-                        datetime_format,
-                        decimal_comma=decimal,
-                        units_dict=counter_units,
-                    )
-                )
-                await hass.async_add_executor_job(lambda: write_export_file(counter_file_path, counter_columns, counter_rows, delimiter))
-
-        hass.states.async_set("import_statistics.export_statistics", "OK")
-        _LOGGER.info("Export completed successfully")
-        return
-
-    # Prepare data for export (HA-independent)
-    file_path = helpers.validate_filename(filename, hass.config.config_dir)
-    if filename.lower().endswith(".json"):
-        # Export as JSON - run in executor to avoid blocking I/O
-        json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
-        await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
-    else:
-        # Export as CSV/TSV (default) - run in executor to avoid blocking I/O
-        columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+        await _export_split_statistics(
+            hass, filename, statistics_dict, units_dict, split_by, timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter
         )
-        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    else:
+        await _export_single_file(hass, filename, statistics_dict, units_dict, timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter)
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
     _LOGGER.info("Export completed successfully")

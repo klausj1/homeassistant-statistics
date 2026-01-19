@@ -40,6 +40,17 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
 
 
 def split_statistics_by_type(statistics_dict: dict, *, units_dict: dict | None = None) -> tuple[dict, dict, dict, dict]:
+    """
+    Split statistics dictionary into sensor and counter types.
+
+    Args:
+        statistics_dict: Dictionary of statistics to split
+        units_dict: Optional dictionary mapping statistic_id to unit_of_measurement
+
+    Returns:
+        tuple: (sensor_statistics_dict, counter_statistics_dict, sensor_units_dict, counter_units_dict)
+
+    """
     sensor_statistics_dict: dict = {}
     counter_statistics_dict: dict = {}
 

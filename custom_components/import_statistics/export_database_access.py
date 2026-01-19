@@ -1,7 +1,7 @@
 """Export statistics database access helper functions using recorder."""
 
 import datetime as dt
-from typing import Any
+from typing import TYPE_CHECKING
 
 from homeassistant.components.recorder.db_schema import Statistics, StatisticsShortTerm
 from homeassistant.core import HomeAssistant
@@ -9,21 +9,20 @@ from homeassistant.helpers.recorder import get_instance, session_scope
 from homeassistant.util import dt as dt_util
 from sqlalchemy import func
 
+if TYPE_CHECKING:
+    from homeassistant.components.recorder.core import Recorder
+
 from custom_components.import_statistics.helpers import _LOGGER, handle_error
 
 
-def _get_min_max_start_ts(metadata_ids: set[int], inst: Any) -> tuple[float | None, float | None]:
+def _get_min_max_start_ts(metadata_ids: set[int], inst: "Recorder") -> tuple[float | None, float | None]:
     """Return min/max start_ts for the given metadata IDs from the Statistics table."""
     with session_scope(session=inst.get_session(), read_only=True) as sess:
-        min_ts, max_ts = (
-            sess.query(func.min(Statistics.start_ts), func.max(Statistics.start_ts))
-            .filter(Statistics.metadata_id.in_(metadata_ids))
-            .one()
-        )
+        min_ts, max_ts = sess.query(func.min(Statistics.start_ts), func.max(Statistics.start_ts)).filter(Statistics.metadata_id.in_(metadata_ids)).one()
         return min_ts, max_ts
 
 
-def _get_min_max_start_ts_short_term(metadata_ids: set[int], inst: Any) -> tuple[float | None, float | None]:
+def _get_min_max_start_ts_short_term(metadata_ids: set[int], inst: "Recorder") -> tuple[float | None, float | None]:
     """Return min/max start_ts for the given metadata IDs from the StatisticsShortTerm table."""
     with session_scope(session=inst.get_session(), read_only=True) as sess:
         min_ts, max_ts = (
@@ -35,7 +34,8 @@ def _get_min_max_start_ts_short_term(metadata_ids: set[int], inst: Any) -> tuple
 
 
 async def get_global_statistics_time_range(hass: HomeAssistant, *, metadata_ids: set[int]) -> tuple[dt.datetime, dt.datetime]:
-    """Get the global (min start, max start) time range for the given metadata IDs.
+    """
+    Get the global (min start, max start) time range for the given metadata IDs.
 
     Returns datetimes in UTC.
     """
@@ -58,6 +58,11 @@ async def get_global_statistics_time_range(hass: HomeAssistant, *, metadata_ids:
             )
 
         handle_error("No statistics found in database for the selected entities")
+
+    # Type narrowing: after the None check above, we know min_ts and max_ts are not None
+    # (handle_error raises an exception, so execution only continues if both are not None)
+    assert min_ts is not None  # noqa: S101
+    assert max_ts is not None  # noqa: S101
 
     start_dt = dt_util.utc_from_timestamp(min_ts)
     end_dt = dt_util.utc_from_timestamp(max_ts)

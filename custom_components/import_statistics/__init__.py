@@ -36,6 +36,7 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         bool: True if the component has been successfully initialized, False otherwise.
 
     """
+
     async def handle_import_from_file(call: ServiceCall) -> None:
         """Handle the service call."""
         await handle_import_from_file_impl(hass, call)
