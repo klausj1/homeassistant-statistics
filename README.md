@@ -110,6 +110,7 @@ data:
 - **Overwrites existing data**: Importing the same timestamps replaces old values
 - **Gaps are preserved**: Missing hours will show as gaps in graphs
 - **Synchronous operation**: The action completes when all data is saved into the database. This can take a longer time for large input data
+- **Export performance**: Exporting large datasets (e.g., 450,000 statistics) may take ~45 seconds on Raspberry Pi hardware. The operation is memory-efficient and handles datasets of this size well.
 - **Validation errors**: Shown directly in the UI; check logs if import fails silently
 
 > If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
@@ -193,6 +194,8 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 > **Note:** If you omit `start_time`/`end_time`, the action will auto-detect the time range from the recorder.
 > This requires long-term (hourly) statistics to exist. On new Home Assistant instances you may only have short-term statistics at first;
 > in that case, wait until long-term statistics are generated, or provide explicit `start_time` and `end_time`.
+>
+> **Performance note**: Exporting all statistics from large databases (450k+ records) may take 30-60 seconds depending on hardware.
 
 #### Example using the UI
 

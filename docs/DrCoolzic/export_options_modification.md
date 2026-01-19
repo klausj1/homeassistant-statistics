@@ -126,7 +126,7 @@ Add an option to write sensor-like statistics and counter-like statistics into s
 
 Exporting statistics (especially “all statistics”) can generate very large files. A limit helps reduce runtime, memory use, and file size.
 
-#### Specification for export limit
+<!-- #### Specification for export limit
 
 Add an option to cap the number of statistic IDs included in one export operation.
 
@@ -148,7 +148,7 @@ Add an option to cap the number of statistic IDs included in one export operatio
 #### Status for export limit
 
 - [ ] Implemented
-- [ ] Tested
+- [ ] Tested -->
 
 ## Examples
 
