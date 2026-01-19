@@ -140,3 +140,29 @@ def test_convert_deltas_newer_ref_float_precision() -> None:
     assert abs(result[0]["sum"] - 69.373) < 0.001
     assert abs(result[1]["sum"] - 79.873) < 0.001
     assert abs(result[2]["sum"] - 100.123) < 0.001  # Connection record
+
+
+def test_convert_deltas_newer_ref_none_reference_values() -> None:
+    """Test newer ref conversion with None reference values (treated as 0)."""
+    tz = dt.UTC
+    delta_rows = [
+        {"start": dt.datetime(2025, 1, 1, 10, 0, tzinfo=tz), "delta": 10.0},
+        {"start": dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz), "delta": 5.0},
+    ]
+    reference_time = dt.datetime(2025, 1, 1, 11, 0, tzinfo=tz)
+
+    # This simulates the case where database reference has sum=None, state=None
+    # The function should handle None by treating it as 0
+    result = convert_deltas_with_newer_reference(delta_rows, None, None, reference_time)
+
+    # Working backward from 0:
+    # After row 2 (delta=5): 0 - 5 = -5
+    # After row 1 (delta=10): -5 - 10 = -15
+    # Reverse to ascending: [-15, -5] + connection record [0]
+    assert len(result) == 3
+    assert result[0]["sum"] == -15.0
+    assert result[0]["state"] == -15.0
+    assert result[1]["sum"] == -5.0
+    assert result[1]["state"] == -5.0
+    assert result[2]["sum"] == 0.0  # Connection record
+    assert result[2]["state"] == 0.0

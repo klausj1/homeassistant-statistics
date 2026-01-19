@@ -2,6 +2,7 @@
 
 import zoneinfo
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -119,6 +120,26 @@ def test_get_delta_stat_timezone_applied() -> None:
     result = get_delta_stat(row, tz)
 
     assert result["start"].tzinfo == tz
+
+
+def test_get_delta_stat_nan_delta() -> None:
+    """Test get_delta_stat with NaN delta value (should fail silently)."""
+    tz = zoneinfo.ZoneInfo("Europe/Vienna")
+    row = pd.Series({"start": "01.01.2022 00:00", "delta": np.nan})
+
+    # Silent failure pattern - returns empty dict for NaN values
+    result = get_delta_stat(row, tz)
+    assert result == {}
+
+
+def test_get_delta_stat_empty_string_delta() -> None:
+    """Test get_delta_stat with empty string delta (pandas converts to NaN)."""
+    tz = zoneinfo.ZoneInfo("Europe/Vienna")
+    row = pd.Series({"start": "01.01.2022 00:00", "delta": ""})
+
+    # Silent failure pattern - returns empty dict for empty/NaN values
+    result = get_delta_stat(row, tz)
+    assert result == {}
 
 
 def test_get_delta_stat_different_timezone() -> None:

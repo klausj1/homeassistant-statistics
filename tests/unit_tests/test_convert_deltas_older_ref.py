@@ -144,3 +144,22 @@ def test_convert_deltas_older_ref_preserves_order() -> None:
     assert result[0]["start"] == dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz)
     assert result[1]["start"] == dt.datetime(2022, 1, 1, 1, 0, tzinfo=tz)
     assert result[2]["start"] == dt.datetime(2022, 1, 1, 2, 0, tzinfo=tz)
+
+
+def test_convert_deltas_older_ref_none_reference_values() -> None:
+    """Test convert_deltas_older_ref with None reference values (treated as 0)."""
+    tz = zoneinfo.ZoneInfo("Europe/Vienna")
+    delta_rows = [
+        {"start": dt.datetime(2022, 1, 1, 0, 0, tzinfo=tz), "delta": 10.5},
+        {"start": dt.datetime(2022, 1, 1, 1, 0, tzinfo=tz), "delta": 5.2},
+    ]
+
+    # This simulates the case where database reference has sum=None, state=None
+    # The function should handle None by treating it as 0
+    result = convert_deltas_with_older_reference(delta_rows, sum_oldest=None, state_oldest=None)
+
+    assert len(result) == 2
+    assert result[0]["sum"] == 10.5
+    assert result[0]["state"] == 10.5
+    assert result[1]["sum"] == 15.7
+    assert result[1]["state"] == 15.7

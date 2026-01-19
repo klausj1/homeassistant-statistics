@@ -240,7 +240,11 @@ def is_valid_float(value: str) -> bool:
 
     """
     try:
-        float(value)
+        float_value = float(value)
+        # Reject NaN values explicitly
+        if pd.isna(float_value):
+            msg = f"Invalid float value: {value} (NaN/empty value not allowed). Check for missing or empty values in your data."
+            raise HomeAssistantError(msg)
     except ValueError as exc:
         msg = f"Invalid float value: {value}. Check the decimal separator."
         raise HomeAssistantError(msg) from exc

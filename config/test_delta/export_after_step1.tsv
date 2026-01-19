@@ -2,14 +2,7 @@ statistic_id	unit	start	sum	state	delta
 sensor.imp_after	kWh	29.12.2025 08:00	0	10	
 sensor.imp_after	kWh	29.12.2025 09:00	1	11	1
 sensor.imp_after	kWh	29.12.2025 10:00	3	13	2
-sensor.imp_after	kWh	30.12.2025 09:00	13	23	10
-sensor.imp_after	kWh	30.12.2025 10:00	33	43	20
-sensor.imp_after	kWh	30.12.2025 11:00	63	73	30
-sensor.imp_before	kWh	28.12.2025 08:00	-60	-50	
-sensor.imp_before	kWh	28.12.2025 09:00	-50	-40	10
-sensor.imp_before	kWh	28.12.2025 10:00	-30	-20	20
-sensor.imp_before	kWh	28.12.2025 11:00	0	10	30
-sensor.imp_before	kWh	29.12.2025 08:00	0	10	0
+sensor.imp_before	kWh	29.12.2025 08:00	0	10	
 sensor.imp_before	kWh	29.12.2025 09:00	1	11	1
 sensor.imp_before	kWh	29.12.2025 10:00	3	13	2
 sensor.imp_inside_same_newest_1	kWh	29.12.2025 08:00	0	10	
@@ -24,10 +17,7 @@ sensor.imp_inside_same_newest_1	kWh	29.12.2025 16:00	36	46	8
 sensor.imp_inside_same_newest_1	kWh	30.12.2025 08:00	45	55	9
 sensor.imp_inside_same_newest_1	kWh	30.12.2025 09:00	55	65	10
 sensor.imp_inside_same_newest_1	kWh	30.12.2025 10:00	66	76	11
-sensor.imp_partly_before	kWh	29.12.2025 05:00	0	10	
-sensor.imp_partly_before	kWh	29.12.2025 06:00	2	12	2
-sensor.imp_partly_before	kWh	29.12.2025 07:00	3	13	1
-sensor.imp_partly_before	kWh	29.12.2025 08:00	0	10	-3
+sensor.imp_partly_before	kWh	29.12.2025 08:00	0	10	
 sensor.imp_partly_before	kWh	29.12.2025 09:00	1	11	1
 sensor.imp_partly_before	kWh	29.12.2025 10:00	3	13	2
 sensor.imp_partly_before	kWh	29.12.2025 11:00	6	16	3
@@ -81,10 +71,7 @@ sensor:imp_partly_after	kWh	29.06.2025 16:00	36	46	8
 sensor:imp_partly_after	kWh	30.06.2025 08:00	45	55	9
 sensor:imp_partly_after	kWh	30.06.2025 09:00	55	65	10
 sensor:imp_partly_after	kWh	30.06.2025 10:00	66	76	11
-sensor:imp_partly_after	kWh	30.06.2025 11:00	118	128	52
-sensor:imp_partly_after	kWh	30.06.2025 12:00	148	158	30
-sensor:imp_partly_at	kWh	29.06.2025 07:00	0	10	
-sensor:imp_partly_at	kWh	29.06.2025 08:00	0	10	0
+sensor:imp_partly_at	kWh	29.06.2025 08:00	0	10	
 sensor:imp_partly_at	kWh	29.06.2025 09:00	1	11	1
 sensor:imp_partly_at	kWh	29.06.2025 10:00	3	13	2
 sensor:imp_partly_at	kWh	29.06.2025 11:00	6	16	3
