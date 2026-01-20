@@ -131,7 +131,10 @@ async def get_statistics_from_recorder(
     """
     _LOGGER.info("Fetching statistics from recorder API")
 
-    tz = zoneinfo.ZoneInfo(timezone_identifier)
+    try:
+        tz = zoneinfo.ZoneInfo(timezone_identifier)
+    except zoneinfo.ZoneInfoNotFoundError:
+        helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier!r}")
 
     # Parse and validate time strings
     start_dt = _parse_and_validate_time(start_time_str, tz, "start_time")
