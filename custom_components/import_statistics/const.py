@@ -12,6 +12,7 @@ ATTR_START_TIME = "start_time"
 ATTR_END_TIME = "end_time"
 ATTR_ENTITIES = "entities"
 ATTR_DELTA = "delta"
+ATTR_SPLIT_BY = "split_by"
 
 TESTFILEPATHS = "tests/testfiles/"
 
