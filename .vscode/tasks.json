@@ -19,7 +19,7 @@
         {
             "label": "Run Tests",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m pytest tests/",
+            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${command:python.interpreterPath} -m pytest tests/'",
             "group": {
                 "kind": "test",
                 "isDefault": true
