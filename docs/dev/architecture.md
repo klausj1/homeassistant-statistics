@@ -13,7 +13,7 @@ The architecture features dual import paths (delta and normal), delta conversion
 
 ## Component Description
 
-### [`__init__.py`modu](custom_components/import_statistics/__init__.py)
+### [`__init__.py`](custom_components/import_statistics/__init__.py)
 
 Integration entry point that registers three Home Assistant services: `import_from_file` (CSV/TSV import), `import_from_json` (JSON import), and `export_statistics` (export to file). Uses synchronous `setup()` to register async service handlers.
 

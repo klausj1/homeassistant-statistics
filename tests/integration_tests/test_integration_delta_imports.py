@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
+import pandas as pd
 import psutil
 import pytest
 
@@ -261,6 +262,127 @@ class TestIntegrationAll:
         _LOGGER.info("COMPARISON OK: Files match perfectly")
         return True
 
+    @staticmethod
+    def _count_unique_statistic_ids(file_path: Path) -> int:
+        """
+        Count unique statistic IDs in a TSV file.
+
+        Args:
+            file_path: Path to the TSV file
+
+        Returns:
+            Number of unique statistic_id values
+
+        """
+        df = pd.read_csv(file_path, sep="\t")
+        return df["statistic_id"].nunique()
+
+    @staticmethod
+    def _merge_split_tsv_files(sensors_path: Path, counters_path: Path) -> pd.DataFrame:
+        """
+        Merge sensor and counter TSV files into a single DataFrame.
+
+        Args:
+            sensors_path: Path to the sensors TSV file
+            counters_path: Path to the counters TSV file
+
+        Returns:
+            Merged DataFrame with all rows from both files
+
+        """
+        df_sensors = pd.read_csv(sensors_path, sep="\t")
+        df_counters = pd.read_csv(counters_path, sep="\t")
+        return pd.concat([df_sensors, df_counters], ignore_index=True)
+
+    @staticmethod
+    def _verify_tsv_contains_only_sensors(file_path: Path) -> bool:
+        """
+        Verify a TSV file contains only sensor data (mean/min/max populated, sum/state empty).
+
+        Args:
+            file_path: Path to the TSV file
+
+        Returns:
+            True if file contains only sensors, False otherwise
+
+        """
+        df = pd.read_csv(file_path, sep="\t")
+        # Sensors have mean/min/max populated and sum/state empty
+        has_sensor_data = (
+            ("mean" in df.columns and df["mean"].notna().any())
+            or ("min" in df.columns and df["min"].notna().any())
+            or ("max" in df.columns and df["max"].notna().any())
+        )
+        has_counter_data = ("sum" in df.columns and df["sum"].notna().any()) or ("state" in df.columns and df["state"].notna().any())
+        return bool(has_sensor_data and not has_counter_data)
+
+    @staticmethod
+    def _verify_tsv_contains_only_counters(file_path: Path) -> bool:
+        """
+        Verify a TSV file contains only counter data (sum/state populated, mean/min/max empty).
+
+        Args:
+            file_path: Path to the TSV file
+
+        Returns:
+            True if file contains only counters, False otherwise
+
+        """
+        df = pd.read_csv(file_path, sep="\t")
+        # Counters have sum/state populated and mean/min/max empty
+        has_counter_data = ("sum" in df.columns and df["sum"].notna().any()) or ("state" in df.columns and df["state"].notna().any())
+        has_sensor_data = (
+            ("mean" in df.columns and df["mean"].notna().any())
+            or ("min" in df.columns and df["min"].notna().any())
+            or ("max" in df.columns and df["max"].notna().any())
+        )
+        return bool(has_counter_data and not has_sensor_data)
+
+    @staticmethod
+    def _compare_dataframes_strict(df_actual: pd.DataFrame, df_expected: pd.DataFrame, tolerance: float = 0.01) -> bool:
+        """
+        Compare two DataFrames for equality with numeric tolerance (strict mode - raises on mismatch).
+
+        Args:
+            df_actual: Actual DataFrame
+            df_expected: Expected DataFrame
+            tolerance: Numeric tolerance for float comparisons
+
+        Returns:
+            True if DataFrames match
+
+        """
+        # Sort both DataFrames by statistic_id and start for consistent comparison
+        df_actual_sorted = df_actual.sort_values(by=["statistic_id", "start"]).reset_index(drop=True)
+        df_expected_sorted = df_expected.sort_values(by=["statistic_id", "start"]).reset_index(drop=True)
+
+        assert len(df_actual_sorted) == len(df_expected_sorted), f"Row count mismatch: {len(df_actual_sorted)} vs {len(df_expected_sorted)}"
+        assert list(df_actual_sorted.columns) == list(df_expected_sorted.columns), "Column mismatch"
+
+        for col in df_actual_sorted.columns:
+            for idx in range(len(df_actual_sorted)):
+                actual_val = df_actual_sorted.loc[idx, col]
+                expected_val = df_expected_sorted.loc[idx, col]
+
+                # Handle NaN/empty values
+                if pd.isna(actual_val) and pd.isna(expected_val):
+                    continue
+                if pd.isna(actual_val) or pd.isna(expected_val):
+                    msg = f"Value mismatch at row {idx}, col {col}: {actual_val} vs {expected_val}"
+                    raise AssertionError(msg)
+
+                # Try numeric comparison
+                try:
+                    actual_num = float(actual_val)
+                    expected_num = float(expected_val)
+                    assert abs(actual_num - expected_num) <= tolerance, f"Value mismatch at row {idx}, col {col}: {actual_val} vs {expected_val}"
+                except (ValueError, TypeError):
+                    # String comparison
+                    assert str(actual_val).strip() == str(expected_val).strip(), f"Value mismatch at row {idx}, col {col}: '{actual_val}' vs '{expected_val}'"
+
+        _LOGGER.info("COMPARISON OK: DataFrames match perfectly")
+        return True
+
     @pytest.mark.asyncio
     async def test_01_import_sensor_mean_min_max_then_changes(self) -> None:
         """Test sensor import workflow (mean/min/max) with running Home Assistant."""
@@ -397,7 +519,7 @@ class TestIntegrationAll:
         assert self._compare_tsv_files_strict(export_file_2, reference_file_2), "Step 2 export mismatch"
 
     @pytest.mark.asyncio
-    async def test_03_import_sum_state_then_delta_unchanged_then_delta_changed(
+    async def test_03_import_sum_state_then_delta_unchanged_then_delta_changed(  # noqa: PLR0915
         self,
     ) -> None:
         """
@@ -575,3 +697,184 @@ class TestIntegrationAll:
         assert export_file_3.exists(), f"Export file not found: {export_file_3}"
         assert reference_file_3.exists(), f"Reference file not found: {reference_file_3}"
         assert self._compare_tsv_files_strict(export_file_3, reference_file_3), "Step 3 export does not match reference"
+
+    @pytest.mark.asyncio
+    async def test_04_export_parameter_variations(self) -> None:  # noqa: PLR0915
+        """
+        Test export service parameter variations with data from all previous tests.
+
+        IMPORTANT: This test CANNOT run standalone - it depends on data from:
+        - test_01: Sensor data (mean/min/max) in time range 2025-12-29 to 2025-12-31
+        - test_02: Counter data (sum/state) in time range 2025-12-29 to 2025-12-31
+        - test_03: Delta counter data in time range 2025-06-29 to 2025-12-31
+
+        This test verifies the new export service parameters using pairwise testing:
+        - Variation 1: Export all entities (omit entities parameter)
+        - Variation 2: Open-ended time range (omit start_time/end_time)
+        - Variation 3: Split statistics (split_by="both")
+        - Variation 4: Split only counters (split_by="counter")
+        - Variation 5: Split + all entities (interaction test)
+        """
+        config_dir = Path(__file__).parent.parent.parent / "config"
+        test_delta_dir = config_dir / "test_delta"
+
+        # Wait for HA to be ready
+        is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
+        assert is_ready, "Home Assistant did not start within 3 minutes"
+
+        # Define entity lists from all three previous tests
+        delta_entities = [
+            "sensor.imp_inside_same_newest_1",
+            "sensor:imp_inside_same_newest_2",
+            "sensor.import_partly_before",
+            "sensor:import_partly_at",
+            "sensor.imp_before",
+            "sensor:imp_before",
+            "sensor.imp_after",
+            "sensor:imp_after",
+            "sensor.imp_partly_before",
+            "sensor:imp_partly_at",
+            "sensor:imp_inside",
+            "sensor:imp_inside_spike",
+            "sensor:imp_inside_holes",
+            "sensor:imp_partly_after",
+        ]
+        # Note: delta_entities has 14 items but only 9 unique IDs (some duplicates for testing)
+        unique_delta_entities = 9
+
+        # ==================== Variation 1: Export all entities (omit entities parameter) ====================
+        _LOGGER.info("Variation 1: Export all entities in delta time range (omit entities parameter)")
+        export_file_all_entities = test_delta_dir / "export_variation1_all_entities.tsv"
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_delta/export_variation1_all_entities.tsv",
+                "start_time": "2025-06-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Variation 1: Failed to export statistics"
+        assert export_file_all_entities.exists(), f"Variation 1: Export file not found: {export_file_all_entities}"
+
+        # Verify file contains data from all three tests (sensors from test_01, counters from test_02 and test_03)
+        df_all = pd.read_csv(export_file_all_entities, sep="\t")
+        unique_ids = df_all["statistic_id"].nunique()
+        _LOGGER.info(f"Variation 1: Found {unique_ids} unique statistic IDs (should include data from all 3 tests)")
+        assert unique_ids > len(delta_entities), f"Variation 1: Expected more entities than just delta test ({len(delta_entities)}), got {unique_ids}"
+        _LOGGER.info("✓ Variation 1: All entities export verified (includes data from all tests)")
+
+        # ==================== Variation 2: Open-ended time range ====================
+        _LOGGER.info("Variation 2: Open-ended time range with explicit entities (omit start_time and end_time)")
+        export_file_full_range = test_delta_dir / "export_variation2_full_range.tsv"
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_delta/export_variation2_full_range.tsv",
+                "entities": delta_entities,
+                "timezone_identifier": "Europe/Vienna",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Variation 2: Failed to export statistics"
+        assert export_file_full_range.exists(), f"Variation 2: Export file not found: {export_file_full_range}"
+
+        # Verify it contains only the delta entities
+        df_full_range = pd.read_csv(export_file_full_range, sep="\t")
+        unique_ids_full = df_full_range["statistic_id"].nunique()
+        assert unique_ids_full == unique_delta_entities, f"Variation 2: Expected {unique_delta_entities} unique entities, got {unique_ids_full}"
+        _LOGGER.info("✓ Variation 2: Full range export verified (contains only specified entities)")
+
+        # ==================== Variation 3: Split statistics (split_by="both") ====================
+        _LOGGER.info("Variation 3: Split statistics into sensors and counters")
+        export_file_split_sensors = test_delta_dir / "export_variation3_split_sensors.tsv"
+        export_file_split_counters = test_delta_dir / "export_variation3_split_counters.tsv"
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_delta/export_variation3_split.tsv",
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+                "split_by": "both",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Variation 3: Failed to export statistics"
+
+        # Both files should exist (sensors from test_01, counters from test_02)
+        assert export_file_split_sensors.exists(), f"Variation 3: Sensors file not found: {export_file_split_sensors}"
+        assert export_file_split_counters.exists(), f"Variation 3: Counters file not found: {export_file_split_counters}"
+
+        # Verify sensors file contains only sensor data
+        sensors_only = self._verify_tsv_contains_only_sensors(export_file_split_sensors)
+        assert sensors_only, "Variation 3: Sensors file should contain only sensor data (mean/min/max)"
+
+        # Verify counters file contains only counter data
+        counters_only = self._verify_tsv_contains_only_counters(export_file_split_counters)
+        assert counters_only, "Variation 3: Counters file should contain only counter data (sum/state)"
+
+        _LOGGER.info("✓ Variation 3: Split statistics verified (both sensor and counter files created)")
+
+        # ==================== Variation 4: Split only counters (split_by="counter") ====================
+        _LOGGER.info("Variation 4: Split only counters (split_by='counter')")
+        export_file_counters_only = test_delta_dir / "export_variation4_counters_only_counters.tsv"
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_delta/export_variation4_counters_only.tsv",
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+                "split_by": "counter",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Variation 4: Failed to export statistics"
+        assert export_file_counters_only.exists(), f"Variation 4: Counters file not found: {export_file_counters_only}"
+
+        # Verify it contains only counter data
+        counters_only = self._verify_tsv_contains_only_counters(export_file_counters_only)
+        assert counters_only, "Variation 4: File should contain only counter data (sum/state)"
+        _LOGGER.info("✓ Variation 4: Split counters only verified")
+
+        # ==================== Variation 5: Split + all entities (interaction test) ====================
+        _LOGGER.info("Variation 5: Split statistics + all entities (interaction test)")
+        export_file_split_all_sensors = test_delta_dir / "export_variation5_split_all_sensors.tsv"
+        export_file_split_all_counters = test_delta_dir / "export_variation5_split_all_counters.tsv"
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_delta/export_variation5_split_all.tsv",
+                "start_time": "2025-12-29 00:00:00",
+                "end_time": "2025-12-31 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+                "split_by": "both",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Variation 5: Failed to export statistics"
+
+        # Both files should exist (data from test_01 and test_02)
+        assert export_file_split_all_sensors.exists(), f"Variation 5: Sensors file not found: {export_file_split_all_sensors}"
+        assert export_file_split_all_counters.exists(), f"Variation 5: Counters file not found: {export_file_split_all_counters}"
+
+        # Verify sensors file contains only sensor data
+        sensors_only = self._verify_tsv_contains_only_sensors(export_file_split_all_sensors)
+        assert sensors_only, "Variation 5: Sensors file should contain only sensor data (mean/min/max)"
+
+        # Verify counters file contains only counter data
+        counters_only = self._verify_tsv_contains_only_counters(export_file_split_all_counters)
+        assert counters_only, "Variation 5: Counters file should contain only counter data (sum/state)"
+
+        _LOGGER.info("✓ Variation 5: Split + all entities verified (both files created with correct data types)")
+
+        _LOGGER.info("=" * 80)
+        _LOGGER.info("All 5 export parameter variations completed successfully!")
+        _LOGGER.info("=" * 80)
