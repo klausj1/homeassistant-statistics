@@ -1,5 +1,9 @@
 # ToDos
 
+## Export improvements
+
+- docs/DrCoolzic/export_options_modification.md is wrong, needed?
+
 ### Later
 
 - Troubleshooting section, explain columns, UTF-8, spikes

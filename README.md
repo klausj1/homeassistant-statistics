@@ -70,8 +70,8 @@ Example files:
 | Requirement              | Details                                                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Timestamp format**     | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (other formats are also possible)                                                                        |
-| **Timestamp constraint** | Minutes must be`:00` (full hours only)                                                                                                                 |
-| **Timezone**             | Timestamps are interpreted as local time; find yours at[Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., Europe/Vienna) |
+| **Timestamp constraint** | Minutes must be `:00` (full hours only)                                                                                                                 |
+| **Timezone**             | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., Europe/Vienna) |
 | **File encoding**        | UTF-8 (required for special characters like m³ or °C)                                                                                                  |
 | **Delimiter**            | Tab (default), comma, semicolon, or pipe                                                                                                               |
 | **Decimal separator**    | `.` (default) or `,`                                                                                                                                   |
