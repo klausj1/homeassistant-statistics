@@ -35,30 +35,5 @@
     "coverage-gutters.coverageFileNames": [
         "coverage.xml",
         ".coverage"
-    ],
-    "cSpell.words": [
-        "automations",
-        "charliermarsh",
-        "codeowners",
-        "Coolzic",
-        "dataframe",
-        "devcontainers",
-        "HACS",
-        "hass",
-        "homeassistant",
-        "htmlcov",
-        "Jeedom",
-        "klausj",
-        "mhutchie",
-        "pkill",
-        "pycache",
-        "pylance",
-        "pytest",
-        "pytz",
-        "rooveterinaryinc",
-        "ryanluker",
-        "statisticdata",
-        "TESTFILEPATHS",
-        "zoneinfo"
     ]
 }
