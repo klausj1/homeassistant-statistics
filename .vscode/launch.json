@@ -1,0 +1,75 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Home Assistant (Component Dev)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "homeassistant",
+            "justMyCode": false,
+            "args": [
+                "--debug",
+                "-c",
+                "${workspaceFolder}/config"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/custom_components"
+            }
+        },
+        {
+            "name": "Home Assistant (skip pip)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "homeassistant",
+            "justMyCode": false,
+            "args": [
+                "--debug",
+                "-c",
+                "${workspaceFolder}/config",
+                "--skip-pip"
+            ],
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/custom_components"
+            }
+        },
+        {
+            "name": "Debug Current Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-vv",
+                "${file}"
+            ]
+        },
+        {
+            "name": "Debug All Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-vv",
+                "tests/"
+            ]
+        },
+        {
+            "name": "Attach to Running Home Assistant",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "port": 5678,
+                "host": "localhost"
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ]
+        }
+    ]
+}

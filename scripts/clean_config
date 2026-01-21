@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+CONFIG_DIR="${PWD}/config"
+
+echo "=========================================="
+echo "Cleaning Home Assistant config directory"
+echo "=========================================="
+echo ""
+echo "This will remove all generated files and directories,"
+echo "including authentication and registry data for a fresh start,"
+echo "keeping only the original configuration files."
+echo ""
+
+# Check if config directory exists
+if [[ ! -d "$CONFIG_DIR" ]]; then
+    echo "Config directory does not exist. Nothing to clean."
+    exit 0
+fi
+
+echo "Scanning config directory for files to remove..."
+
+cd "$CONFIG_DIR"
+
+# First, show what will be removed
+echo ""
+echo "Files and directories that will be REMOVED:"
+echo "-------------------------------------------"
+
+# Collect items to remove
+declare -a files_to_remove
+declare -a dirs_to_remove
+
+# Check directories
+for dir in */; do
+    if [[ -d "$dir" ]]; then
+        # Keep test_* directories
+        [[ "$dir" == test_* ]] && continue
+        dirs_to_remove+=("$dir")
+        echo "  DIR:  $dir"
+    fi
+done
+
+# Always remove .storage directory for fresh start (contains auth, onboarding, etc.)
+if [[ -d ".storage" ]]; then
+    dirs_to_remove+=(".storage/")
+    echo "  DIR:  .storage/ (authentication and registry data)"
+fi
+
+# Check files
+for file in *; do
+    # Skip if it's a directory
+    [[ -d "$file" ]] && continue
+
+    # Skip if it doesn't exist
+    [[ ! -e "$file" ]] && continue
+
+    # Keep configuration.yaml
+    [[ "$file" == "configuration.yaml" ]] && continue
+
+    # Keep *.csv files
+    [[ "$file" == *.csv ]] && continue
+
+    # Keep test_* files (both files and directories)
+    [[ "$file" == test_* ]] && continue
+
+    # Keep *.md files
+    [[ "$file" == *.md ]] && continue
+
+    files_to_remove+=("$file")
+    echo "  FILE: $file"
+done
+
+echo ""
+echo "Files and directories that will be KEPT:"
+echo "----------------------------------------"
+
+# Show what will be kept
+for dir in */; do
+    if [[ -d "$dir" ]]; then
+        echo "  DIR:  $dir (test_* directory)"
+    fi
+done
+
+echo "  Note: .storage/ directory will be removed for fresh start"
+
+for file in *; do
+    [[ -d "$file" ]] && continue
+    [[ ! -e "$file" ]] && continue
+
+    if [[ "$file" == "configuration.yaml" ]] || [[ "$file" == *.csv ]] || [[ "$file" == test_* ]] || [[ "$file" == *.md ]]; then
+        echo "  FILE: $file"
+    fi
+done
+
+echo ""
+echo "Found ${#files_to_remove[@]} files and ${#dirs_to_remove[@]} directories to remove."
+
+# Prompt for confirmation
+read -p "Proceed with removal? (y/N): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Cancelled."
+    exit 0
+fi
+
+echo ""
+echo "Removing files and directories..."
+
+# Remove directories first
+for dir in "${dirs_to_remove[@]}"; do
+    echo "  Removing directory: $dir"
+    rm -rf "$dir" 2>/dev/null || echo "    Warning: Could not remove $dir (permission denied)"
+done
+
+# Remove files
+for file in "${files_to_remove[@]}"; do
+    echo "  Removing file: $file"
+    rm -f "$file" 2>/dev/null || echo "    Warning: Could not remove $file (permission denied)"
+done
+
+echo ""
+echo "=========================================="
+echo "Config directory cleaned successfully!"
+echo "=========================================="
+echo ""
+echo "The config directory is now in its clean state."
+echo "Run './scripts/develop' to initialize Home Assistant fresh."

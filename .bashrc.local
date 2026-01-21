@@ -1,0 +1,4 @@
+# Local bashrc additions (auto-sourced by ~/.bashrc if present)
+
+# Auto-source .env file when present in the current directory
+if [[ -f .env ]]; then source .env; fi

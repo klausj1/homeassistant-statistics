@@ -14,7 +14,28 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
-    """Set up is called when Home Assistant is loading our component."""
+    """
+    Set up the import_statistics component when Home Assistant is loading it.
+
+    The setup function is called when Home Assistant loads the import_statistics custom component.
+    It registers three services under the component's domain: import_from_file, import_from_json,
+    and export_statistics. These services enable users to programmatically import historical statistics
+    into Home Assistant's recorder database or export existing statistics to files.
+    It should setup all necessary services and return True if the component
+    has been successfully initialized.
+
+    The setup function is primarily called during testing to initialize the component in a mock
+    Home Assistant environment. Test cases use it to verify that the registered services behave
+    correctly when invoked.
+
+    Args:
+        hass (HomeAssistant): The Home Assistant instance.
+        config (ConfigType): The configuration of the component.
+
+    Returns:
+        bool: True if the component has been successfully initialized, False otherwise.
+
+    """
 
     async def handle_import_from_file(call: ServiceCall) -> None:
         """Handle the service call."""

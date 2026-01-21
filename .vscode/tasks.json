@@ -1,0 +1,90 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Home Assistant (Dev)",
+            "type": "shell",
+            "command": "./scripts/develop",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${command:python.interpreterPath} -m pytest tests/'",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Ruff (Lint)",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m ruff check .",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Ruff (Format)",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m ruff format .",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Code Coverage",
+            "type": "shell",
+            "command": "${command:python.interpreterPath} -m pytest tests/ --cov=custom_components/import_statistics --cov-report term-missing --cov-report html",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Setup Dev Environment",
+            "type": "shell",
+            "command": "./scripts/setup",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Stop Home Assistant",
+            "type": "shell",
+            "command": "Get-Process -Name 'python' -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*homeassistant*' -or $_.CommandLine -like '*homeassistant*' } | ForEach-Object { Write-Host \"Stopping Home Assistant (PID: $($_.Id))...\"; Stop-Process -Id $_.Id -Force:$false }; if ($?) { Write-Host 'Home Assistant stopped gracefully' } else { Write-Host 'Home Assistant not found or already stopped' }",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}

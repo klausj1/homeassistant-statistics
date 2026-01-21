@@ -18,6 +18,7 @@ from custom_components.import_statistics.const import (
     ATTR_END_TIME,
     ATTR_ENTITIES,
     ATTR_FILENAME,
+    ATTR_SPLIT_BY,
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
@@ -72,6 +73,48 @@ class TestGetStatisticsFromRecorder:
             assert stats_dict["sensor.temperature"] == mock_statistics["sensor.temperature"]
             assert isinstance(units_dict, dict)
             assert units_dict["sensor.temperature"] == "°C"
+            assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
+
+    @pytest.mark.asyncio
+    async def test_get_statistics_from_recorder_uses_db_range_when_times_omitted(self) -> None:
+        """Test that missing start/end times are resolved from DB range."""
+        hass = MagicMock()
+        hass.config = MagicMock()
+        hass.config.config_dir = "/config"
+
+        mock_statistics = {
+            "sensor.temperature": [
+                {
+                    "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                    "mean": 20.5,
+                }
+            ]
+        }
+        mock_metadata = {"sensor.temperature": (1, {"unit_of_measurement": "°C"})}
+
+        mock_recorder = MagicMock()
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+
+        db_start = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
+        db_end = datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
+
+        with (
+            patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance,
+            patch("custom_components.import_statistics.export_service.get_global_statistics_time_range", new_callable=AsyncMock) as mock_get_range,
+        ):
+            mock_get_instance.return_value = mock_recorder
+            mock_get_range.return_value = (db_start, db_end)
+
+            stats_dict, units_dict = await get_statistics_from_recorder(
+                hass,
+                ["sensor.temperature"],
+                None,
+                None,
+            )
+
+            assert stats_dict == mock_statistics
+            assert units_dict["sensor.temperature"] == "°C"
+            mock_get_range.assert_awaited_once()
             assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
 
     @pytest.mark.asyncio
@@ -308,6 +351,7 @@ class TestHandleExportStatistics:
                     ATTR_DELIMITER: "\t",
                     ATTR_DECIMAL: False,
                     ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
+                    ATTR_SPLIT_BY: "none",
                 },
             )
 
@@ -325,6 +369,55 @@ class TestHandleExportStatistics:
                 await service_handler(call)
 
                 # Verify state was set
+                hass.states.async_set.assert_called_with("import_statistics.export_statistics", "OK")
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_without_time_range(self) -> None:
+        """Test successful export without specifying start_time/end_time."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_SPLIT_BY: "none",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export_service.write_export_file"),
+            ):
+                mock_units = {"sensor.temperature": "°C"}
+
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
+                    return (mock_statistics, mock_units)
+
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
+
                 hass.states.async_set.assert_called_with("import_statistics.export_statistics", "OK")
 
     @pytest.mark.asyncio
@@ -360,6 +453,7 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_SPLIT_BY: "none",
                 },
             )
 
@@ -402,6 +496,7 @@ class TestHandleExportStatistics:
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "Invalid/Timezone",
+                    ATTR_SPLIT_BY: "none",
                 },
             )
 
@@ -415,6 +510,66 @@ class TestHandleExportStatistics:
 
                 with pytest.raises(HomeAssistantError):
                     await service_handler(call)
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_split_both_writes_two_files(self) -> None:
+        """Test split_by=both writes two separate exports."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            setup(hass, {})
+            service_handler = hass.services.register.call_args_list[-1][0][2]
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ],
+                "counter.energy_consumed": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "sum": 10.5,
+                        "state": 100.0,
+                    }
+                ],
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature", "counter.energy_consumed"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DELIMITER: "\t",
+                    ATTR_SPLIT_BY: "both",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export_service.write_export_file") as mock_write_export_file,
+            ):
+                mock_units = {"sensor.temperature": "°C", "counter.energy_consumed": "kWh"}
+
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
+                    return (mock_statistics, mock_units)
+
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
+
+                assert mock_write_export_file.call_count == 2
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_recorder_not_running(self) -> None:

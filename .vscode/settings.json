@@ -1,0 +1,64 @@
+{
+    // Python testing
+    "python.testing.pytestArgs": [
+        "tests/"
+    ],
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    // Python analysis
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.defaultInterpreterPath": "/usr/local/bin/python",
+    // Formatting and linting
+    "pylint.importStrategy": "fromEnvironment",
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    // Editor settings
+    "files.eol": "\n",
+    "editor.tabSize": 4,
+    "files.trimTrailingWhitespace": true,
+    // Exclude patterns
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        ".pytest_cache": true,
+        ".coverage": true,
+        "htmlcov": true
+    },
+    // Test coverage
+    "coverage-gutters.coverageFileNames": [
+        "coverage.xml",
+        ".coverage"
+    ],
+    "cSpell.words": [
+        "automations",
+        "charliermarsh",
+        "codeowners",
+        "Coolzic",
+        "dataframe",
+        "devcontainers",
+        "HACS",
+        "hass",
+        "homeassistant",
+        "htmlcov",
+        "Jeedom",
+        "klausj",
+        "mhutchie",
+        "pkill",
+        "pycache",
+        "pylance",
+        "pytest",
+        "pytz",
+        "rooveterinaryinc",
+        "ryanluker",
+        "statisticdata",
+        "TESTFILEPATHS",
+        "zoneinfo"
+    ]
+}

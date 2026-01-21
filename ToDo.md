@@ -1,5 +1,13 @@
 # ToDos
 
+## Export improvements
+
+- docs/DrCoolzic/export_options_modification.md is wrong, needed?
+
+## Export improvements
+
+- docs/DrCoolzic/export_options_modification.md is wrong, needed?
+
 ## Next
 
 - Timezone: See plans/accessing-ha-timezone.md

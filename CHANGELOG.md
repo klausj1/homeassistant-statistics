@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.0] - File Encoding Validation and Documentation Improvements
+## [3.1.0] - File Encoding Validation and Export Enhancements
 
 ### Added
 
@@ -10,6 +10,23 @@ All notable changes to this project will be documented in this file.
 
 - **UTF-8 encoding validation for import files**: Automatically detects and reports encoding issues before processing
   - Prevents import failures due to encoding problems with special characters in units
+
+#### Export Enhancements
+
+- **Optional `entities` parameter**: Export all statistics when `entities` is omitted or empty
+  - Previously required; now defaults to exporting all available statistics
+- **Optional `start_time` parameter**: Export from earliest available statistics when omitted
+  - Allows exporting complete historical data without knowing the exact start date
+- **Optional `end_time` parameter**: Export up to most recent statistics when omitted
+  - Allows exporting all data up to present without specifying end date
+- **Split statistics option**: New `split_statistics` parameter to separate sensors and counters into different files
+  - When `true`, creates separate files: `filename_sensors.ext` and `filename_counters.ext`
+  - Useful for re-importing data since `import_from_file` accepts only one type per file
+  - Works with both specific entity lists and "export all" mode
+- **Max statistics limit**: New `max_statistics` parameter to limit the number of statistic IDs exported
+  - Default: 1000 statistic IDs per export operation
+  - Helps manage large datasets and reduce file size/memory usage
+  - Statistic IDs are sorted deterministically before applying the limit
 
 #### Documentation
 - **New troubleshooting guide**: Added comprehensive [`docs/user/troubleshooting-tips.md`](docs/user/troubleshooting-tips.md) covering:
@@ -20,8 +37,18 @@ All notable changes to this project will be documented in this file.
 - **Enhanced developer documentation**: Improved [`docs/dev/README.md`](docs/dev/README.md) with detailed setup and testing instructions
 - **Improved counter documentation**: Enhanced [`docs/user/counters.md`](docs/user/counters.md) with clearer explanations
 - **Architecture documentation**: Moved and improved architecture documentation to [`docs/dev/architecture.md`](docs/dev/architecture.md)
+- **Enhanced README.md**: Significantly improved user documentation with:
+  - Better table formatting for all sections
+  - Comprehensive export options documentation with detailed parameter descriptions
+  - Multiple YAML examples for common export scenarios (selected entities, all statistics, split files, max statistics limit)
+  - Clearer structure and improved readability throughout
 
 ### Changed
+
+#### Export Behavior
+- **More flexible export parameters**: `entities`, `start_time`, and `end_time` are now all optional
+  - Backward compatible: existing service calls continue to work unchanged
+  - Enables new use cases: full backups, open-ended time ranges, all statistics exports
 
 #### Error Messages
 - **Improved column validation error messages**: More descriptive errors when unknown columns are detected

@@ -14,42 +14,51 @@ The architecture features dual import paths (delta and normal), delta conversion
 ## Component Description
 
 ### [`__init__.py`](custom_components/import_statistics/__init__.py)
+
 Integration entry point that registers three Home Assistant services: `import_from_file` (CSV/TSV import), `import_from_json` (JSON import), and `export_statistics` (export to file). Uses synchronous `setup()` to register async service handlers.
 
 ---
 
 ### [`import_service.py`](custom_components/import_statistics/import_service.py)
+
 Orchestrates the import flow for both file and JSON sources. Detects delta processing needs via marker tuple, coordinates async database reference lookups, and dispatches to appropriate converters. Validates entity existence for internal statistics and optionally fetches units from entity attributes before calling Home Assistant's recorder API.
 
 ---
 
 ### [`import_service_helper.py`](custom_components/import_statistics/import_service_helper.py)
+
 Handles data loading and DataFrame processing for imports. Loads CSV/TSV files with configurable delimiters and decimal separators, or constructs DataFrames from JSON input. Core processing validates columns and either extracts statistics directly (non-delta path) or returns a delta marker tuple with timestamp ranges for async database lookup (delta path).
 
 ---
 
 ### [`import_service_delta_helper.py`](custom_components/import_statistics/import_service_delta_helper.py)
+
 Pure calculation functions for converting delta values to absolute sum/state values. Supports two conversion strategies: forward accumulation (reference before import range) and backward subtraction (reference at or after import range). All calculations are synchronous with pre-fetched database references.
 
 ---
 
 ### [`delta_database_access.py`](custom_components/import_statistics/delta_database_access.py)
+
 Async database query functions for fetching delta conversion reference values. Implements two-pass lookup strategy: first attempts to find references before the oldest import timestamp, then falls back to references at or after the newest timestamp. Validates references are at least 1 hour away from import range.
 
 ---
 
 ### [`export_service.py`](custom_components/import_statistics/export_service.py)
+
 Export service handler that fetches statistics from Home Assistant's recorder API, validates file paths and delimiters, and dispatches to appropriate formatters based on file extension (JSON vs CSV/TSV). Handles timezone conversion from UTC storage to user's local timezone for display.
 
 ---
 
 ### [`export_service_helper.py`](custom_components/import_statistics/export_service_helper.py)
+
 Data formatting and file writing for exports. Detects statistic types (sensors vs counters), sorts records chronologically, formats timestamps and numeric values, and calculates delta columns for counters. Supports both CSV/TSV (with configurable delimiters) and JSON output formats.
 
 ---
 
 ### [`helpers.py`](custom_components/import_statistics/helpers.py)
+
 Pure validation and conversion functions with no Home Assistant dependencies (except error handling). Provides the core validation pipeline including:
+
 - Statistic ID format validation and source detection (recorder vs external)
 - DataFrame column structure validation
 - Row-level data extraction and validation for mean/min/max, sum/state, and delta statistics
@@ -62,13 +71,13 @@ Pure validation and conversion functions with no Home Assistant dependencies (ex
 ---
 
 ### [`const.py`](custom_components/import_statistics/const.py)
+
 Constants and configuration defaults including domain name, service parameter names, and datetime formats.
 
 ---
 
-
-
 ### [`config_flow.py`](custom_components/import_statistics/config_flow.py)
+
 Minimal configuration flow using empty config schema.
 
 ---
@@ -116,6 +125,7 @@ graph TB
 ```
 
 ---
+
 <!-- ## Data Flow Diagrams
 
 ### Normal Import Flow (without Delta)
@@ -286,13 +296,14 @@ User <-- HA: Success response
 
 Two mutually exclusive types with different validation and source rules:
 
-| Aspect | Internal (recorder) | External (custom) |
-|--------|-------------------|-------------------|
-| Format | `sensor.name` (dot separator) | `domain:name` (colon separator) |
-| Source | Existing HA entity | New synthetic entity |
-| Unit Source | Flexible (entity or CSV) | Must be from CSV (TABLE) |
-| Validation | Entity must exist in HA | Domain cannot be "recorder" |
-| HA API | `async_import_statistics()` | `async_add_external_statistics()` |
+
+| Aspect      | Internal (recorder)           | External (custom)                 |
+| ------------- | ------------------------------- | ----------------------------------- |
+| Format      | `sensor.name` (dot separator) | `domain:name` (colon separator)   |
+| Source      | Existing HA entity            | New synthetic entity              |
+| Unit Source | Flexible (entity or CSV)      | Must be from CSV (TABLE)          |
+| Validation  | Entity must exist in HA       | Domain cannot be "recorder"       |
+| HA API      | `async_import_statistics()`   | `async_add_external_statistics()` |
 
 ### 2. Validation Pipeline
 
@@ -337,6 +348,7 @@ CSV with delta column
 ### 5. Error Handling
 
 Centralized via [`handle_error()`](custom_components/import_statistics/helpers.py:282):
+
 - Always logs warning
 - Always raises HomeAssistantError
 - Ensures consistent error behavior across all functions
@@ -344,11 +356,13 @@ Centralized via [`handle_error()`](custom_components/import_statistics/helpers.p
 ### 6. Timezone Conversion (Bidirectional)
 
 **Import**: User's timezone → UTC
+
 - User provides timestamps in local timezone
 - Parsed with `zoneinfo.ZoneInfo(timezone_id)`
 - Converted to UTC for internal storage: `.astimezone(dt.UTC)`
 
 **Export**: UTC → User's timezone
+
 - Recorder stores all times in UTC
 - Converted to user's timezone for display: `.astimezone(tz)`
 - Formatted using user's datetime format preference
@@ -356,6 +370,7 @@ Centralized via [`handle_error()`](custom_components/import_statistics/helpers.p
 ### 7. File Path Security
 
 Defense-in-depth for export filenames:
+
 1. Reject absolute paths (start with `/`)
 2. Reject `..` directory traversal sequences
 3. Resolve final path using `Path.resolve()`
@@ -368,16 +383,17 @@ Defense-in-depth for export filenames:
 The architecture supports multiple test levels:
 
 1. **Unit Tests** (`tests/unit_tests/`):
+
    - Test pure functions in `helpers.py`, `import_service_delta_helper.py`
    - No Home Assistant mocks required
    - Fast execution
-
 2. **Integration Tests with Mocks** (`tests/integration_tests_mock/`):
+
    - Test service handlers with mocked Home Assistant
    - Uses `pytest-homeassistant-custom-component`
    - Tests delta detection and conversion flow
-
 3. **Integration Tests with Real HA** (`tests/integration_tests/`):
+
    - Tests against running Home Assistant instance
    - Requires HA_TOKEN_DEV environment variable
    - Validates full import/export workflow with actual database
@@ -398,12 +414,14 @@ if validation_failed:
 ```
 
 This ensures:
+
 - Consistent logging (warning level)
 - Consistent exception type (HomeAssistantError)
 - Visible to Home Assistant logs
 - Prevents silent failures
 
 Silent failures occur only at row-level during extraction:
+
 - `get_delta_stat()` returns empty dict on validation failure
 - Invalid rows are skipped (not imported)
 - Logged as debug or warning, continues processing

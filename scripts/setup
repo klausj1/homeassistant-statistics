@@ -7,3 +7,9 @@ cd "$(dirname "$0")/.."
 python3 -m pip install --requirement requirements.txt
 python3 -m pip install --requirement requirements.test.txt
 
+# Ensure ~/.bashrc sources .bashrc.local (for auto-sourcing .env)
+BASHRC_LINE='if [[ -f .bashrc.local ]]; then source .bashrc.local; fi'
+if ! grep -qF "$BASHRC_LINE" ~/.bashrc; then
+    echo "$BASHRC_LINE" >> ~/.bashrc
+fi
+
