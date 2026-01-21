@@ -11,7 +11,7 @@ import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal, handle_error
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal
 
 
 def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float | None, state_oldest: float | None) -> list[dict]:
@@ -245,10 +245,7 @@ def handle_dataframe_delta(
         delta_rows = []
         for _index, row in group.iterrows():
             delta_stat = helpers.get_delta_stat(row, timezone, datetime_format)
-            if delta_stat:
-                delta_rows.append(delta_stat)
-            else:
-                handle_error(f"Invalid delta row for {statistic_id}: {row.to_dict()}")
+            delta_rows.append(delta_stat)
 
         if not delta_rows:
             _LOGGER.warning("No valid delta rows found for statistic_id: %s", statistic_id)

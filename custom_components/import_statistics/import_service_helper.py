@@ -254,12 +254,14 @@ def handle_dataframe_no_delta(
             }
             stats[statistic_id] = (metadata, [])
 
-        new_stat = {}
         if has_mean:
             new_stat = helpers.get_mean_stat(row, timezone, datetime_format)
         elif has_sum:
             new_stat = helpers.get_sum_stat(row, timezone, datetime_format)
-        if new_stat:
-            stats[statistic_id][1].append(new_stat)
+        else:
+            # This should never happen due to column validation, but defensive check
+            helpers.handle_error("Implementation error: neither mean nor sum columns found")
+
+        stats[statistic_id][1].append(new_stat)
 
     return stats
