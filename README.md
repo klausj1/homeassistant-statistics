@@ -116,6 +116,21 @@ data:
 
 > If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
 
+### Data Validation
+
+The integration performs strict validation on all import data:
+
+- **All rows must be valid** - If any row contains invalid data, the entire import fails
+- **Clear error messages** - The error message will indicate which row failed and why
+- **No partial imports** - Either all data is imported successfully, or none of it is
+- **Common validation errors**:
+  - Invalid timestamp format or non-full-hour timestamps
+  - Invalid numeric values (non-numeric strings, NaN, empty values)
+  - Constraint violations (e.g., min > max for sensor data)
+  - Missing required columns
+
+This strict validation ensures data integrity and helps you identify and fix data quality issues immediately.
+
 ### Allowed Columns
 
 Only these columns are accepted (unknown columns cause an error):

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Breaking Changes
+
+- **Strict Row Validation**: All rows in import files must now be valid, or the entire import fails. Previously, invalid rows were silently skipped during import, which could lead to incomplete data without user awareness. Now, the first invalid row stops the import immediately with a clear error message indicating which row failed and why. This ensures data integrity and provides better feedback to users about data quality issues.
+  - Modified validation functions: [`get_mean_stat()`](custom_components/import_statistics/helpers.py), [`get_sum_stat()`](custom_components/import_statistics/helpers.py), [`get_delta_stat()`](custom_components/import_statistics/helpers.py) now raise `HomeAssistantError` instead of returning empty dicts
+  - Import behavior: All-or-nothing - either all rows are valid and imported, or the import fails on the first invalid row
+  - Error messages: Clear, actionable feedback showing exactly which row failed and what validation error occurred
+  - Impact: Users may discover data quality issues in their import files that were previously hidden. This is intentional and beneficial for data integrity.
+
 ## [3.2.0] - Service Parameter Improvements
 
 ### Changed

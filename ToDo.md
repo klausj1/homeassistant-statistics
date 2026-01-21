@@ -7,6 +7,7 @@
 ## Next
 
 - Review timezone changes on 2026-01-21 in the morning
+- Review silently ignore errors
 
 - Timezone: See plans/accessing-ha-timezone.md
 - Bug: If start and end-time are identical, service call hangs
