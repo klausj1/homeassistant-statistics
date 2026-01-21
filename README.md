@@ -13,6 +13,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
+- [Migration Guide v3.2](./docs/user/migration-guide-v3.2.md) — Update your automations for the new parameter format
 
 This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
 
@@ -100,9 +101,9 @@ Or use YAML:
 action: import_statistics.import_from_file
 data:
   filename: my_statistics.tsv
-  timezone_identifier: Europe/Vienna
   delimiter: \t
-  decimal: false
+  decimal: "."
+  # timezone_identifier: Europe/Vienna  # Optional - defaults to HA timezone
 ```
 
 ### Import Behavior
@@ -174,15 +175,17 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
   - End of the export range format: `%Y-%m-%d %H:%M:%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
   - Must be a full hour (`MM:SS` must be `00:00`).
   - If omitted, export ends at the most recent available long-term (hourly) statistic.
-- **`timezone_identifier` (optional, default: `Europe/Vienna`)**
-  - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>). Timezone is used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
+- **`timezone_identifier` (optional)**
+  - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>).
+  - Defaults to Home Assistant's configured timezone if omitted.
+  - Used to interpret `start_time` and `end_time`, and to format timestamps in the exported file.
 - **`datetime_format` (optional, default: `%d.%m.%Y %H:%M`)**
-  - Output format of the `datetime`strings in the exported file.
-- **`delimiter` (optional, default: `\t`)**
+  - Output format of the `datetime` strings in the exported file.
+- **`delimiter` (required, default: `\t`)**
   - Delimiter between columns for TSV/CSV export.
   - Use `\t` for tab-separated output.
-- **`decimal` (optional, default: `false`)**
-  - If `true`, decimals are written with a comma instead of a dot.
+- **`decimal` (required, default: `"."`)**
+  - Decimal separator character: `"."` for dot or `","` for comma.
 - **`split_by` (optional, default: `none`)**
   - Split output into multiple files by statistic type:
     - `none`: default; write a single combined file
@@ -215,9 +218,9 @@ data:
     - sensor:ext_value
   start_time: "2025-12-22 12:00:00"
   end_time: "2025-12-25 12:00:00"
-  timezone_identifier: Europe/Vienna
   delimiter: \t
-  decimal: false
+  decimal: "."
+  # timezone_identifier: Europe/Vienna  # Optional - defaults to HA timezone
 ```
 
 ##### Export all statistics
@@ -226,6 +229,8 @@ data:
 action: import_statistics.export_statistics
 data:
   filename: exported_statistics.tsv
+  delimiter: \t
+  decimal: "."
 ```
 
 ##### Export all statistics into separate files (sensors + counters)
@@ -235,6 +240,8 @@ action: import_statistics.export_statistics
 data:
   filename: exported_statistics.tsv
   split_by: both
+  delimiter: \t
+  decimal: "."
 ```
 
 ##### Export only sensors
@@ -249,6 +256,8 @@ data:
   start_time: "2025-12-22 00:00:00"
   end_time: "2025-12-23 00:00:00"
   split_by: sensor
+  delimiter: \t
+  decimal: "."
 ```
 
 ### Export Output

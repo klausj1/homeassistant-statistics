@@ -29,3 +29,4 @@ max-complexity = 25
 
 [lint.per-file-ignores]
 "tests/*.py" = ["S101", "PLR2004"]
+"custom_components/import_statistics/export_service_helper.py" = ["PLR0913", "PLR0912"]

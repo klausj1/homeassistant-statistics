@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - Service Parameter Improvements
+
+### Changed
+
+#### Breaking Changes
+
+- **Decimal separator parameter format**: Changed from boolean to explicit string selector
+  - **Old format**: `decimal: false` (dot) or `decimal: true` (comma)
+  - **New format**: `decimal: "."` or `decimal: ","`
+  - **Migration**: Replace `decimal: false` with `decimal: "."` and `decimal: true` with `decimal: ","`
+  - **Reason**: More explicit and intuitive; eliminates confusion about boolean meaning
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+
+#### Improvements
+
+- **Timezone parameter now optional with smart default**:
+  - Defaults to Home Assistant's configured timezone when omitted
+  - No longer need to specify timezone for most users
+  - Still accepts explicit timezone identifier for special cases
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+
+- **Delimiter parameter now required with sensible default**:
+  - Changed from optional (auto-detect) to required with default `\t` (tab)
+  - Eliminates ambiguity and potential parsing errors from auto-detection
+  - UI provides dropdown with common delimiters: tab, semicolon, comma, pipe
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+
+### Migration Guide
+
+See [`docs/user/migration-guide-v3.2.md`](docs/user/migration-guide-v3.2.md) for detailed migration instructions and examples.
+
 ## [3.1.0] - File Encoding Validation and Export Enhancements
 
 ### Added

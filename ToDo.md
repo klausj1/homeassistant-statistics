@@ -4,11 +4,9 @@
 
 - docs/DrCoolzic/export_options_modification.md is wrong, needed?
 
-## Export improvements
-
-- docs/DrCoolzic/export_options_modification.md is wrong, needed?
-
 ## Next
+
+- Review timezone changes on 2026-01-21 in the morning
 
 - Timezone: See plans/accessing-ha-timezone.md
 - Bug: If start and end-time are identical, service call hangs
@@ -19,6 +17,7 @@
 
 ## Later
 
+- Troubleshooting section, explain columns, UTF-8, spikes
 - Check copilot review comments, see mail from 2026-01-10
 - In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00
   - Not nice, but its not important for the performance. Committing the values to the DB takes the most time

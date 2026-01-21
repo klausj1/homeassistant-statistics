@@ -83,6 +83,7 @@ def prepare_export_data(
     datetime_format: str,
     *,
     decimal_comma: bool = False,
+    decimal_separator: str | None = None,
     units_dict: dict | None = None,
 ) -> tuple:
     """
@@ -92,7 +93,8 @@ def prepare_export_data(
          statistics_dict: Raw data from recorder API
          timezone_identifier: Timezone for timestamp output
          datetime_format: Format string for timestamps
-         decimal_comma: Use comma (True) or dot (False) for decimals
+         decimal_comma: Use comma (True) or dot (False) for decimals (deprecated, use decimal_separator)
+         decimal_separator: Decimal separator character ("." or ",")
          units_dict: Mapping of statistic_id to unit_of_measurement
 
     Returns:
@@ -105,6 +107,15 @@ def prepare_export_data(
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
+
+    # Handle both old (decimal_comma bool) and new (decimal_separator string) parameters
+    # If decimal_separator is provided, use it; otherwise fall back to decimal_comma
+    if decimal_separator is not None:
+        if decimal_separator not in {".", ","}:
+            helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
+        use_comma = decimal_separator == ","
+    else:
+        use_comma = decimal_comma
 
     # Default to empty dict if not provided (for backwards compatibility)
     if units_dict is None:
@@ -147,7 +158,7 @@ def prepare_export_data(
                 {
                     "timezone": timezone,
                     "datetime_format": datetime_format,
-                    "decimal_comma": decimal_comma,
+                    "decimal_comma": use_comma,
                 },
                 all_columns=all_columns,
             )
@@ -157,7 +168,7 @@ def prepare_export_data(
 
     # Calculate deltas for counter exports
     if has_counters and rows:
-        rows = get_delta_from_stats(rows, decimal_comma=decimal_comma)
+        rows = get_delta_from_stats(rows, decimal_comma=use_comma)
         has_deltas = True
 
     # Validate if sensors and counters are mixed

@@ -696,7 +696,7 @@ class TestExportIntegration:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 14:00:00",
-                    ATTR_DECIMAL: True,  # Use comma as decimal separator
+                    ATTR_DECIMAL: ",",  # Use comma as decimal separator
                     ATTR_DELIMITER: ",",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                 },

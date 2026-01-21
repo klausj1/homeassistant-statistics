@@ -8,13 +8,15 @@ import_from_file:
       selector:
         text:
     timezone_identifier:
-      required: true
-      example: "Europe/Vienna"
-      default: "Europe/Vienna"
+      required: false
+      description: >
+        Timezone identifier (IANA format, e.g., 'Europe/Berlin').
+        If not specified, uses Home Assistant's configured timezone.
+      example: "Europe/Berlin"
       selector:
         text:
     delimiter:
-      required: false
+      required: true
       example: \t
       default: \t
       selector:
@@ -27,10 +29,14 @@ import_from_file:
             - "|"
     decimal:
       required: true
-      example: false
-      default: false
+      default: "."
+      example: "."
+      description: "Decimal separator character"
       selector:
-        boolean:
+        select:
+          options:
+            - "."
+            - ","
     datetime_format:
       required: false
       example: "%d.%m.%Y %H:%M"
@@ -94,13 +100,15 @@ export_statistics:
 
     timezone_identifier:
       required: false
-      default: "Europe/Vienna"
-      example: "Europe/Vienna"
+      description: >
+        Timezone identifier (IANA format, e.g., 'Europe/Berlin').
+        If not specified, uses Home Assistant's configured timezone.
+      example: "Europe/Berlin"
       selector:
         text:
 
     delimiter:
-      required: false
+      required: true
       default: \t
       example: \t
       selector:
@@ -113,11 +121,15 @@ export_statistics:
             - "|"
 
     decimal:
-      required: false
-      default: false
-      example: false
+      required: true
+      default: "."
+      example: "."
+      description: "Decimal separator character"
       selector:
-        boolean:
+        select:
+          options:
+            - "."
+            - ","
 
     datetime_format:
       required: false

@@ -1,277 +1,429 @@
-# Accessing Home Assistant Timezone from Docker Container
+# Service Parameter Improvements Plan
 
-## Question
-Can I access the Home Assistant frontend timezone setting from inside the Docker container where HA is running?
+## Overview
 
-## Answer: YES! ✅
+This plan outlines improvements to the import/export service parameters to make them more user-friendly and consistent. The changes include:
 
-Home Assistant provides the timezone setting through the `hass` object, which is accessible from custom components running inside the Docker container.
-
----
-
-## How to Access the Timezone
-
-### Method 1: Using `hass.config.time_zone` (Recommended)
-
-The timezone configured in Home Assistant's frontend is available via:
-
-```python
-from homeassistant.core import HomeAssistant
-
-def get_ha_timezone(hass: HomeAssistant) -> str:
-    """Get the Home Assistant configured timezone."""
-    return hass.config.time_zone
-```
-
-This returns the IANA timezone identifier (e.g., `"Europe/Berlin"`, `"America/New_York"`, `"UTC"`).
-
-### Example Integration in Your Code
-
-Here's how you can modify your custom component to use HA's timezone instead of requiring users to specify it:
-
-```python
-from homeassistant.core import HomeAssistant, ServiceCall
-import zoneinfo
-
-async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Handle import_from_file service implementation."""
-
-    # Get timezone from Home Assistant configuration
-    timezone_identifier = hass.config.time_zone
-
-    # Or allow override from service call with HA timezone as default
-    timezone_identifier = call.data.get("timezone_identifier", hass.config.time_zone)
-
-    # Use it with zoneinfo
-    timezone = zoneinfo.ZoneInfo(timezone_identifier)
-
-    # ... rest of your code
-```
+1. **Timezone handling**: Use Home Assistant's configured timezone as default
+2. **Delimiter handling**: Change default to `\t` (tab), make required with default
+3. **Decimal separator**: Replace boolean with combobox selector, make required with default
+4. **Dependency management**: Pass HA timezone to functions instead of entire `hass` object
 
 ---
 
-## Current State in Your Codebase
+## Current Issues
 
-### How Timezone is Currently Handled
+### 1. Timezone Handling
+- **Import**: Requires users to manually specify timezone (no default)
+- **Export**: Has hardcoded default `"Europe/Vienna"` (arbitrary, wrong for most users)
+- **Problem**: Users already configured timezone in HA frontend, forcing redundant specification
 
-Your custom component currently **requires** users to specify the timezone in every service call:
+### 2. Delimiter Handling
+- **Current**: Optional parameter with default `\t`
+- **Problem**: The code has auto-detection logic that is unnecessary complexity
+- **Issue**: Optional parameters with defaults are confusing in the UI
 
-**File: [`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py:164)**
-```python
-timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
+### 3. Decimal Separator
+- **Current**: Boolean parameter (`decimal: true` means comma, `false` means dot)
+- **Problem**: Boolean is unintuitive - users must remember what true/false means
+- **Better**: Explicit combobox with "," and "." options
 
-if timezone_identifier not in pytz.all_timezones:
-    helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
-```
-
-**File: [`custom_components/import_statistics/export_service.py`](custom_components/import_statistics/export_service.py:146)**
-```python
-timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
-```
-
-### Issues with Current Approach
-
-1. **User Burden**: Users must manually specify timezone in every service call
-2. **Inconsistency**: Export has a hardcoded default (`"Europe/Vienna"`), import has no default
-3. **Redundancy**: Users already configured timezone in HA frontend
-4. **Error-Prone**: Users might specify wrong timezone or forget to include it
+### 4. Dependency Management
+- **Current**: Would need to pass entire `hass` object to [`prepare_data_to_import()`](custom_components/import_statistics/import_service_helper.py:57)
+- **Problem**: Introduces unnecessary dependencies to hass for helper functions
+- **Better**: Extract timezone string from `hass.config.time_zone` and pass only the string
 
 ---
 
-## Recommended Improvements
+## Proposed Changes
 
-### 1. Use HA Timezone as Default
+### Change 1: Timezone - Use HA Timezone as Default
 
-Modify [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141) to use HA's timezone as default:
+#### Rationale
+Home Assistant provides the timezone setting through `hass.config.time_zone`, which returns the IANA timezone identifier (e.g., `"Europe/Berlin"`, `"America/New_York"`, `"UTC"`). Users already configured this in the HA frontend, so we should use it as the default.
 
-```python
-def handle_arguments(hass: HomeAssistant, call: ServiceCall) -> tuple:
-    """Handle the arguments for importing statistics from a file."""
+#### Implementation Strategy
 
-    # Use HA's configured timezone as default, allow override
-    timezone_identifier = call.data.get(
-        ATTR_TIMEZONE_IDENTIFIER,
-        hass.config.time_zone  # ✅ Use HA timezone as default
-    )
+**Pass timezone string, not hass object:**
+- Extract timezone in service handlers: `ha_timezone = hass.config.time_zone`
+- Pass timezone string to [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141)
+- Keep helper functions independent of `hass` object
 
-    if timezone_identifier not in pytz.all_timezones:
-        helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
+**Files to modify:**
 
-    # ... rest of function
-```
+1. **[`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py:141)**
+   - Modify [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141) signature:
+     ```python
+     def handle_arguments(call: ServiceCall, ha_timezone: str) -> tuple:
+         """Handle the arguments for importing statistics from a file."""
 
-### 2. Update Service Signatures
+         # Use HA's configured timezone as default, allow override
+         timezone_identifier = call.data.get(
+             ATTR_TIMEZONE_IDENTIFIER,
+             ha_timezone  # ✅ Use HA timezone as default
+         )
 
-You'll need to pass `hass` to functions that currently don't receive it:
+         if timezone_identifier not in pytz.all_timezones:
+             helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
+         # ... rest of function unchanged
+     ```
+
+2. **[`custom_components/import_statistics/import_service.py`](custom_components/import_statistics/import_service.py)**
+   - Extract timezone before calling prepare functions:
+     ```python
+     async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+         """Handle import_from_file service implementation."""
+
+         # Extract HA timezone once
+         ha_timezone = hass.config.time_zone
+
+         # Pass timezone string to prepare function
+         df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(
+             lambda: prepare_data_to_import(file_path, call, ha_timezone)
+         )
+     ```
+
+3. **[`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py:57)**
+   - Update [`prepare_data_to_import()`](custom_components/import_statistics/import_service_helper.py:57) signature:
+     ```python
+     def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) -> tuple:
+         """Load and prepare data from CSV/TSV file for import."""
+         decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone)
+         # ... rest unchanged
+     ```
+
+4. **[`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py:92)**
+   - Update [`prepare_json_data_to_import()`](custom_components/import_statistics/import_service_helper.py:92) signature:
+     ```python
+     def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
+         """Prepare data from JSON service call for import."""
+         _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone)
+         # ... rest unchanged
+     ```
+
+5. **[`custom_components/import_statistics/export_service.py`](custom_components/import_statistics/export_service.py:309)**
+   - Update [`handle_export_statistics_impl()`](custom_components/import_statistics/export_service.py:309):
+     ```python
+     async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+         """Handle export_statistics service implementation."""
+         # ... validation code ...
+
+         # Use HA timezone as default instead of hardcoded "Europe/Vienna"
+         timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, hass.config.time_zone)
+
+         # ... rest unchanged
+     ```
+
+6. **[`custom_components/import_statistics/services.yaml`](custom_components/import_statistics/services.yaml)**
+   - Make timezone optional in both services:
+     ```yaml
+     import_from_file:
+       fields:
+         timezone_identifier:
+           required: false  # ✅ Changed from true to false
+           description: >
+             Timezone identifier (IANA format, e.g., 'Europe/Berlin').
+             If not specified, uses Home Assistant's configured timezone.
+           example: "Europe/Berlin"
+           selector:
+             text:
+
+     export_statistics:
+       fields:
+         timezone_identifier:
+           required: false
+           description: >
+             Timezone identifier (IANA format, e.g., 'Europe/Berlin').
+             If not specified, uses Home Assistant's configured timezone.
+           example: "Europe/Berlin"
+           selector:
+             text:
+     ```
+
+#### Benefits
+- **User-friendly**: No need to specify timezone in every service call
+- **Consistent**: Uses the timezone user already configured in HA
+- **Flexible**: Users can still override if needed
+- **Clean architecture**: Helper functions remain independent of `hass` object
+
+---
+
+### Change 2: Delimiter - Make Required with Default `\t`
+
+#### Rationale
+The delimiter parameter is currently optional, but there's always a default value (`\t`). Making it required with a default simplifies the code and removes unnecessary auto-detection logic.
+
+#### Implementation
+
+1. **[`custom_components/import_statistics/services.yaml`](custom_components/import_statistics/services.yaml)**
+   - Change `required: false` to `required: true` for delimiter in both services
+   - Keep default as `\t`
+   ```yaml
+   import_from_file:
+     fields:
+       delimiter:
+         required: true  # ✅ Changed from false to true
+         default: \t
+         example: \t
+         selector:
+           select:
+             custom_value: true
+             options:
+               - '\t'
+               - ";"
+               - ","
+               - "|"
+
+   export_statistics:
+     fields:
+       delimiter:
+         required: true  # ✅ Changed from false to true
+         default: \t
+         example: \t
+         selector:
+           select:
+             custom_value: true
+             options:
+               - '\t'
+               - ";"
+               - ","
+               - "|"
+   ```
+
+2. **[`custom_components/import_statistics/helpers.py`](custom_components/import_statistics/helpers.py:382)**
+   - Keep [`validate_delimiter()`](custom_components/import_statistics/helpers.py:382) as is (handles `None` → `"\t"` conversion)
+   - This ensures backward compatibility if delimiter is missing
+
+3. **[`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py:169)**
+   - Update [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141):
+     ```python
+     # Get delimiter with default (required parameter with default in services.yaml)
+     delimiter = call.data.get(ATTR_DELIMITER, "\t")
+     delimiter = helpers.validate_delimiter(delimiter)
+     ```
+
+4. **[`custom_components/import_statistics/export_service.py`](custom_components/import_statistics/export_service.py:316)**
+   - Update default in [`handle_export_statistics_impl()`](custom_components/import_statistics/export_service.py:309):
+     ```python
+     delimiter = helpers.validate_delimiter(call.data.get(ATTR_DELIMITER, "\t"))
+     ```
+
+#### Benefits
+- **Simpler**: No auto-detection logic needed
+- **Clearer**: Users see the default value in the UI
+- **Consistent**: Same pattern as other parameters with defaults
+
+---
+
+### Change 3: Decimal Separator - Replace Boolean with Combobox
+
+#### Rationale
+The current boolean parameter (`decimal: true` for comma, `false` for dot) is unintuitive. A combobox with explicit values ("," and ".") is much clearer.
+
+#### Implementation
+
+1. **[`custom_components/import_statistics/const.py`](custom_components/import_statistics/const.py)**
+   - No changes needed (ATTR_DECIMAL remains the same)
+
+2. **[`custom_components/import_statistics/services.yaml`](custom_components/import_statistics/services.yaml)**
+   - Replace boolean selector with select for both services:
+     ```yaml
+     import_from_file:
+       fields:
+         decimal:
+           required: true  # ✅ Changed from false to true (with default)
+           default: "."
+           example: "."
+           description: "Decimal separator character"
+           selector:
+             select:
+               options:
+                 - "."
+                 - ","
+
+     export_statistics:
+       fields:
+         decimal:
+           required: true  # ✅ Changed from false to true (with default)
+           default: "."
+           example: "."
+           description: "Decimal separator character"
+           selector:
+             select:
+               options:
+                 - "."
+                 - ","
+     ```
+
+3. **[`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py:158)**
+   - Update [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141):
+     ```python
+     # Get decimal separator directly as string (default is ".")
+     decimal = call.data.get(ATTR_DECIMAL, ".")
+
+     # Validate it's one of the allowed values
+     if decimal not in {".", ","}:
+         helpers.handle_error(f"Invalid decimal separator: {decimal}. Must be '.' or ','")
+     ```
+
+4. **[`custom_components/import_statistics/export_service.py`](custom_components/import_statistics/export_service.py:317)**
+   - Update [`handle_export_statistics_impl()`](custom_components/import_statistics/export_service.py:309):
+     ```python
+     # Get decimal separator as string (default is ".")
+     decimal_separator = call.data.get(ATTR_DECIMAL, ".")
+
+     # Validate
+     if decimal_separator not in {".", ","}:
+         helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
+
+     # Convert to boolean for backward compatibility with prepare_export_data
+     decimal = decimal_separator == ","
+     ```
+
+5. **[`custom_components/import_statistics/export_service_helper.py`](custom_components/import_statistics/export_service_helper.py)**
+   - Update [`prepare_export_data()`](custom_components/import_statistics/export_service_helper.py:42) signature to accept string:
+     ```python
+     def prepare_export_data(
+         statistics_dict: dict,
+         timezone_identifier: str,
+         datetime_format: str,
+         decimal_separator: str = ".",  # ✅ Changed from decimal_comma: bool
+         units_dict: dict | None = None,
+     ) -> tuple[list[str], list[list[str]]]:
+         """Prepare statistics data for export to CSV/TSV."""
+
+         # Use decimal_separator directly instead of boolean
+         # ... update formatting logic to use decimal_separator
+     ```
+
+#### Benefits
+- **Intuitive**: Users see exactly what they're selecting ("." or ",")
+- **Clear**: No need to remember what true/false means
+- **Consistent**: Matches the pattern of other select parameters
+
+#### Backward Compatibility Note
+The internal representation changes from boolean to string, but the default behavior remains the same (dot separator). Existing automations using `decimal: false` will need to be updated to `decimal: "."`, and `decimal: true` to `decimal: ","`.
+
+---
+
+## Testing Strategy
+
+### Unit Tests to Update
+
+1. **[`tests/unit_tests/test_handle_arguments.py`](tests/unit_tests/test_handle_arguments.py)**
+   - Add `ha_timezone` parameter to all test calls
+   - Test default timezone behavior
+   - Test timezone override behavior
+
+2. **[`tests/unit_tests/test_prepare_data_to_import.py`](tests/unit_tests/test_prepare_data_to_import.py)**
+   - Add `ha_timezone` parameter to test calls
+   - Test with different timezone values
+
+3. **New test file: `tests/unit_tests/test_decimal_separator.py`**
+   - Test decimal separator validation
+   - Test "." and "," values
+   - Test invalid values (should raise error)
+
+4. **[`tests/integration_tests_mock/test_import_service_without_delta.py`](tests/integration_tests_mock/test_import_service_without_delta.py)**
+   - Update to use new decimal separator format
+   - Test with both "." and "," values
+
+5. **[`tests/integration_tests_mock/test_export_service.py`](tests/integration_tests_mock/test_export_service.py)**
+   - Update to use new decimal separator format
+   - Test timezone defaulting to HA timezone
+
+### Integration Tests
+
+1. **[`tests/integration_tests/test_integration_delta_imports.py`](tests/integration_tests/test_integration_delta_imports.py)**
+   - Verify timezone defaults to HA timezone
+   - Test timezone override
+   - Test new decimal separator format
+
+### Manual Testing Checklist
+
+- [ ] Import CSV with default timezone (should use HA timezone)
+- [ ] Import CSV with explicit timezone override
+- [ ] Import CSV with comma decimal separator
+- [ ] Import CSV with dot decimal separator
+- [ ] Import CSV with tab delimiter (default)
+- [ ] Import CSV with custom delimiter
+- [ ] Export statistics with default timezone (should use HA timezone)
+- [ ] Export statistics with explicit timezone override
+- [ ] Export statistics with comma decimal separator
+- [ ] Export statistics with dot decimal separator
+- [ ] Verify UI shows correct defaults in service call dialog
+
+---
+
+## Migration Guide for Users
+
+### Breaking Changes
+
+#### Decimal Separator Parameter
 **Before:**
-```python
-def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
-```
-
-**After:**
-```python
-def prepare_data_to_import(hass: HomeAssistant, file_path: str, call: ServiceCall) -> tuple:
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(hass, call)
-```
-
-### 3. Update Service Calls
-
-**File: [`custom_components/import_statistics/import_service.py`](custom_components/import_statistics/import_service.py:254)**
-
-**Before:**
-```python
-df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(
-    lambda: prepare_data_to_import(file_path, call)
-)
-```
-
-**After:**
-```python
-df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(
-    lambda: prepare_data_to_import(hass, file_path, call)
-)
-```
-
-### 4. Update Services YAML
-
-Make timezone optional in [`services.yaml`](custom_components/import_statistics/services.yaml):
-
 ```yaml
-import_from_file:
-  description: Import statistics from a CSV/TSV file
-  fields:
-    timezone_identifier:
-      description: >
-        Timezone identifier (IANA format, e.g., 'Europe/Berlin').
-        If not specified, uses Home Assistant's configured timezone.
-      example: "Europe/Berlin"
-      required: false  # ✅ Make it optional
-      selector:
-        text:
+service: import_statistics.import_from_file
+data:
+  filename: "data.csv"
+  decimal: true  # true = comma, false = dot
+```
+
+**After:**
+```yaml
+service: import_statistics.import_from_file
+data:
+  filename: "data.csv"
+  decimal: ","  # explicit: "," or "."
+```
+
+#### Timezone Parameter (Non-Breaking)
+**Before:**
+```yaml
+service: import_statistics.import_from_file
+data:
+  filename: "data.csv"
+  timezone_identifier: "Europe/Vienna"  # Required
+```
+
+**After:**
+```yaml
+service: import_statistics.import_from_file
+data:
+  filename: "data.csv"
+  # timezone_identifier is now optional, defaults to HA timezone
+  # Can still override if needed:
+  # timezone_identifier: "America/New_York"
 ```
 
 ---
 
-## Docker Container Considerations
+## Implementation Order
 
-### System Timezone vs HA Timezone
+1. **Phase 1: Timezone Changes**
+   - Update [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141) to accept `ha_timezone` parameter
+   - Update [`prepare_data_to_import()`](custom_components/import_statistics/import_service_helper.py:57) signature
+   - Update [`prepare_json_data_to_import()`](custom_components/import_statistics/import_service_helper.py:92) signature
+   - Update service handlers to extract and pass timezone
+   - Update [`services.yaml`](custom_components/import_statistics/services.yaml) to make timezone optional
+   - Update unit tests
 
-**Important distinction:**
+2. **Phase 2: Delimiter Changes**
+   - Update [`services.yaml`](custom_components/import_statistics/services.yaml) to make delimiter required
+   - Verify default handling in code
+   - Update integration tests
 
-1. **Container System Timezone**: The timezone of the Docker container's OS (usually UTC)
-2. **Home Assistant Timezone**: The timezone configured in HA's frontend (stored in `hass.config.time_zone`)
+3. **Phase 3: Decimal Separator Changes**
+   - Update [`services.yaml`](custom_components/import_statistics/services.yaml) to use select instead of boolean
+   - Update [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141) to handle string
+   - Update [`prepare_export_data()`](custom_components/import_statistics/export_service_helper.py:42) signature
+   - Update all callers
+   - Update unit and integration tests
 
-Your [`get_timezone.py`](get_timezone.py) script reads the **container's system timezone**, which is typically UTC in Docker containers. This is **different** from the user's configured HA timezone.
-
-### Why Use `hass.config.time_zone` Instead of System Timezone
-
-```python
-# ❌ DON'T: Read container system timezone
-import datetime as dt
-system_tz = dt.datetime.now().astimezone().tzinfo  # Returns UTC in Docker
-
-# ✅ DO: Use Home Assistant's configured timezone
-def get_timezone(hass: HomeAssistant) -> str:
-    return hass.config.time_zone  # Returns user's actual timezone
-```
-
-### Container Timezone Files
-
-Inside the Docker container, you'll find:
-- `/etc/timezone` - Usually contains `"Etc/UTC"`
-- `/etc/localtime` - Symlink to `/usr/share/zoneinfo/Etc/UTC`
-
-These reflect the **container's** timezone, not the user's HA timezone.
-
----
-
-## Complete Example: Timezone-Aware Service
-
-Here's a complete example showing best practices:
-
-```python
-from homeassistant.core import HomeAssistant, ServiceCall
-import zoneinfo
-import datetime as dt
-
-async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Handle import with timezone awareness."""
-
-    # Get timezone from HA config (with optional override)
-    timezone_identifier = call.data.get("timezone_identifier", hass.config.time_zone)
-
-    # Validate timezone
-    try:
-        timezone = zoneinfo.ZoneInfo(timezone_identifier)
-    except zoneinfo.ZoneInfoNotFoundError:
-        raise HomeAssistantError(f"Invalid timezone: {timezone_identifier}")
-
-    # Log for debugging
-    _LOGGER.info(
-        "Using timezone: %s (HA default: %s)",
-        timezone_identifier,
-        hass.config.time_zone
-    )
-
-    # Parse user-provided timestamp in their timezone
-    user_timestamp = "18.01.2026 14:30"
-    dt_obj = dt.datetime.strptime(user_timestamp, "%d.%m.%Y %H:%M")
-    dt_obj = dt_obj.replace(tzinfo=timezone)
-
-    # Convert to UTC for storage
-    dt_utc = dt_obj.astimezone(dt.UTC)
-
-    # ... rest of import logic
-```
-
----
-
-## Testing Timezone Access
-
-You can test timezone access using the Home Assistant MCP server:
-
-```python
-# Get HA version (confirms connection)
-await mcp.get_version()
-
-# The timezone is part of hass.config, accessible in custom components
-# It's set in Configuration -> General -> Time Zone in the frontend
-```
-
----
-
-## Summary
-
-### ✅ What You Can Do
-
-1. **Access HA timezone**: Use `hass.config.time_zone` in any custom component
-2. **Use as default**: Make timezone parameter optional, defaulting to HA's setting
-3. **Allow override**: Let users override if they need a different timezone
-4. **Simplify UX**: Remove burden of specifying timezone in every service call
-
-### ❌ What to Avoid
-
-1. **Don't read system timezone**: Container timezone is usually UTC, not user's timezone
-2. **Don't hardcode defaults**: `"Europe/Vienna"` is arbitrary and wrong for most users
-3. **Don't require timezone**: Users already configured it in HA
-
-### 🎯 Recommended Changes
-
-1. Add `hass` parameter to [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141)
-2. Use `hass.config.time_zone` as default for `timezone_identifier`
-3. Update all callers to pass `hass` object
-4. Make `timezone_identifier` optional in [`services.yaml`](custom_components/import_statistics/services.yaml)
-5. Update documentation to explain the default behavior
-
----
-
-## Additional Resources
-
-- **Home Assistant Config Object**: [Core Documentation](https://developers.home-assistant.io/docs/dev_101_hass/)
-- **Python zoneinfo**: [Python 3.12 Documentation](https://docs.python.org/3/library/zoneinfo.html)
-- **IANA Timezone Database**: [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+4. **Phase 4: Documentation**
+   - Update README.md with new parameter formats
+   - Update CHANGELOG.md with breaking changes
+   - Create migration guide
 
 ---
 
@@ -280,18 +432,73 @@ await mcp.get_version()
 ```mermaid
 graph TD
     A[User Configures Timezone in HA Frontend] -->|Stored in| B[hass.config.time_zone]
-    B -->|Accessed by| C[Custom Component]
-    C -->|Uses| D[zoneinfo.ZoneInfo]
-    D -->|Converts| E[User Timestamps to UTC]
-    E -->|Stored in| F[Recorder Database]
+    B -->|Extracted by| C[Service Handler]
+    C -->|Passes timezone string| D[prepare_data_to_import]
+    D -->|Passes to| E[handle_arguments]
+    E -->|Uses as default| F[timezone_identifier]
+    F -->|Converts with| G[zoneinfo.ZoneInfo]
+    G -->|Parses timestamps| H[User Data]
+    H -->|Converts to UTC| I[Recorder Database]
 
-    G[Docker Container System TZ] -.->|Usually UTC| H[/etc/timezone]
-    H -.->|Don't use this| C
+    J[Service Call] -->|Optional override| E
 
     style B fill:#90EE90
     style C fill:#87CEEB
-    style G fill:#FFB6C1
-    style H fill:#FFB6C1
+    style D fill:#87CEEB
+    style E fill:#87CEEB
+    style J fill:#FFD700
 ```
 
-The green path shows the correct approach (using HA's configured timezone), while the red path shows what to avoid (using container's system timezone).
+**Legend:**
+- Green: HA configuration (source of truth)
+- Blue: Component functions (no hass dependency in helpers)
+- Gold: User input (optional override)
+
+---
+
+## Summary of Changes
+
+### Files Modified
+
+1. [`custom_components/import_statistics/import_service_helper.py`](custom_components/import_statistics/import_service_helper.py)
+   - [`handle_arguments()`](custom_components/import_statistics/import_service_helper.py:141): Add `ha_timezone` parameter, use as default, change decimal to string
+   - [`prepare_data_to_import()`](custom_components/import_statistics/import_service_helper.py:57): Add `ha_timezone` parameter
+   - [`prepare_json_data_to_import()`](custom_components/import_statistics/import_service_helper.py:92): Add `ha_timezone` parameter
+
+2. [`custom_components/import_statistics/import_service.py`](custom_components/import_statistics/import_service.py)
+   - Extract `ha_timezone = hass.config.time_zone` in service handlers
+   - Pass `ha_timezone` to prepare functions
+
+3. [`custom_components/import_statistics/export_service.py`](custom_components/import_statistics/export_service.py)
+   - [`handle_export_statistics_impl()`](custom_components/import_statistics/export_service.py:309): Use `hass.config.time_zone` as default
+   - Change decimal handling from boolean to string
+
+4. [`custom_components/import_statistics/export_service_helper.py`](custom_components/import_statistics/export_service_helper.py)
+   - [`prepare_export_data()`](custom_components/import_statistics/export_service_helper.py:42): Change `decimal_comma: bool` to `decimal_separator: str`
+
+5. [`custom_components/import_statistics/services.yaml`](custom_components/import_statistics/services.yaml)
+   - Make `timezone_identifier` optional (required: false) in both services
+   - Make `delimiter` required (required: true) in both services
+   - Change `decimal` from boolean to select with "." and "," options
+   - Make `decimal` required (required: true) in both services
+
+6. Test files (multiple)
+   - Update to pass `ha_timezone` parameter
+   - Update to use new decimal separator format
+
+### Benefits Summary
+
+✅ **User Experience**
+- No need to specify timezone in every service call
+- Clearer decimal separator selection
+- Consistent defaults across all parameters
+
+✅ **Code Quality**
+- Helper functions remain independent of `hass` object
+- Simpler parameter handling (no auto-detection)
+- More intuitive parameter types
+
+✅ **Maintainability**
+- Clear separation of concerns
+- Easier to test (pass strings, not objects)
+- Better documentation of defaults

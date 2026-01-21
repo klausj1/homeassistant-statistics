@@ -321,6 +321,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -349,7 +350,7 @@ class TestHandleExportStatistics:
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                     ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
                     ATTR_SPLIT_BY: "none",
                 },
@@ -378,6 +379,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -427,6 +429,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -480,6 +483,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -518,6 +522,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -578,6 +583,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -614,6 +620,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -667,6 +674,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -721,6 +729,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -781,6 +790,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -838,6 +848,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -864,7 +875,7 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                    ATTR_DECIMAL: True,
+                    ATTR_DECIMAL: ",",
                 },
             )
 
@@ -895,6 +906,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -952,6 +964,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -1004,6 +1017,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 

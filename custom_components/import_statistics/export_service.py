@@ -311,10 +311,21 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Validate and extract parameters
     filename, entities_input, start_time_str, end_time_str, split_by = _validate_service_parameters(call)
 
-    # Extract other parameters (with defaults matching services.yaml)
-    timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, "Europe/Vienna")
+    # Extract other parameters (with defaults)
+    # Use HA timezone as default instead of hardcoded "Europe/Vienna"
+    timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, hass.config.time_zone)
     delimiter = helpers.validate_delimiter(call.data.get(ATTR_DELIMITER, "\t"))
-    decimal = call.data.get(ATTR_DECIMAL, False)
+
+    # Get decimal separator as string (default is ".")
+    decimal_separator = call.data.get(ATTR_DECIMAL, ".")
+
+    # Validate
+    if decimal_separator not in {".", ","}:
+        helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
+
+    # Convert to boolean for backward compatibility with prepare_export_data
+    decimal = decimal_separator == ","
+
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
 
     _LOGGER.info("Service handle_export_statistics called")

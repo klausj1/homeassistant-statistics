@@ -54,7 +54,7 @@ def _validate_and_detect_delta(df: "pd.DataFrame", unit_from_entity: UnitFrom) -
     return "delta" in df.columns
 
 
-def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
+def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) -> tuple:
     """
     Load and prepare data from CSV/TSV file for import.
 
@@ -62,6 +62,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     ----
         file_path: Path to the file with the data to be imported.
         call: The call data containing the necessary information.
+        ha_timezone: Home Assistant's configured timezone identifier.
 
     Returns:
     -------
@@ -73,7 +74,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
         HomeAssistantError: If there is a validation error.
 
     """
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call)
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone)
 
     _LOGGER.info("Importing statistics from file: %s", file_path)
     if not Path(file_path).exists():
@@ -89,13 +90,14 @@ def prepare_data_to_import(file_path: str, call: ServiceCall) -> tuple:
     return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
 
-def prepare_json_data_to_import(call: ServiceCall) -> tuple:
+def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
     """
     Prepare data from JSON service call for import.
 
     Args:
     ----
         call: The service call data containing entities.
+        ha_timezone: Home Assistant's configured timezone identifier.
 
     Returns:
     -------
@@ -106,7 +108,7 @@ def prepare_json_data_to_import(call: ServiceCall) -> tuple:
         HomeAssistantError: If there is a validation error.
 
     """
-    _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call)
+    _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone)
 
     valid_columns = ["state", "sum", "min", "max", "mean"]
     columns = ["statistic_id", "unit", "start"]
@@ -138,13 +140,14 @@ def prepare_json_data_to_import(call: ServiceCall) -> tuple:
     return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
 
-def handle_arguments(call: ServiceCall) -> tuple:
+def handle_arguments(call: ServiceCall, ha_timezone: str) -> tuple:
     """
     Handle the arguments for importing statistics from a file.
 
     Args:
     ----
         call (ServiceCall): The service call object containing additional data.
+        ha_timezone: Home Assistant's configured timezone identifier.
 
     Returns:
     -------
@@ -155,18 +158,24 @@ def handle_arguments(call: ServiceCall) -> tuple:
         HomeAssistantError: If the timezone identifier is invalid.
 
     """
-    decimal = "," if call.data.get(ATTR_DECIMAL, True) else "."
+    # Get decimal separator directly as string (default is ".")
+    decimal = call.data.get(ATTR_DECIMAL, ".")
+
+    # Validate it's one of the allowed values
+    if decimal not in {".", ","}:
+        helpers.handle_error(f"Invalid decimal separator: {decimal}. Must be '.' or ','")
 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT) if ATTR_DATETIME_FORMAT in call.data else DATETIME_DEFAULT_FORMAT
 
     unit_from_entity = UnitFrom.ENTITY if call.data.get(ATTR_UNIT_FROM_ENTITY) is True else UnitFrom.TABLE
 
-    timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER)
+    # Use HA's configured timezone as default, allow override
+    timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, ha_timezone)
 
     if timezone_identifier not in pytz.all_timezones:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
-    delimiter = call.data.get(ATTR_DELIMITER)
+    delimiter = call.data.get(ATTR_DELIMITER, "\t")
     delimiter = helpers.validate_delimiter(delimiter)
 
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)

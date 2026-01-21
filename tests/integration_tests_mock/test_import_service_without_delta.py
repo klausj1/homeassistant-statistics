@@ -59,7 +59,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "sum_test.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 
@@ -132,7 +132,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "mean_test.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 
@@ -201,7 +201,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "multiple.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 
@@ -268,7 +268,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "external.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 
@@ -334,7 +334,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "no_unit.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                     ATTR_UNIT_FROM_ENTITY: True,
                 },
             )
@@ -376,7 +376,7 @@ class TestStandardImportIntegration:
                 "import_from_json",
                 {
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                     "entities": [
                         {
                             "id": "counter.energy",
@@ -438,7 +438,7 @@ class TestStandardImportIntegration:
                 "import_from_json",
                 {
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                     "entities": [
                         {
                             "id": "sensor.temperature",
@@ -518,7 +518,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "comma.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: True,
+                    ATTR_DECIMAL: ",",
                 },
             )
 
@@ -570,7 +570,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "tz_test.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "Europe/Vienna",  # UTC+1 in January
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 
@@ -656,7 +656,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "nonexistent.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 
@@ -695,7 +695,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "iso_format.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                     ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M",
                 },
             )
@@ -750,7 +750,7 @@ class TestStandardImportIntegration:
                     ATTR_FILENAME: "multi_external.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: ".",
                 },
             )
 

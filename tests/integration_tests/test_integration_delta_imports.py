@@ -405,7 +405,7 @@ class TestIntegrationAll:
         # STEP 1: Import sensor_mean_min_max
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_sensor/sensor_mean_min_max.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            {"filename": "test_sensor/sensor_mean_min_max.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "."},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -434,7 +434,7 @@ class TestIntegrationAll:
         # STEP 2: Import changes
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_sensor/sensor_mean_min_max_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            {"filename": "test_sensor/sensor_mean_min_max_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "."},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -472,7 +472,7 @@ class TestIntegrationAll:
         # STEP 1: Import counter_sum_state
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_counter_no_delta/counter_sum_state.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            {"filename": "test_counter_no_delta/counter_sum_state.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "."},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -501,7 +501,7 @@ class TestIntegrationAll:
         # STEP 2: Import changes
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_counter_no_delta/counter_sum_state_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": False},
+            {"filename": "test_counter_no_delta/counter_sum_state_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "."},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -561,7 +561,7 @@ class TestIntegrationAll:
                 "filename": "test_delta/sum_state.txt",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
-                "decimal": False,
+                "decimal": ".",
             },
             ha_url=self.ha_url,
             token=self.ha_token,
@@ -611,7 +611,7 @@ class TestIntegrationAll:
                 "filename": "test_delta/sum_delta_unchanged.txt",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
-                "decimal": False,
+                "decimal": ".",
             },
             ha_url=self.ha_url,
             token=self.ha_token,
@@ -661,7 +661,7 @@ class TestIntegrationAll:
                 "filename": "test_delta/sum_delta_changed.txt",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
-                "decimal": False,
+                "decimal": ".",
             },
             ha_url=self.ha_url,
             token=self.ha_token,

@@ -4,11 +4,11 @@
             "description": "Imports long term statistic values (1h) from tsv/csv file",
             "fields": {
                 "decimal": {
-                    "description": "The decimal separator. Default is '.'/dot; set to true to use ','/comma",
+                    "description": "The decimal separator character: '.' for dot or ',' for comma. Default is '.'",
                     "name": "decimal"
                 },
                 "delimiter": {
-                    "description": "The delimiter between fields. Default is empty (auto-detect is tried)",
+                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe",
                     "name": "delimiter"
                 },
                 "filename": {
@@ -16,7 +16,7 @@
                     "name": "filename"
                 },
                 "timezone_identifier": {
-                    "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)",
+                    "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If not specified, uses Home Assistant's configured timezone",
                     "name": "timezone_identifier"
                 },
                 "datetime_format": {
@@ -56,15 +56,15 @@
                 },
                 "timezone_identifier": {
                     "name": "timezone_identifier",
-                    "description": "Timezone identifier for start/end-time and timestamp output formatting (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)"
+                    "description": "Timezone identifier for start/end-time and timestamp output formatting (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If not specified, uses Home Assistant's configured timezone"
                 },
                 "delimiter": {
                     "name": "delimiter",
-                    "description": "The delimiter between fields. Default is tab; options are tab, semicolon, comma, or pipe"
+                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe"
                 },
                 "decimal": {
                     "name": "decimal",
-                    "description": "The decimal separator. Default is '.'/dot; set to true to use ','/comma"
+                    "description": "The decimal separator character: '.' for dot or ',' for comma. Default is '.'"
                 },
                 "datetime_format": {
                     "name": "datetime_format",
