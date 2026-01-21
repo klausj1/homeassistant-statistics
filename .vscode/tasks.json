@@ -55,7 +55,7 @@
         {
             "label": "Code Coverage",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m pytest tests/ --cov=custom_components/import_statistics --cov-report term-missing --cov-report html",
+            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${command:python.interpreterPath} -m pytest tests/ --cov=custom_components/import_statistics --cov-report term-missing --cov-report html'",
             "group": "test",
             "presentation": {
                 "reveal": "always",
@@ -75,9 +75,21 @@
             "problemMatcher": []
         },
         {
+            "label": "Clean Config",
+            "type": "shell",
+            "command": "./scripts/clean_config",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Stop Home Assistant",
             "type": "shell",
-            "command": "Get-Process -Name 'python' -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '*homeassistant*' -or $_.CommandLine -like '*homeassistant*' } | ForEach-Object { Write-Host \"Stopping Home Assistant (PID: $($_.Id))...\"; Stop-Process -Id $_.Id -Force:$false }; if ($?) { Write-Host 'Home Assistant stopped gracefully' } else { Write-Host 'Home Assistant not found or already stopped' }",
+            "command": "bash -lc 'pkill -f homeassistant || echo \"Home Assistant not found or already stopped\"'",
             "group": "build",
             "presentation": {
                 "reveal": "always",
