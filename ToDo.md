@@ -3,7 +3,6 @@
 ## Export improvements
 
 - docs/DrCoolzic/export_options_modification.md is wrong, needed?
-- Review changed integration test
 
 ### Later
 

@@ -218,22 +218,6 @@ class TestIntegrationAll:
             return False
 
     @staticmethod
-    def _normalize_tsv_for_comparison(file_path: Path) -> list[list[str]]:
-        """
-        Load and normalize a TSV file for comparison.
-
-        Args:
-            file_path: Path to the TSV file
-
-        Returns:
-            List of rows with normalized whitespace
-
-        """
-        with file_path.open(encoding="utf-8") as f:
-            lines = f.read().strip().split("\n")
-            return [line.split("\t") for line in lines]
-
-    @staticmethod
     def _compare_tsv_files_strict(actual_path: Path, expected_path: Path, tolerance: float = 0.01) -> bool:
         """Compare two TSV files for equality with numeric tolerance (strict mode - raises on mismatch)."""
         with actual_path.open(encoding="utf-8") as f:
@@ -261,38 +245,6 @@ class TestIntegrationAll:
 
         _LOGGER.info("COMPARISON OK: Files match perfectly")
         return True
-
-    @staticmethod
-    def _count_unique_statistic_ids(file_path: Path) -> int:
-        """
-        Count unique statistic IDs in a TSV file.
-
-        Args:
-            file_path: Path to the TSV file
-
-        Returns:
-            Number of unique statistic_id values
-
-        """
-        df = pd.read_csv(file_path, sep="\t")
-        return df["statistic_id"].nunique()
-
-    @staticmethod
-    def _merge_split_tsv_files(sensors_path: Path, counters_path: Path) -> pd.DataFrame:
-        """
-        Merge sensor and counter TSV files into a single DataFrame.
-
-        Args:
-            sensors_path: Path to the sensors TSV file
-            counters_path: Path to the counters TSV file
-
-        Returns:
-            Merged DataFrame with all rows from both files
-
-        """
-        df_sensors = pd.read_csv(sensors_path, sep="\t")
-        df_counters = pd.read_csv(counters_path, sep="\t")
-        return pd.concat([df_sensors, df_counters], ignore_index=True)
 
     @staticmethod
     def _verify_tsv_contains_only_sensors(file_path: Path) -> bool:
@@ -367,21 +319,78 @@ class TestIntegrationAll:
                 # Handle NaN/empty values
                 if pd.isna(actual_val) and pd.isna(expected_val):
                     continue
-                if pd.isna(actual_val) or pd.isna(expected_val):
+
+                # Try numeric comparison first
+                try:
+                    actual_num = float(actual_val) if not pd.isna(actual_val) else 0.0  # type: ignore[arg-type]
+                    expected_num = float(expected_val) if not pd.isna(expected_val) else 0.0  # type: ignore[arg-type]
+
+                    # For numeric columns, treat NaN and 0.0 as equivalent
+                    if abs(actual_num - expected_num) <= tolerance:
+                        continue
+
+                    # If one is NaN/0 and the other is not, that's a mismatch
                     msg = f"Value mismatch at row {idx}, col {col}: {actual_val} vs {expected_val}"
                     raise AssertionError(msg)
-
-                # Try numeric comparison
-                try:
-                    actual_num = float(actual_val)
-                    expected_num = float(expected_val)
-                    assert abs(actual_num - expected_num) <= tolerance, f"Value mismatch at row {idx}, col {col}: {actual_val} vs {expected_val}"
-                except (ValueError, TypeError):
-                    # String comparison
+                except (ValueError, TypeError) as e:
+                    # String comparison for non-numeric values
+                    # One is NaN and the other is not
+                    if pd.isna(actual_val) or pd.isna(expected_val):
+                        msg = f"Value mismatch at row {idx}, col {col}: {actual_val} vs {expected_val}"
+                        raise AssertionError(msg) from e
                     assert str(actual_val).strip() == str(expected_val).strip(), f"Value mismatch at row {idx}, col {col}: '{actual_val}' vs '{expected_val}'"
 
         _LOGGER.info("COMPARISON OK: DataFrames match perfectly")
         return True
+
+    @staticmethod
+    def _merge_reference_files_for_time_range(
+        sensor_ref: Path | None,
+        counter_ref: Path | None,
+        delta_ref: Path | None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+    ) -> pd.DataFrame:
+        """
+        Merge reference files from tests 1, 2, and 3 for a specific time range.
+
+        Args:
+            sensor_ref: Path to sensor reference file (test_01), or None to skip
+            counter_ref: Path to counter reference file (test_02), or None to skip
+            delta_ref: Path to delta reference file (test_03), or None to skip
+            start_time: Start time in format "DD.MM.YYYY HH:MM" (optional)
+            end_time: End time in format "DD.MM.YYYY HH:MM" (optional)
+
+        Returns:
+            Merged DataFrame with all data from the three tests in the time range
+
+        """
+        # Read reference files (skip if None)
+        dfs = []
+
+        if sensor_ref is not None:
+            df_sensor = pd.read_csv(sensor_ref, sep="\t")
+            # Filter by time range if specified
+            if start_time and end_time:
+                df_sensor = df_sensor[(df_sensor["start"] >= start_time) & (df_sensor["start"] <= end_time)]
+            dfs.append(df_sensor)
+
+        if counter_ref is not None:
+            df_counter = pd.read_csv(counter_ref, sep="\t")
+            # Filter by time range if specified
+            if start_time and end_time:
+                df_counter = df_counter[(df_counter["start"] >= start_time) & (df_counter["start"] <= end_time)]
+            dfs.append(df_counter)
+
+        if delta_ref is not None:
+            df_delta = pd.read_csv(delta_ref, sep="\t")
+            # Filter by time range if specified
+            if start_time and end_time:
+                df_delta = df_delta[(df_delta["start"] >= start_time) & (df_delta["start"] <= end_time)]
+            dfs.append(df_delta)
+
+        # Concatenate all dataframes
+        return pd.concat(dfs, ignore_index=True)
 
     @pytest.mark.asyncio
     async def test_01_import_sensor_mean_min_max_then_changes(self) -> None:
@@ -392,7 +401,6 @@ class TestIntegrationAll:
         # Wait for HA to be fully started (up to 3 minutes)
         is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
         assert is_ready, "Home Assistant did not start within 3 minutes"
-        await asyncio.sleep(5)
 
         # STEP 1: Import sensor_mean_min_max
         success = await self._call_service(
@@ -519,7 +527,7 @@ class TestIntegrationAll:
         assert self._compare_tsv_files_strict(export_file_2, reference_file_2), "Step 2 export mismatch"
 
     @pytest.mark.asyncio
-    async def test_03_import_sum_state_then_delta_unchanged_then_delta_changed(  # noqa: PLR0915
+    async def test_03_import_sum_state_then_delta_unchanged_then_delta_changed(
         self,
     ) -> None:
         """
@@ -545,8 +553,6 @@ class TestIntegrationAll:
         # Wait for HA to be fully started (up to 3 minutes)
         is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
         assert is_ready, "Home Assistant did not start within 3 minutes"
-
-        await asyncio.sleep(5)  # Give HA some time to setup completely
 
         # ==================== STEP 1: Import sum_state ====================
         success = await self._call_service(
@@ -722,7 +728,7 @@ class TestIntegrationAll:
         is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
         assert is_ready, "Home Assistant did not start within 3 minutes"
 
-        # Define entity lists from all three previous tests
+        # Define entity lists and reference files from all three previous tests
         delta_entities = [
             "sensor.imp_inside_same_newest_1",
             "sensor:imp_inside_same_newest_2",
@@ -739,8 +745,11 @@ class TestIntegrationAll:
             "sensor:imp_inside_holes",
             "sensor:imp_partly_after",
         ]
-        # Note: delta_entities has 14 items but only 9 unique IDs (some duplicates for testing)
-        unique_delta_entities = 9
+
+        # Reference files from previous tests
+        sensor_ref = config_dir / "test_sensor" / "expected_after_changes.tsv"
+        counter_ref = config_dir / "test_counter_no_delta" / "expected_after_changes.tsv"
+        delta_ref = config_dir / "test_delta" / "expected_after_step3_delta_changed.tsv"
 
         # ==================== Variation 1: Export all entities (omit entities parameter) ====================
         _LOGGER.info("Variation 1: Export all entities in delta time range (omit entities parameter)")
@@ -759,12 +768,13 @@ class TestIntegrationAll:
         assert success, "Variation 1: Failed to export statistics"
         assert export_file_all_entities.exists(), f"Variation 1: Export file not found: {export_file_all_entities}"
 
-        # Verify file contains data from all three tests (sensors from test_01, counters from test_02 and test_03)
-        df_all = pd.read_csv(export_file_all_entities, sep="\t")
-        unique_ids = df_all["statistic_id"].nunique()
-        _LOGGER.info(f"Variation 1: Found {unique_ids} unique statistic IDs (should include data from all 3 tests)")
-        assert unique_ids > len(delta_entities), f"Variation 1: Expected more entities than just delta test ({len(delta_entities)}), got {unique_ids}"
-        _LOGGER.info("✓ Variation 1: All entities export verified (includes data from all tests)")
+        # Merge reference files without time filtering (we want all data from all tests)
+        df_expected_all = self._merge_reference_files_for_time_range(sensor_ref, counter_ref, delta_ref, None, None)
+
+        # Compare exported data with merged reference
+        df_actual_all = pd.read_csv(export_file_all_entities, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_all, df_expected_all), "Variation 1: Export does not match merged reference data"
+        _LOGGER.info("✓ Variation 1: All entities export verified (matches merged reference from all 3 tests)")
 
         # ==================== Variation 2: Open-ended time range ====================
         _LOGGER.info("Variation 2: Open-ended time range with explicit entities (omit start_time and end_time)")
@@ -782,11 +792,11 @@ class TestIntegrationAll:
         assert success, "Variation 2: Failed to export statistics"
         assert export_file_full_range.exists(), f"Variation 2: Export file not found: {export_file_full_range}"
 
-        # Verify it contains only the delta entities
-        df_full_range = pd.read_csv(export_file_full_range, sep="\t")
-        unique_ids_full = df_full_range["statistic_id"].nunique()
-        assert unique_ids_full == unique_delta_entities, f"Variation 2: Expected {unique_delta_entities} unique entities, got {unique_ids_full}"
-        _LOGGER.info("✓ Variation 2: Full range export verified (contains only specified entities)")
+        # Compare with delta reference (should match since we're exporting delta entities with no time limit)
+        df_actual_full_range = pd.read_csv(export_file_full_range, sep="\t")
+        df_expected_delta = pd.read_csv(delta_ref, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_full_range, df_expected_delta), "Variation 2: Export does not match delta reference"
+        _LOGGER.info("✓ Variation 2: Full range export verified (matches delta reference)")
 
         # ==================== Variation 3: Split statistics (split_by="both") ====================
         _LOGGER.info("Variation 3: Split statistics into sensors and counters")
@@ -810,15 +820,41 @@ class TestIntegrationAll:
         assert export_file_split_sensors.exists(), f"Variation 3: Sensors file not found: {export_file_split_sensors}"
         assert export_file_split_counters.exists(), f"Variation 3: Counters file not found: {export_file_split_counters}"
 
-        # Verify sensors file contains only sensor data
+        # Verify sensors file contains only sensor data and matches sensor reference
         sensors_only = self._verify_tsv_contains_only_sensors(export_file_split_sensors)
         assert sensors_only, "Variation 3: Sensors file should contain only sensor data (mean/min/max)"
+        df_actual_sensors = pd.read_csv(export_file_split_sensors, sep="\t")
+        df_expected_sensors = pd.read_csv(sensor_ref, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_sensors, df_expected_sensors), "Variation 3: Sensors file does not match sensor reference"
 
         # Verify counters file contains only counter data
+        # Note: This includes counters from test_02 AND delta entities from test_03 that fall in this time range
         counters_only = self._verify_tsv_contains_only_counters(export_file_split_counters)
         assert counters_only, "Variation 3: Counters file should contain only counter data (sum/state)"
 
-        _LOGGER.info("✓ Variation 3: Split statistics verified (both sensor and counter files created)")
+        # Merge counter and delta references for the time range 2025-12-29 to 2025-12-31
+        # Note: We filter the delta reference to only include rows in the December time range
+        # The counter reference already only contains December data
+        df_counter = pd.read_csv(counter_ref, sep="\t")
+        df_delta = pd.read_csv(delta_ref, sep="\t")
+
+        # Filter delta data to December 29-30 range using proper datetime comparison
+        # Convert start column to datetime for proper comparison
+        df_delta["start_dt"] = pd.to_datetime(df_delta["start"], format="%d.%m.%Y %H:%M")
+        start_filter = pd.to_datetime("29.12.2025 00:00", format="%d.%m.%Y %H:%M")
+        end_filter = pd.to_datetime("30.12.2025 23:59", format="%d.%m.%Y %H:%M")
+
+        df_delta_filtered = df_delta[(df_delta["start_dt"] >= start_filter) & (df_delta["start_dt"] <= end_filter)].copy()
+        df_delta_filtered = df_delta_filtered.drop(columns=["start_dt"])  # Remove helper column
+
+        df_expected_counters = pd.concat([df_counter, df_delta_filtered], ignore_index=True)
+
+        df_actual_counters = pd.read_csv(export_file_split_counters, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_counters, df_expected_counters), (
+            "Variation 3: Counters file does not match merged counter+delta reference"
+        )
+
+        _LOGGER.info("✓ Variation 3: Split statistics verified (both files match their respective references)")
 
         # ==================== Variation 4: Split only counters (split_by="counter") ====================
         _LOGGER.info("Variation 4: Split only counters (split_by='counter')")
@@ -838,10 +874,14 @@ class TestIntegrationAll:
         assert success, "Variation 4: Failed to export statistics"
         assert export_file_counters_only.exists(), f"Variation 4: Counters file not found: {export_file_counters_only}"
 
-        # Verify it contains only counter data
+        # Verify it contains only counter data and matches counter reference
         counters_only = self._verify_tsv_contains_only_counters(export_file_counters_only)
         assert counters_only, "Variation 4: File should contain only counter data (sum/state)"
-        _LOGGER.info("✓ Variation 4: Split counters only verified")
+        df_actual_counters_only = pd.read_csv(export_file_counters_only, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_counters_only, df_expected_counters), (
+            "Variation 4: Counters-only file does not match counter reference"
+        )
+        _LOGGER.info("✓ Variation 4: Split counters only verified (matches counter reference)")
 
         # ==================== Variation 5: Split + all entities (interaction test) ====================
         _LOGGER.info("Variation 5: Split statistics + all entities (interaction test)")
@@ -865,15 +905,21 @@ class TestIntegrationAll:
         assert export_file_split_all_sensors.exists(), f"Variation 5: Sensors file not found: {export_file_split_all_sensors}"
         assert export_file_split_all_counters.exists(), f"Variation 5: Counters file not found: {export_file_split_all_counters}"
 
-        # Verify sensors file contains only sensor data
+        # Verify sensors file contains only sensor data and matches sensor reference
         sensors_only = self._verify_tsv_contains_only_sensors(export_file_split_all_sensors)
         assert sensors_only, "Variation 5: Sensors file should contain only sensor data (mean/min/max)"
+        df_actual_split_all_sensors = pd.read_csv(export_file_split_all_sensors, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_split_all_sensors, df_expected_sensors), "Variation 5: Sensors file does not match sensor reference"
 
-        # Verify counters file contains only counter data
+        # Verify counters file contains only counter data and matches counter reference
         counters_only = self._verify_tsv_contains_only_counters(export_file_split_all_counters)
         assert counters_only, "Variation 5: Counters file should contain only counter data (sum/state)"
+        df_actual_split_all_counters = pd.read_csv(export_file_split_all_counters, sep="\t")
+        assert self._compare_dataframes_strict(df_actual_split_all_counters, df_expected_counters), (
+            "Variation 5: Counters file does not match counter reference"
+        )
 
-        _LOGGER.info("✓ Variation 5: Split + all entities verified (both files created with correct data types)")
+        _LOGGER.info("✓ Variation 5: Split + all entities verified (both files match their respective references)")
 
         _LOGGER.info("=" * 80)
         _LOGGER.info("All 5 export parameter variations completed successfully!")
