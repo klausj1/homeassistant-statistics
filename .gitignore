@@ -12,7 +12,6 @@ __pycache__
 coverage.xml
 .ruff_cache
 htmlcov/
-**/dcz*
 
 # Home Assistant configuration
 config/*
@@ -20,6 +19,8 @@ config/*
 !config/*.csv
 !config/test_*
 config/test_*/export_*.tsv
+
+**/dcz*
 
 # mcp with secrets
 mcp.json

@@ -77,6 +77,7 @@ export_statistics:
           required: false
           example: |
             - sensor.temperature
+            - sensor.*_temperature
             - sensor:external_stat
           selector:
             object:

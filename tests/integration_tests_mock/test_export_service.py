@@ -22,12 +22,12 @@ from custom_components.import_statistics.const import (
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from custom_components.import_statistics.export_service import get_statistics_from_recorder
+from custom_components.import_statistics.export_service import _get_statistic_ids, get_statistics_from_recorder
 from tests.conftest import mock_async_add_executor_job
 
 # Test constants
 EXPECTED_RESULT_TUPLE_LENGTH = 2
-EXPECTED_EXECUTOR_JOB_CALLS = 2
+EXPECTED_EXECUTOR_JOB_CALLS = 3
 
 
 class TestGetStatisticsFromRecorder:
@@ -56,7 +56,7 @@ class TestGetStatisticsFromRecorder:
 
         mock_recorder = MagicMock()
         # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[[{"statistic_id": "sensor.temperature"}], mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
@@ -93,7 +93,7 @@ class TestGetStatisticsFromRecorder:
         mock_metadata = {"sensor.temperature": (1, {"unit_of_measurement": "°C"})}
 
         mock_recorder = MagicMock()
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[[{"statistic_id": "sensor.temperature"}], mock_metadata, mock_statistics])
 
         db_start = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
         db_end = datetime.datetime(2024, 1, 26, 13, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC"))
@@ -135,8 +135,8 @@ class TestGetStatisticsFromRecorder:
         }
 
         mock_recorder = MagicMock()
-        # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+        # Side effect returns statistic ids, metadata, statistics
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[[{"statistic_id": "sensor.temperature"}], mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
@@ -234,8 +234,10 @@ class TestGetStatisticsFromRecorder:
         mock_statistics = {"sensor.temperature": [{"mean": 20.5}], "sensor.humidity": [{"mean": 65.0}]}
 
         mock_recorder = MagicMock()
-        # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+        # Side effect returns statistic ids, metadata, statistics
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=[[{"statistic_id": "sensor.temperature"}, {"statistic_id": "sensor.humidity"}], mock_metadata, mock_statistics]
+        )
 
         with patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
@@ -258,8 +260,8 @@ class TestGetStatisticsFromRecorder:
         mock_statistics = {"custom:my_metric": [{"mean": 100.0}]}
 
         mock_recorder = MagicMock()
-        # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+        # Side effect returns statistic ids, metadata, statistics
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[[{"statistic_id": "custom:my_metric"}], mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
@@ -291,8 +293,8 @@ class TestGetStatisticsFromRecorder:
         mock_statistics = {}
 
         mock_recorder = MagicMock()
-        # Side effect returns metadata on first call, statistics on second call
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[mock_metadata, mock_statistics])
+        # Side effect returns statistic ids, metadata, statistics
+        mock_recorder.async_add_executor_job = AsyncMock(side_effect=[[{"statistic_id": "sensor.temperature"}], mock_metadata, mock_statistics])
 
         with patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
@@ -300,9 +302,72 @@ class TestGetStatisticsFromRecorder:
             with pytest.raises(HomeAssistantError, match="No statistics found"):
                 await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
-            # Verify async_add_executor_job was called twice (metadata and statistics)
+            # Verify async_add_executor_job was called for statistic ids, metadata, statistics
             assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
 
+            first_call_args = mock_recorder.async_add_executor_job.call_args_list[0]
+            assert callable(first_call_args[0][0])
+
+            second_call_args = mock_recorder.async_add_executor_job.call_args_list[1]
+            assert callable(second_call_args[0][0])
+
+            third_call_args = mock_recorder.async_add_executor_job.call_args_list[2]
+            assert callable(third_call_args[0][0])
+
+
+class TestGetStatisticIds:
+    """Test _get_statistic_ids helper."""
+
+    @pytest.mark.asyncio
+    async def test_suffix_pattern(self) -> None:
+        """Test suffix glob pattern expansion."""
+        hass = MagicMock()
+        mock_recorder = MagicMock()
+        all_stats = [
+            {"statistic_id": "sensor.kitchen_temperature"},
+            {"statistic_id": "sensor.outdoor_temperature"},
+            {"statistic_id": "sensor.outdoor_humidity"},
+        ]
+        mock_recorder.async_add_executor_job = AsyncMock(return_value=all_stats)
+
+        result = await _get_statistic_ids(hass, ["sensor.*_temperature"], mock_recorder)
+        assert result == ["sensor.kitchen_temperature", "sensor.outdoor_temperature"]
+
+    @pytest.mark.asyncio
+    async def test_broad_pattern_mixed_with_exact_is_error(self) -> None:
+        """Test that broad patterns like 'sensor.*' cannot be combined with other entries."""
+        hass = MagicMock()
+        mock_recorder = MagicMock()
+        all_stats = [{"statistic_id": "sensor.a"}, {"statistic_id": "sensor.b"}]
+        mock_recorder.async_add_executor_job = AsyncMock(return_value=all_stats)
+
+        with pytest.raises(HomeAssistantError, match=r"Broad pattern\(s\)"):
+            await _get_statistic_ids(hass, ["sensor.*", "sensor.a"], mock_recorder)
+
+    @pytest.mark.asyncio
+    async def test_star_alone_is_error(self) -> None:
+        """Test that '*' alone is rejected."""
+        hass = MagicMock()
+        mock_recorder = MagicMock()
+        all_stats = [{"statistic_id": "sensor.a"}]
+        mock_recorder.async_add_executor_job = AsyncMock(return_value=all_stats)
+
+        with pytest.raises(HomeAssistantError, match=r"Pattern cannot be just '\*'"):
+            await _get_statistic_ids(hass, ["*"], mock_recorder)
+
+    @pytest.mark.asyncio
+    async def test_dedup_preserves_order(self) -> None:
+        """Test deduplication when patterns and exact IDs overlap."""
+        hass = MagicMock()
+        mock_recorder = MagicMock()
+        all_stats = [
+            {"statistic_id": "sensor.temperature"},
+            {"statistic_id": "sensor.temp_living_room"},
+        ]
+        mock_recorder.async_add_executor_job = AsyncMock(return_value=all_stats)
+
+        result = await _get_statistic_ids(hass, ["sensor.temperature", "sensor.*temp*"], mock_recorder)
+        assert result == ["sensor.temperature", "sensor.temp_living_room"]
 
 class TestHandleExportStatistics:
     """Test handle_export_statistics service handler."""
