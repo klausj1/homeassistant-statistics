@@ -3,10 +3,7 @@
 ## Next
 
 ### Docu
-- Update screenshots and yaml examples in readme
-- In Work Add settings descriptions to import, like what has been done on export.
 - Before release, update changelog (bundle changes). Check for the export improvement changes. Check readme.
-- Explain how to enable debug logging
 
 ### Bugs
 - Done: Fix Issue[#167](https://github.com/klausj1/homeassistant-statistics/issues/167)
