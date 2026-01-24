@@ -179,6 +179,9 @@ async def get_statistics_from_recorder(
     )
 
     _LOGGER.debug("Statistics fetched: %s", statistics_dict)
+    # if len of statistics_dict is 0, log a warning
+    if not statistics_dict:
+        helpers.handle_error("No statistics found for the given parameters. Did not create any export file.")
     return statistics_dict, units_dict
 
 

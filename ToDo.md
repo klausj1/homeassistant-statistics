@@ -9,9 +9,8 @@
 - Explain how to enable debug logging
 
 ### Bugs
-- Bug: If start and end-time are identical, service call hangs
 - Done: Fix Issue[#167](https://github.com/klausj1/homeassistant-statistics/issues/167)
-- [#173](https://github.com/klausj1/homeassistant-statistics/issues/173)
+- Done? [#173](https://github.com/klausj1/homeassistant-statistics/issues/173)
 - Fix lint issue after merge from drc
 
 

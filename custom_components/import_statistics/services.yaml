@@ -26,13 +26,13 @@ import_from_file:
             - "|"
     decimal:
       required: true
-      default: "."
-      example: "."
+      default: "dot ('.')"
+      example: "dot ('.')"
       selector:
         select:
           options:
-            - "."
-            - ","
+            - "dot ('.')"
+            - "comma (',')"
     datetime_format:
       required: false
       example: "%d.%m.%Y %H:%M"
@@ -115,13 +115,13 @@ export_statistics:
 
     decimal:
       required: true
-      default: "."
-      example: "."
+      default: "dot ('.')"
+      example: "dot ('.')"
       selector:
         select:
           options:
-            - "."
-            - ","
+            - "dot ('.')"
+            - "comma (',')"
 
     datetime_format:
       required: false
