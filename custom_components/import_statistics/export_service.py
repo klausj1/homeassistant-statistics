@@ -233,8 +233,8 @@ async def _export_split_file(  # noqa: PLR0913
     timezone_identifier: str,
     datetime_format: str,
     *,
-    decimal: bool,
     delimiter: str,
+    decimal_separator: str,
 ) -> None:
     """Export a single split file (sensor or counter)."""
     if not stats_dict:
@@ -248,7 +248,7 @@ async def _export_split_file(  # noqa: PLR0913
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
     else:
         columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(stats_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+            lambda: prepare_export_data(stats_dict, timezone_identifier, datetime_format, decimal_separator=decimal_separator, units_dict=units_dict)
         )
         await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
 
@@ -261,8 +261,7 @@ async def _export_split_statistics(  # noqa: PLR0913
     split_by: str,
     timezone_identifier: str,
     datetime_format: str,
-    *,
-    decimal: bool,
+    decimal_separator: str,
     delimiter: str,
 ) -> None:
     """Export statistics split by type."""
@@ -273,12 +272,28 @@ async def _export_split_statistics(  # noqa: PLR0913
 
     if write_sensors:
         await _export_split_file(
-            hass, filename, sensor_stats, sensor_units, "_sensors", timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter
+            hass,
+            filename,
+            sensor_stats,
+            sensor_units,
+            "_sensors",
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            delimiter=delimiter,
         )
 
     if write_counters:
         await _export_split_file(
-            hass, filename, counter_stats, counter_units, "_counters", timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter
+            hass,
+            filename,
+            counter_stats,
+            counter_units,
+            "_counters",
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            delimiter=delimiter,
         )
 
 
@@ -289,8 +304,7 @@ async def _export_single_file(  # noqa: PLR0913
     units_dict: dict,
     timezone_identifier: str,
     datetime_format: str,
-    *,
-    decimal: bool,
+    decimal_separator: str,
     delimiter: str,
 ) -> None:
     """Export all statistics to a single file."""
@@ -301,7 +315,7 @@ async def _export_single_file(  # noqa: PLR0913
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
     else:
         columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_comma=decimal, units_dict=units_dict)
+            lambda: prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_separator=decimal_separator, units_dict=units_dict)
         )
         await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
 
@@ -323,9 +337,6 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     if decimal_separator not in {".", ","}:
         helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
 
-    # Convert to boolean for backward compatibility with prepare_export_data
-    decimal = decimal_separator == ","
-
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
 
     _LOGGER.info("Service handle_export_statistics called")
@@ -339,10 +350,20 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Export based on split_by parameter
     if split_by != "none":
         await _export_split_statistics(
-            hass, filename, statistics_dict, units_dict, split_by, timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter
+            hass,
+            filename,
+            statistics_dict,
+            units_dict,
+            split_by,
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            delimiter=delimiter,
         )
     else:
-        await _export_single_file(hass, filename, statistics_dict, units_dict, timezone_identifier, datetime_format, decimal=decimal, delimiter=delimiter)
+        await _export_single_file(
+            hass, filename, statistics_dict, units_dict, timezone_identifier, datetime_format, decimal_separator=decimal_separator, delimiter=delimiter
+        )
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
     _LOGGER.info("Export completed successfully")

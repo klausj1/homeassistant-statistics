@@ -27,21 +27,18 @@ All notable changes to this project will be documented in this file.
 
 #### Improvements
 
-- **Timezone parameter now optional with smart default**:
+- **Timezone parameter now optional, uses HA timezone as default**:
   - Defaults to Home Assistant's configured timezone when omitted
   - No longer need to specify timezone for most users
   - Still accepts explicit timezone identifier for special cases
   - **Applies to**: Both `import_from_file` and `export_statistics` services
 
-- **Delimiter parameter now required with sensible default**:
+- **Delimiter parameter now required with tab as default**:
   - Changed from optional (auto-detect) to required with default `\t` (tab)
+  - auto-detect has been removed as it does not work reliably
   - Eliminates ambiguity and potential parsing errors from auto-detection
   - UI provides dropdown with common delimiters: tab, semicolon, comma, pipe
   - **Applies to**: Both `import_from_file` and `export_statistics` services
-
-### Migration Guide
-
-See [`docs/user/migration-guide-v3.2.md`](docs/user/migration-guide-v3.2.md) for detailed migration instructions and examples.
 
 ## [3.1.0] - File Encoding Validation and Export Enhancements
 

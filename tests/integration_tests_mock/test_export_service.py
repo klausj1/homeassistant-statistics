@@ -897,7 +897,7 @@ class TestHandleExportStatistics:
 
                 # Verify decimal parameter was passed
                 call_args = mock_prepare.call_args
-                assert call_args[1]["decimal_comma"] is True
+                assert call_args[1]["decimal_separator"] == ","
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_datetime_format(self) -> None:

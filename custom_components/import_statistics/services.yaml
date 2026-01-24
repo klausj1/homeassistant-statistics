@@ -9,10 +9,7 @@ import_from_file:
         text:
     timezone_identifier:
       required: false
-      description: >
-        Timezone identifier (IANA format, e.g., 'Europe/Berlin').
-        If not specified, uses Home Assistant's configured timezone.
-      example: "Europe/Berlin"
+      example: "Europe/Vienna"
       selector:
         text:
     delimiter:
@@ -31,7 +28,6 @@ import_from_file:
       required: true
       default: "."
       example: "."
-      description: "Decimal separator character"
       selector:
         select:
           options:
@@ -100,10 +96,7 @@ export_statistics:
 
     timezone_identifier:
       required: false
-      description: >
-        Timezone identifier (IANA format, e.g., 'Europe/Berlin').
-        If not specified, uses Home Assistant's configured timezone.
-      example: "Europe/Berlin"
+      example: "Europe/Vienna"
       selector:
         text:
 
@@ -124,7 +117,6 @@ export_statistics:
       required: true
       default: "."
       example: "."
-      description: "Decimal separator character"
       selector:
         select:
           options:

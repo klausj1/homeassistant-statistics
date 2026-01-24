@@ -82,8 +82,7 @@ def prepare_export_data(
     timezone_identifier: str,
     datetime_format: str,
     *,
-    decimal_comma: bool = False,
-    decimal_separator: str | None = None,
+    decimal_separator: str,
     units_dict: dict | None = None,
 ) -> tuple:
     """
@@ -115,7 +114,7 @@ def prepare_export_data(
             helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
         use_comma = decimal_separator == ","
     else:
-        use_comma = decimal_comma
+        helpers.handle_error("Decimal separator not specified. Must be set!")
 
     # Default to empty dict if not provided (for backwards compatibility)
     if units_dict is None:

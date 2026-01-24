@@ -54,7 +54,7 @@ class TestExportTimestampSorting:
         units_dict = {"sensor.test": "°C"}
 
         # Use the problematic datetime format
-        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False, units_dict=units_dict)
+        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".", units_dict=units_dict)
 
         # Verify chronological order (should be 31.12.2023, then 01.01.2024, then 02.01.2024)
         assert len(rows) == 3
@@ -82,7 +82,7 @@ class TestExportTimestampSorting:
 
         units_dict = {"sensor.a": "°C", "sensor.b": "°C"}
 
-        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False, units_dict=units_dict)
+        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".", units_dict=units_dict)
 
         # Should be 4 rows total, sorted by statistic_id then chronologically
         assert len(rows) == 4
