@@ -2,21 +2,16 @@
 
 ## Next
 
-- Review timezone changes on 2026-01-21 in the morning
-  - Check lint
-- Review silently ignore errors
+### Docu
 - Update screenshots and yaml examples in readme
 - Add settings descriptions to import, like what has been done on export.
 - Before release, update changelog (bundle changes). Check for the export improvement changes. Check readme.
+- Explain how to enable debug logging
 
-- Timezone: See plans/accessing-ha-timezone.md
+### Bugs
 - Bug: If start and end-time are identical, service call hangs
-- Do not fail silently also for other imports
-  - In helpers.py/get_delta_stat, invalid rows should fail; search for # Silent failure - skip invalid rows, compare with import
-    - Also in normal import an empty value is returned. I do not understand, maybe this is anyhow checked before already?
-    - Fixed for counters, at least for delta
-
-- Fix Issue[#167](https://github.com/klausj1/homeassistant-statistics/issues/167)
+- Done: Fix Issue[#167](https://github.com/klausj1/homeassistant-statistics/issues/167)
+- [#173](https://github.com/klausj1/homeassistant-statistics/issues/173)
 - Fix lint issue after merge from drc
 
 

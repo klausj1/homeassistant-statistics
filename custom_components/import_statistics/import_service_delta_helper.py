@@ -251,6 +251,10 @@ def handle_dataframe_delta(
             _LOGGER.warning("No valid delta rows found for statistic_id: %s", statistic_id)
             continue
 
+        # Sort delta_rows by start timestamp to ensure chronological order
+        # Try to fix#https://github.com/klausj1/homeassistant-statistics/issues/173
+        delta_rows.sort(key=lambda r: r["start"])
+
         # Get source and unit
         source = helpers.get_source(statistic_id)
         unit = helpers.add_unit_to_dataframe(source, unit_from_where, group.iloc[0].get("unit", ""), statistic_id)

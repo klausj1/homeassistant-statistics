@@ -54,7 +54,8 @@ async def _process_delta_references_for_statistic(
     t_newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
     _LOGGER.debug("Statistic %s: Newest DB record: %s", statistic_id, t_newest_db_record)
     if t_newest_db_record is None:
-        msg = f"Entity '{statistic_id}': No statistics found in database for this entity"
+        msg = f"Entity '{statistic_id}': No statistics found in database for this entity."
+        msg += " Also for external statistics, at least one value must exist in the database to perform delta conversion."
         return None, msg
 
     t_newest_db = t_newest_db_record["start"]
