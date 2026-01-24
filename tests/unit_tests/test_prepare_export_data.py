@@ -349,22 +349,6 @@ class TestPrepareExportData:
         # Time should be converted from UTC to Vienna (UTC+1)
         assert "26.01.2024 13:00" in str(rows[0])
 
-    def test_prepare_export_data_invalid_timezone(self) -> None:
-        """Test export with invalid timezone raises error."""
-        statistics_dict = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime.now(tz=datetime.UTC),
-                    "mean": EXPECTED_MEAN_20_5,
-                    "min": EXPECTED_MIN_20_0,
-                    "max": EXPECTED_MAX_21_0,
-                }
-            ]
-        }
-
-        with pytest.raises(HomeAssistantError, match="Invalid timezone_identifier"):
-            prepare_export_data(statistics_dict, "Invalid/Timezone", "%d.%m.%Y %H:%M", decimal_separator=".")
-
     def test_prepare_export_data_empty_statistics(self) -> None:
         """Test export with empty statistics dict."""
         statistics_dict = {}

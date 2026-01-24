@@ -4,7 +4,7 @@
             "description": "Imports long term statistic values (1h) from tsv/csv file",
             "fields": {
                 "decimal": {
-                    "description": "The decimal separator character: '.' for dot or ',' for comma. Default is '.'",
+                    "description": "The decimal separator character: dot ('.') or comma (','). Default is dot ('.').",
                     "name": "decimal"
                 },
                 "delimiter": {
@@ -12,7 +12,7 @@
                     "name": "delimiter"
                 },
                 "filename": {
-                    "description": "The file containing the statistic data, to be put into the config folder",
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv' or 'myData.json')",
                     "name": "filename"
                 },
                 "timezone_identifier": {
@@ -21,7 +21,7 @@
                 },
                 "datetime_format": {
                     "name": "datetime_format",
-                    "description": "The format of the datetime strings. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
+                    "description": "The format of the datetime strings in the imported file. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
                 },
                 "unit_from_entity": {
                     "name": "unit_from_entity",
@@ -31,12 +31,12 @@
             "name": "Import statistics from file"
         },
         "export_statistics": {
-            "name": "Export Statistics",
+            "name": "Export Statistics to file",
             "description": "Exports long term statistic values (1h) to a tsv/csv or a json file",
             "fields": {
                 "filename": {
                     "name": "filename",
-                    "description": "Filename relative to config directory (e.g., 'exported.tsv' or 'myData.json')"
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv' or 'myData.json')"
                 },
                 "entities": {
                     "name": "entities",
@@ -44,19 +44,19 @@
                 },
                 "start_time": {
                     "name": "start_time",
-                    "description": "Optional. The start time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). If omitted, export starts from the earliest available statistic. Make sure to use quotes around the timestamp in Yaml."
+                    "description": "The start time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). If omitted, export starts from the earliest available statistic. Make sure to use quotes around the timestamp in Yaml."
                 },
                 "end_time": {
                     "name": "end_time",
-                    "description": "Optional. The end time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). If omitted, export ends at the most recent available statistic. Make sure to use quotes around the timestamp in Yaml."
+                    "description": "The end time for statistics export in the format %Y-%m-%d %H:%M:%S (must be full hour, e.g. '2025-12-22 12:00:00'). If omitted, export ends at the most recent available statistic. Make sure to use quotes around the timestamp in Yaml."
                 },
                 "split_by": {
                     "name": "split_by",
-                    "description": "Optional. Split output into multiple files by statistic type: 'none' (default, combined file), 'sensor' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _sensors and _counters before the extension."
+                    "description": "Split output into multiple files by statistic type: 'none' (default, combined file), 'sensor' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _sensors and _counters before the extension."
                 },
                 "timezone_identifier": {
                     "name": "timezone_identifier",
-                    "description": "Timezone identifier for start/end-time and timestamp output formatting (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If not specified, uses Home Assistant's configured timezone"
+                    "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If not specified, uses Home Assistant's configured timezone"
                 },
                 "delimiter": {
                     "name": "delimiter",
@@ -64,7 +64,7 @@
                 },
                 "decimal": {
                     "name": "decimal",
-                    "description": "The decimal separator character: '.' for dot or ',' for comma. Default is '.'"
+                    "description": "The decimal separator character: dot ('.') or comma (','). Default is dot ('.')."
                 },
                 "datetime_format": {
                     "name": "datetime_format",

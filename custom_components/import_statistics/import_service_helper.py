@@ -158,12 +158,20 @@ def handle_arguments(call: ServiceCall, ha_timezone: str) -> tuple:
         HomeAssistantError: If the timezone identifier is invalid.
 
     """
-    # Get decimal separator directly as string (default is ".")
-    decimal = call.data.get(ATTR_DECIMAL, ".")
+    # Get decimal separator from service call (default is "dot ('.')")
+    decimal_input = call.data.get(ATTR_DECIMAL, "dot ('.')")
 
-    # Validate it's one of the allowed values
-    if decimal not in {".", ","}:
-        helpers.handle_error(f"Invalid decimal separator: {decimal}. Must be '.' or ','")
+    # Map UI-friendly values to actual separators
+    decimal_map = {
+        "dot ('.')": ".",
+        "comma (',')": ",",
+        ".": ".",  # Support old format for backward compatibility
+        ",": ",",  # Support old format for backward compatibility
+    }
+
+    decimal = decimal_map.get(decimal_input)
+    if decimal is None:
+        helpers.handle_error(f"Invalid decimal separator: {decimal_input}. Must be \"dot ('.')\" or \"comma (',')\"")
 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT) if ATTR_DATETIME_FORMAT in call.data else DATETIME_DEFAULT_FORMAT
 

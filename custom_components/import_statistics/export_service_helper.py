@@ -102,19 +102,9 @@ def prepare_export_data(
     """
     _LOGGER.info("Preparing export data")
 
-    if timezone_identifier not in pytz.all_timezones:
-        helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
-
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
-    # Handle both old (decimal_comma bool) and new (decimal_separator string) parameters
-    # If decimal_separator is provided, use it; otherwise fall back to decimal_comma
-    if decimal_separator is not None:
-        if decimal_separator not in {".", ","}:
-            helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
-        use_comma = decimal_separator == ","
-    else:
-        helpers.handle_error("Decimal separator not specified. Must be set!")
+    use_comma = decimal_separator == ","
 
     # Default to empty dict if not provided (for backwards compatibility)
     if units_dict is None:

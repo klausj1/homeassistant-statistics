@@ -54,7 +54,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "invalid_middle.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -94,7 +94,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "invalid_format.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -134,7 +134,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "invalid_float.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -174,7 +174,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "invalid_minmax.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -214,7 +214,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "invalid_nan.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -257,7 +257,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "all_valid.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -310,7 +310,7 @@ class TestImportValidationStrict:
                     ATTR_FILENAME: "wrong_separator.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",  # Configured for dot, but file has comma
+                    ATTR_DECIMAL: "dot ('.')",  # Configured for dot, but file has comma
                 },
             )
 

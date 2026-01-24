@@ -343,7 +343,7 @@ class TestHandleExportStatistics:
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: ".",
+                    ATTR_DECIMAL: "dot ('.')",
                     ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
                     ATTR_SPLIT_BY: "none",
                 },
@@ -868,7 +868,7 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                    ATTR_DECIMAL: ",",
+                    ATTR_DECIMAL: "comma (',')",
                 },
             )
 

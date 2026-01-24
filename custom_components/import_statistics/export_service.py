@@ -4,6 +4,7 @@ import datetime as dt
 import zoneinfo
 from typing import TYPE_CHECKING, cast
 
+import pytz
 from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.recorder import get_instance
@@ -330,14 +331,28 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Extract other parameters (with defaults)
     # Use HA timezone as default instead of hardcoded "Europe/Vienna"
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, hass.config.time_zone)
+    if timezone_identifier not in pytz.all_timezones:
+        helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
+
     delimiter = helpers.validate_delimiter(call.data.get(ATTR_DELIMITER, "\t"))
 
-    # Get decimal separator as string (default is ".")
-    decimal_separator = call.data.get(ATTR_DECIMAL, ".")
+    # Get decimal separator from service call (default is "dot ('.')")
+    decimal_input = call.data.get(ATTR_DECIMAL, "dot ('.')")
 
-    # Validate
-    if decimal_separator not in {".", ","}:
-        helpers.handle_error(f"Invalid decimal separator: {decimal_separator}. Must be '.' or ','")
+    # Map UI-friendly values to actual separators
+    decimal_map = {
+        "dot ('.')": ".",
+        "comma (',')": ",",
+        ".": ".",  # Support old format for backward compatibility
+        ",": ",",  # Support old format for backward compatibility
+    }
+
+    decimal_separator = decimal_map.get(decimal_input)
+    if decimal_separator is None:
+        helpers.handle_error(f"Invalid decimal separator: {decimal_input}. Must be \"dot ('.')\" or \"comma (',')\"")
+
+    # Type narrowing: handle_error raises exception, so after this point decimal_separator is str
+    decimal_separator = cast("str", decimal_separator)
 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
 

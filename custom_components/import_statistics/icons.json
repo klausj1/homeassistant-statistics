@@ -1,0 +1,13 @@
+{
+    "services": {
+        "import_from_file": {
+            "service": "mdi:database-import-outline"
+        },
+        "import_from_json": {
+            "service": "mdi:database-import-outline"
+        },
+        "export_statistics": {
+            "service": "mdi:database-export-outline"
+        }
+    }
+}
