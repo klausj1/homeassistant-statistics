@@ -157,6 +157,26 @@ async def get_statistics_from_recorder(
     # Resolve time range
     start_dt, end_dt = await _resolve_time_range(hass, start_dt, end_dt, metadata)
 
+    if start_dt is None or end_dt is None:
+        metadata_ids = {meta_id for _stat_id, (meta_id, _meta_data) in metadata.items()}
+        db_start_dt, db_end_dt = await get_global_statistics_time_range(hass, metadata_ids=metadata_ids)
+
+        if db_start_dt.minute != 0 or db_start_dt.second != 0:
+            helpers.handle_error("Earliest available statistic timestamp is not a full hour (unexpected)")
+        if db_end_dt.minute != 0 or db_end_dt.second != 0:
+            helpers.handle_error("Most recent available statistic timestamp is not a full hour (unexpected)")
+
+        if start_dt is None:
+            start_dt = db_start_dt
+        if end_dt is None:
+            end_dt = db_end_dt
+
+    if start_dt is None or end_dt is None:
+        helpers.handle_error("Implementation error: start/end time resolution failed")
+
+    if start_dt > end_dt:
+        helpers.handle_error(f"start_time ({start_dt}) must be before or equal to end_time ({end_dt})")
+
     # statistics_during_period returns data as:
     # {"statistic_id": [{"start": datetime, "end": datetime, "mean": ..., ...}]}
     # Log the requested time range and statistic IDs for debugging purposes
@@ -309,7 +329,6 @@ async def _export_single_file(  # noqa: PLR0913
 ) -> None:
     """Export all statistics to a single file."""
     file_path = helpers.validate_filename(filename, hass.config.config_dir)
-
     if filename.lower().endswith(".json"):
         json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
