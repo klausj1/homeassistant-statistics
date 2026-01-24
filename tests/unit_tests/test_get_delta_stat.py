@@ -1,9 +1,12 @@
 """Test get_delta_stat function."""
 
+import re
 import zoneinfo
 
+import numpy as np
 import pandas as pd
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.helpers import get_delta_stat
 
@@ -47,20 +50,18 @@ def test_get_delta_stat_invalid_timestamp_not_full_hour() -> None:
     """Test get_delta_stat with invalid timestamp (not full hour)."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     row = pd.Series({"start": "01.01.2022 00:30", "delta": "10.5"})
-    result = get_delta_stat(row, tz)
 
-    # Silent failure pattern - returns empty dict
-    assert result == {}
+    with pytest.raises(HomeAssistantError, match=re.escape("Invalid timestamp: 01.01.2022 00:30. The timestamp must be a full hour.")):
+        get_delta_stat(row, tz)
 
 
 def test_get_delta_stat_invalid_timestamp_with_seconds() -> None:
     """Test get_delta_stat with invalid timestamp (has seconds)."""
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     row = pd.Series({"start": "01.01.2022 00:00:30", "delta": "10.5"})
-    result = get_delta_stat(row, tz)
 
-    # Silent failure pattern - returns empty dict
-    assert result == {}
+    with pytest.raises(HomeAssistantError, match=re.escape("Invalid timestamp: 01.01.2022 00:00:30. The timestamp must be in the format '%d.%m.%Y %H:%M'.")):
+        get_delta_stat(row, tz)
 
 
 def test_get_delta_stat_invalid_delta_non_numeric() -> None:
@@ -68,9 +69,8 @@ def test_get_delta_stat_invalid_delta_non_numeric() -> None:
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     row = pd.Series({"start": "01.01.2022 00:00", "delta": "abc"})
 
-    # Silent failure pattern - returns empty dict on validation error
-    result = get_delta_stat(row, tz)
-    assert result == {}
+    with pytest.raises(HomeAssistantError, match=re.escape("Invalid float value: abc. Check the decimal separator.")):
+        get_delta_stat(row, tz)
 
 
 def test_get_delta_stat_invalid_delta_comma_separator() -> None:
@@ -78,9 +78,8 @@ def test_get_delta_stat_invalid_delta_comma_separator() -> None:
     tz = zoneinfo.ZoneInfo("Europe/Vienna")
     row = pd.Series({"start": "01.01.2022 00:00", "delta": "10,5"})
 
-    # Silent failure pattern - returns empty dict on validation error
-    result = get_delta_stat(row, tz)
-    assert result == {}
+    with pytest.raises(HomeAssistantError, match=re.escape("Invalid float value: 10,5. Check the decimal separator.")):
+        get_delta_stat(row, tz)
 
 
 def test_get_delta_stat_valid_delta_dot_separator() -> None:
@@ -119,6 +118,24 @@ def test_get_delta_stat_timezone_applied() -> None:
     result = get_delta_stat(row, tz)
 
     assert result["start"].tzinfo == tz
+
+
+def test_get_delta_stat_nan_delta() -> None:
+    """Test get_delta_stat with NaN delta value (should raise error)."""
+    tz = zoneinfo.ZoneInfo("Europe/Vienna")
+    row = pd.Series({"start": "01.01.2022 00:00", "delta": np.nan})
+
+    with pytest.raises(HomeAssistantError, match=re.escape("(NaN/empty value not allowed)")):
+        get_delta_stat(row, tz)
+
+
+def test_get_delta_stat_empty_string_delta() -> None:
+    """Test get_delta_stat with empty string delta (should raise error)."""
+    tz = zoneinfo.ZoneInfo("Europe/Vienna")
+    row = pd.Series({"start": "01.01.2022 00:00", "delta": ""})
+
+    with pytest.raises(HomeAssistantError, match=re.escape("Invalid float value:")):
+        get_delta_stat(row, tz)
 
 
 def test_get_delta_stat_different_timezone() -> None:

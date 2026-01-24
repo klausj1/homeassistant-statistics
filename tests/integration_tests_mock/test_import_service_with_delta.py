@@ -58,7 +58,7 @@ class TestDeltaImportIntegration:
                     ATTR_FILENAME: "delta_test.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -146,7 +146,7 @@ class TestDeltaImportIntegration:
                     ATTR_FILENAME: "delta_multiple.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -224,7 +224,7 @@ class TestDeltaImportIntegration:
                     ATTR_FILENAME: "delta_negative.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -284,7 +284,7 @@ class TestDeltaImportIntegration:
                     ATTR_FILENAME: "delta_external.csv",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: "dot ('.')",
                 },
             )
 
@@ -396,7 +396,7 @@ class TestDeltaImportIntegration:
                 "import_from_json",
                 {
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: "dot ('.')",
                     "entities": [
                         {
                             "id": "counter.energy",

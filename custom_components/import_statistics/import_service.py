@@ -54,7 +54,8 @@ async def _process_delta_references_for_statistic(
     t_newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
     _LOGGER.debug("Statistic %s: Newest DB record: %s", statistic_id, t_newest_db_record)
     if t_newest_db_record is None:
-        msg = f"Entity '{statistic_id}': No statistics found in database for this entity"
+        msg = f"Entity '{statistic_id}': No statistics found in database for this entity."
+        msg += " Also for external statistics, at least one value must exist in the database to perform delta conversion."
         return None, msg
 
     t_newest_db = t_newest_db_record["start"]
@@ -250,8 +251,13 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 
     hass.states.async_set("import_statistics.import_from_file", file_path)
 
+    # Extract HA timezone once
+    ha_timezone = hass.config.time_zone
+
     _LOGGER.info("Preparing data for import")
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call))
+    df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(
+        lambda: prepare_data_to_import(file_path, call, ha_timezone)
+    )
 
     await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, unit_from_entity, is_delta))
 
@@ -260,8 +266,11 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
     """Handle import_from_json service implementation."""
     _LOGGER.info("Service handle_import_from_json called")
 
+    # Extract HA timezone once
+    ha_timezone = hass.config.time_zone
+
     _LOGGER.info("Preparing data for import")
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call))
+    df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
 
     await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, unit_from_entity, is_delta))
 

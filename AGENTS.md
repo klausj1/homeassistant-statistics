@@ -90,7 +90,7 @@ pytest -v tests/test_X.py # Run specific test file
 - Validates timestamp is full hour
 - Validates delta is valid float
 - Returns dict with `start` (datetime with timezone) and `delta` (float)
-- Returns empty dict on validation failure (silent pattern)
+- Raises `HomeAssistantError` on validation failure (strict validation)
 
 Delta conversion workflow:
 1. [`handle_dataframe_delta()`](custom_components/import_statistics/import_service_delta_helper.py:178) detects delta column and processes with pre-fetched references

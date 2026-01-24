@@ -79,21 +79,23 @@ def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: 
     -------
         dict: A dictionary containing the extracted mean statistics.
 
+    Raises:
+    ------
+        HomeAssistantError: If validation fails (invalid timestamp, float values, or min/max/mean constraint).
+
     """
-    if (
-        is_full_hour(row["start"], datetime_format)
-        and is_valid_float(row["min"])
-        and is_valid_float(row["max"])
-        and is_valid_float(row["mean"])
-        and min_max_mean_are_valid(row["min"], row["max"], row["mean"])
-    ):
-        return {
-            "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-            "min": row["min"],
-            "max": row["max"],
-            "mean": row["mean"],
-        }
-    return {}
+    is_full_hour(row["start"], datetime_format)
+    is_valid_float(row["min"])
+    is_valid_float(row["max"])
+    is_valid_float(row["mean"])
+    min_max_mean_are_valid(row["min"], row["max"], row["mean"])
+
+    return {
+        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+        "min": row["min"],
+        "max": row["max"],
+        "mean": row["mean"],
+    }
 
 
 def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
@@ -110,22 +112,26 @@ def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: s
     -------
         dict: A dictionary containing the extracted sum statistics.
 
-    """
-    if is_full_hour(row["start"], datetime_format) and is_valid_float(row["sum"]):
-        if "state" in row.index:
-            if is_valid_float(row["state"]):
-                return {
-                    "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-                    "sum": row["sum"],
-                    "state": row["state"],
-                }
-        else:
-            return {
-                "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-                "sum": row["sum"],
-            }
+    Raises:
+    ------
+        HomeAssistantError: If validation fails (invalid timestamp or float values).
 
-    return {}
+    """
+    is_full_hour(row["start"], datetime_format)
+    is_valid_float(row["sum"])
+
+    if "state" in row.index:
+        is_valid_float(row["state"])
+        return {
+            "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+            "sum": row["sum"],
+            "state": row["state"],
+        }
+
+    return {
+        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+        "sum": row["sum"],
+    }
 
 
 def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
@@ -141,19 +147,19 @@ def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format:
     Returns:
     -------
         dict: A dictionary containing 'start' (datetime with timezone) and 'delta' (float).
-        dict: Empty dict {} if validation fails (silent failure pattern).
+
+    Raises:
+    ------
+        HomeAssistantError: If validation fails (invalid timestamp or delta value).
 
     """
-    try:
-        if is_full_hour(row["start"], datetime_format) and is_valid_float(row["delta"]):
-            return {
-                "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-                "delta": float(row["delta"]),
-            }
-    except HomeAssistantError:
-        # Silent failure pattern - return empty dict on validation error
-        pass
-    return {}
+    is_full_hour(row["start"], datetime_format)
+    is_valid_float(row["delta"])
+
+    return {
+        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+        "delta": float(row["delta"]),
+    }
 
 
 def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
@@ -240,7 +246,11 @@ def is_valid_float(value: str) -> bool:
 
     """
     try:
-        float(value)
+        float_value = float(value)
+        # Reject NaN values explicitly
+        if pd.isna(float_value):
+            msg = f"Invalid float value: {value} (NaN/empty value not allowed). Check for missing or empty values in your data."
+            raise HomeAssistantError(msg)
     except ValueError as exc:
         msg = f"Invalid float value: {value}. Check the decimal separator."
         raise HomeAssistantError(msg) from exc

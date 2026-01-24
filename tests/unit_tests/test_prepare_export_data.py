@@ -241,7 +241,7 @@ class TestPrepareExportData:
             ]
         }
 
-        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         assert "statistic_id" in columns
         assert "unit" in columns
@@ -268,7 +268,7 @@ class TestPrepareExportData:
             ]
         }
 
-        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         assert "sum" in columns
         assert "state" in columns
@@ -298,7 +298,7 @@ class TestPrepareExportData:
             ],
         }
 
-        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         # Should include both sensor and counter columns
         assert "mean" in columns
@@ -322,7 +322,7 @@ class TestPrepareExportData:
             statistics_dict,
             "UTC",
             "%d.%m.%Y %H:%M",
-            decimal_comma=True,  # use comma
+            decimal_separator=",",  # use comma
         )
 
         # Values should have comma separator
@@ -344,32 +344,16 @@ class TestPrepareExportData:
             ]
         }
 
-        _columns, rows = prepare_export_data(statistics_dict, "Europe/Vienna", "%d.%m.%Y %H:%M", decimal_comma=False)
+        _columns, rows = prepare_export_data(statistics_dict, "Europe/Vienna", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         # Time should be converted from UTC to Vienna (UTC+1)
         assert "26.01.2024 13:00" in str(rows[0])
-
-    def test_prepare_export_data_invalid_timezone(self) -> None:
-        """Test export with invalid timezone raises error."""
-        statistics_dict = {
-            "sensor.temperature": [
-                {
-                    "start": datetime.datetime.now(tz=datetime.UTC),
-                    "mean": EXPECTED_MEAN_20_5,
-                    "min": EXPECTED_MIN_20_0,
-                    "max": EXPECTED_MAX_21_0,
-                }
-            ]
-        }
-
-        with pytest.raises(HomeAssistantError, match="Invalid timezone_identifier"):
-            prepare_export_data(statistics_dict, "Invalid/Timezone", "%d.%m.%Y %H:%M", decimal_comma=False)
 
     def test_prepare_export_data_empty_statistics(self) -> None:
         """Test export with empty statistics dict."""
         statistics_dict = {}
 
-        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         # Should return base columns with no data rows
         assert "statistic_id" in columns
@@ -379,7 +363,7 @@ class TestPrepareExportData:
         """Test export when entity has empty statistics list."""
         statistics_dict = {"sensor.temperature": []}
 
-        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         assert len(rows) == 0
 
@@ -402,7 +386,7 @@ class TestPrepareExportData:
             ]
         }
 
-        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        _columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         assert len(rows) == EXPECTED_ROWS_2
 
@@ -747,7 +731,7 @@ class TestPrepareExportJson:
             ],
         }
 
-        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_comma=False)
+        columns, rows = prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".")
 
         # Should include both sensor and counter columns
         assert "mean" in columns

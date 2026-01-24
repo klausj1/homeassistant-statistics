@@ -44,7 +44,7 @@ body:
 - type: textarea
   attributes:
     label: "Debug logs"
-    description: "To enable debug logs check this https://www.home-assistant.io/integrations/logger/. Make sure to set the logger level for `custom_components.statistics` to `debug`."
+    description: "To enable and fetch debug logs, see the [Debug Logging Guide](https://github.com/klausj1/homeassistant-statistics/blob/main/docs/user/debug-logging.md)."
     render: text
   validations:
     required: true

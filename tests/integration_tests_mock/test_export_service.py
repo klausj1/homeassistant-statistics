@@ -281,8 +281,8 @@ class TestGetStatisticsFromRecorder:
             await get_statistics_from_recorder(hass, ["invalid_entity_id_no_separator"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
     @pytest.mark.asyncio
-    async def test_get_statistics_from_recorder_calls_recorder_api(self) -> None:
-        """Test that recorder API is called with correct parameters."""
+    async def test_get_statistics_with_no_data_returns_error(self) -> None:
+        """Test that an error is raised when no statistics are found."""
         hass = MagicMock()
         hass.config = MagicMock()
         hass.config.config_dir = "/config"
@@ -297,18 +297,11 @@ class TestGetStatisticsFromRecorder:
         with patch("custom_components.import_statistics.export_service.get_instance") as mock_get_instance:
             mock_get_instance.return_value = mock_recorder
 
-            await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
+            with pytest.raises(HomeAssistantError, match="No statistics found"):
+                await get_statistics_from_recorder(hass, ["sensor.temperature"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
-            # Verify async_add_executor_job was called twice
+            # Verify async_add_executor_job was called twice (metadata and statistics)
             assert mock_recorder.async_add_executor_job.call_count == EXPECTED_EXECUTOR_JOB_CALLS
-
-            # Check first call (metadata)
-            first_call_args = mock_recorder.async_add_executor_job.call_args_list[0]
-            assert callable(first_call_args[0][0])  # First arg should be a function
-
-            # Check second call (statistics)
-            second_call_args = mock_recorder.async_add_executor_job.call_args_list[1]
-            assert callable(second_call_args[0][0])  # First arg should be a function
 
 
 class TestHandleExportStatistics:
@@ -321,6 +314,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -349,7 +343,7 @@ class TestHandleExportStatistics:
                     ATTR_END_TIME: "2024-01-26 13:00:00",
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
-                    ATTR_DECIMAL: False,
+                    ATTR_DECIMAL: "dot ('.')",
                     ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%M",
                     ATTR_SPLIT_BY: "none",
                 },
@@ -378,6 +372,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -427,6 +422,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -480,6 +476,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -518,6 +515,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -578,6 +576,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -614,6 +613,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -667,6 +667,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -721,6 +722,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -781,6 +783,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -838,6 +841,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -864,7 +868,7 @@ class TestHandleExportStatistics:
                     ATTR_ENTITIES: ["sensor.temperature"],
                     ATTR_START_TIME: "2024-01-26 12:00:00",
                     ATTR_END_TIME: "2024-01-26 13:00:00",
-                    ATTR_DECIMAL: True,
+                    ATTR_DECIMAL: "comma (',')",
                 },
             )
 
@@ -886,7 +890,7 @@ class TestHandleExportStatistics:
 
                 # Verify decimal parameter was passed
                 call_args = mock_prepare.call_args
-                assert call_args[1]["decimal_comma"] is True
+                assert call_args[1]["decimal_separator"] == ","
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_datetime_format(self) -> None:
@@ -895,6 +899,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -952,6 +957,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 
@@ -1004,6 +1010,7 @@ class TestHandleExportStatistics:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
 
             hass.async_add_executor_job = mock_async_add_executor_job
 

@@ -11,10 +11,10 @@ import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal, handle_error
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal
 
 
-def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float, state_oldest: float) -> list[dict]:
+def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float | None, state_oldest: float | None) -> list[dict]:
     """
     Convert delta rows to absolute sum/state values.
 
@@ -23,8 +23,8 @@ def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: floa
     Args:
     ----
         delta_rows: List of dicts with 'start' (datetime) and 'delta' (float) keys
-        sum_oldest: Reference sum value from database
-        state_oldest: Reference state value from database
+        sum_oldest: Reference sum value from database (None treated as 0)
+        state_oldest: Reference state value from database (None treated as 0)
 
     Returns:
     -------
@@ -46,9 +46,9 @@ def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: floa
     if sorted_rows != delta_rows:
         helpers.handle_error("Delta rows must be sorted by start timestamp in ascending order")
 
-    # Initialize accumulators
-    current_sum = sum_oldest
-    current_state = state_oldest
+    # Initialize accumulators (treat None as 0)
+    current_sum = sum_oldest if sum_oldest is not None else 0
+    current_state = state_oldest if state_oldest is not None else 0
     converted_rows = []
 
     # Accumulate deltas
@@ -78,8 +78,8 @@ def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: floa
 
 def convert_deltas_with_newer_reference(
     delta_rows: list[dict],
-    sum_reference: float,
-    state_reference: float,
+    sum_reference: float | None,
+    state_reference: float | None,
     reference_time: dt.datetime,
 ) -> list[dict]:
     """
@@ -90,8 +90,8 @@ def convert_deltas_with_newer_reference(
     Args:
     ----
         delta_rows: List of dicts with 'start' (datetime) and 'delta' (float) keys
-        sum_reference: Reference sum value from newer database record
-        state_reference: Reference state value from newer database record
+        sum_reference: Reference sum value from newer database record (None treated as 0)
+        state_reference: Reference state value from newer database record (None treated as 0)
         reference_time: The timestamp of the reference record
 
     Returns:
@@ -119,6 +119,10 @@ def convert_deltas_with_newer_reference(
     # and moving backward to the oldest
     converted_rows = []
     reversed_rows = list(reversed(delta_rows))
+
+    # Treat None as 0 for reference values
+    sum_reference = sum_reference if sum_reference is not None else 0
+    state_reference = state_reference if state_reference is not None else 0
 
     # Save the original reference values for the connection record
     original_sum_reference = sum_reference
@@ -234,21 +238,22 @@ def handle_dataframe_delta(
         if reference is None or ref_type is None:
             helpers.handle_error(f"Invalid reference data structure for {statistic_id}")
 
-        sum_ref = reference.get("sum", 0)
-        state_ref = reference.get("state", 0)
+        sum_ref = reference.get("sum") or 0
+        state_ref = reference.get("state") or 0
 
         # Extract delta rows using get_delta_stat
         delta_rows = []
         for _index, row in group.iterrows():
             delta_stat = helpers.get_delta_stat(row, timezone, datetime_format)
-            if delta_stat:
-                delta_rows.append(delta_stat)
-            else:
-                handle_error(f"Invalid delta row for {statistic_id}: {row.to_dict()}")
+            delta_rows.append(delta_stat)
 
         if not delta_rows:
             _LOGGER.warning("No valid delta rows found for statistic_id: %s", statistic_id)
             continue
+
+        # Sort delta_rows by start timestamp to ensure chronological order
+        # Try to fix#https://github.com/klausj1/homeassistant-statistics/issues/173
+        delta_rows.sort(key=lambda r: r["start"])
 
         # Get source and unit
         source = helpers.get_source(statistic_id)

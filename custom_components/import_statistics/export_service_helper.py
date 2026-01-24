@@ -82,7 +82,7 @@ def prepare_export_data(
     timezone_identifier: str,
     datetime_format: str,
     *,
-    decimal_comma: bool = False,
+    decimal_separator: str,
     units_dict: dict | None = None,
 ) -> tuple:
     """
@@ -92,7 +92,8 @@ def prepare_export_data(
          statistics_dict: Raw data from recorder API
          timezone_identifier: Timezone for timestamp output
          datetime_format: Format string for timestamps
-         decimal_comma: Use comma (True) or dot (False) for decimals
+         decimal_comma: Use comma (True) or dot (False) for decimals (deprecated, use decimal_separator)
+         decimal_separator: Decimal separator character ("." or ",")
          units_dict: Mapping of statistic_id to unit_of_measurement
 
     Returns:
@@ -101,10 +102,9 @@ def prepare_export_data(
     """
     _LOGGER.info("Preparing export data")
 
-    if timezone_identifier not in pytz.all_timezones:
-        helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
-
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
+
+    use_comma = decimal_separator == ","
 
     # Default to empty dict if not provided (for backwards compatibility)
     if units_dict is None:
@@ -147,7 +147,7 @@ def prepare_export_data(
                 {
                     "timezone": timezone,
                     "datetime_format": datetime_format,
-                    "decimal_comma": decimal_comma,
+                    "decimal_comma": use_comma,
                 },
                 all_columns=all_columns,
             )
@@ -157,7 +157,7 @@ def prepare_export_data(
 
     # Calculate deltas for counter exports
     if has_counters and rows:
-        rows = get_delta_from_stats(rows, decimal_comma=decimal_comma)
+        rows = get_delta_from_stats(rows, decimal_comma=use_comma)
         has_deltas = True
 
     # Validate if sensors and counters are mixed

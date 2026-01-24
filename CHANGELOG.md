@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 4.0.0
+
+### Breaking Changes
+
+- **Strict Row Validation**: All rows in import files must now be valid, or the entire import fails. Previously, invalid rows were silently skipped during import, which could lead to incomplete data without user awareness. Now, the first invalid row stops the import immediately with a clear error message indicating which row failed and why. This ensures data integrity and provides better feedback to users about data quality issues.
+
+- **Decimal separator parameter format**: Changed from boolean to explicit string selector
+  - **Old format**: `decimal: false` (dot) or `decimal: true` (comma)
+  - **New format**: `decimal: "dot ('.')"` or `decimal: "comma (',')"`
+  - **Migration**: Replace `decimal: false` with `decimal: "."` and `decimal: true` with `decimal: ","`
+  - **Reason**: More explicit and intuitive; eliminates confusion about boolean meaning
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+
+### Changes
+
+#### UI Improvements
+
+- **Enhanced service UI**: The import and export service forms now have improved organization with collapsible sections and better field grouping for easier configuration
+- **Decimal delimiter clarity**: The decimal parameter now shows explicit labels like "dot ('.')" and "comma (',')" instead of confusing boolean values, making it clearer which format to use
+
+#### Parameter improvements
+
+- **Timezone parameter now optional, uses HA timezone as default**:
+  - Defaults to Home Assistant's configured timezone when omitted
+  - No longer need to specify timezone for most users
+  - Still accepts explicit timezone identifier for special cases
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+
+- **Delimiter parameter now required with tab as default**:
+  - Changed from optional (auto-detect) to required with default `\t` (tab)
+  - Auto-detection has been removed as it does not work reliably
+  - Eliminates ambiguity and potential parsing errors from auto-detection
+  - UI provides dropdown with common delimiters: tab, semicolon, comma, pipe
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+
+#### Developer habitability
+
+- **Added VSCode tasks** for easier development (see [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md))
+  - Tasks for linting, testing, and running Home Assistant
+
+#### Documentation improvements
+
+- **Debug logging guide**: Added comprehensive documentation on how to enable and use debug logging for troubleshooting ([`docs/user/debug-logging.md`](docs/user/debug-logging.md))
+- **Improved troubleshooting**: Enhanced troubleshooting documentation with more detailed guidance
+- **Developer workflow documentation**: Added comprehensive guides for contributors:
+  - [`docs/dev/vscode_debugging.md`](docs/dev/vscode_debugging.md) - VSCode debugging setup and configuration
+  - [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md) - VSCode tasks for common development workflows
+  - [`docs/dev/pr_process.md`](docs/dev/pr_process.md) - Pull request process and guidelines
+
+### Bug Fixes
+
+- **Better error messages**: Export now provides clearer error messages when no data is found for the specified entities or time range, or when there is no data in the database at all ([#167](https://github.com/klausj1/homeassistant-statistics/issues/167))
+
+
 ## [3.1.0] - File Encoding Validation and Export Enhancements
 
 ### Added

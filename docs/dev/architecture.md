@@ -311,7 +311,7 @@ Distributed across multiple stages rather than centralized:
 
 1. **Pre-processing**: File path security, delimiter normalization
 2. **Column-level**: `are_columns_valid()` checks structure and column requirements
-3. **Row-level**: Individual extraction functions validate values (silent failure on error)
+3. **Row-level**: Individual extraction functions validate values (raises HomeAssistantError on error)
 4. **Constraint-level**: Relationship validation (min ≤ mean ≤ max, timestamp full hour)
 
 ### 3. Delta Processing Architecture
@@ -405,7 +405,7 @@ The architecture supports multiple test levels:
 
 ## Error Handling Strategy
 
-All validation errors use [`handle_error()`](custom_components/import_statistics/helpers.py:282):
+All validation errors use [`handle_error()`](custom_components/import_statistics/helpers.py:337):
 
 ```python
 # Pattern used throughout codebase:
@@ -420,11 +420,7 @@ This ensures:
 - Visible to Home Assistant logs
 - Prevents silent failures
 
-Silent failures occur only at row-level during extraction:
-
-- `get_delta_stat()` returns empty dict on validation failure
-- Invalid rows are skipped (not imported)
-- Logged as debug or warning, continues processing
+**Strict Validation**: All row-level validation functions ([`get_mean_stat()`](custom_components/import_statistics/helpers.py:68), [`get_sum_stat()`](custom_components/import_statistics/helpers.py:99), [`get_delta_stat()`](custom_components/import_statistics/helpers.py:131)) raise `HomeAssistantError` on validation failure. Invalid rows cause the entire import to fail with a clear error message, ensuring all-or-nothing imports.
 
 ---
 
@@ -509,8 +505,7 @@ Silent failures occur only at row-level during extraction:
 
 ## Known Limitations & Design Decisions
 
-1. **No Transaction Rollback**: Partial imports succeed if some rows validate
-2. **Row-Level Silent Failures**: Invalid rows skipped, not reported individually
-3. **Data Format Asymmetry**: Export allows mixed sensor/counter data, import requires separation
-4. **Timezone Validation**: Must be valid in both directions (checked against pytz.all_timezones)
-5. **Full-Hour Timestamps**: All timestamps must be at exact hour boundary (minutes=0, seconds=0)
+1. **All-or-Nothing Imports**: If any row fails validation, the entire import fails (no partial imports)
+2. **Data Format Asymmetry**: Export allows mixed sensor/counter data, import requires separation
+3. **Timezone Validation**: Must be valid in both directions (checked against pytz.all_timezones)
+4. **Full-Hour Timestamps**: All timestamps must be at exact hour boundary (minutes=0, seconds=0)
