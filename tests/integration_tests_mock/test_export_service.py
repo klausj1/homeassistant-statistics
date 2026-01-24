@@ -369,6 +369,7 @@ class TestGetStatisticIds:
         result = await _get_statistic_ids(hass, ["sensor.temperature", "sensor.*temp*"], mock_recorder)
         assert result == ["sensor.temperature", "sensor.temp_living_room"]
 
+
 class TestHandleExportStatistics:
     """Test handle_export_statistics service handler."""
 
