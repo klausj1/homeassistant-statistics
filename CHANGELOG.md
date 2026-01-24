@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased - plan is to release 4.0 as there are breaking changes]
+## [Unreleased] - 4.0.0
 
 ### Breaking Changes
 
@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 - **Decimal separator parameter format**: Changed from boolean to explicit string selector
   - **Old format**: `decimal: false` (dot) or `decimal: true` (comma)
-  - **New format**: `decimal: "dot ('.')"` or `decimal: comma (',')`
+  - **New format**: `decimal: "dot ('.')"` or `decimal: "comma (',')"`
   - **Migration**: Replace `decimal: false` with `decimal: "."` and `decimal: true` with `decimal: ","`
   - **Reason**: More explicit and intuitive; eliminates confusion about boolean meaning
   - **Applies to**: Both `import_from_file` and `export_statistics` services
@@ -32,14 +32,15 @@ All notable changes to this project will be documented in this file.
 
 - **Delimiter parameter now required with tab as default**:
   - Changed from optional (auto-detect) to required with default `\t` (tab)
-  - auto-detect has been removed as it does not work reliably
+  - Auto-detection has been removed as it does not work reliably
   - Eliminates ambiguity and potential parsing errors from auto-detection
   - UI provides dropdown with common delimiters: tab, semicolon, comma, pipe
   - **Applies to**: Both `import_from_file` and `export_statistics` services
 
 #### Developer habitability
 
-- **Added VSCode tasks** for easier development
+- **Added VSCode tasks** for easier development (see [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md))
+  - Tasks for linting, testing, and running Home Assistant
 
 #### Documentation improvements
 
