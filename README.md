@@ -13,6 +13,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
+- [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
 This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
 
@@ -49,7 +50,81 @@ This is the user guide. If you are a developer, check the [Developer Documentati
 
 ## Importing Statistics
 
-### Step 1: Prepare Your File
+Import your statistics from CSV, TSV, or JSON files to populate or update Home Assistant's long-term statistics database.
+
+### How to Import
+
+1. Copy your file to your Home Assistant config folder
+2. Go to **Developer Tools → Actions**
+3. Select `import_statistics: import_from_file` (or `import_from_json`)
+4. Fill in the settings (from the UI or YAML)
+5. Click `perform action` to start the import.
+
+### Settings Description
+
+- **`filename` (required)**
+  - Input file name (relative to Home Assistant config directory).
+  - Supported:
+    - `.csv`, `.tsv`, or any text file for CSV/TSV import
+    - `.json` for JSON import (use `import_from_json` action)
+- **`delimiter` (required, default: `\t`)**
+  - Delimiter between columns for CSV/TSV import.
+  - Use `\t` for tab-separated input.
+  - Options: `\t` (tab), `;` (semicolon), `,` (comma), `|` (pipe), or custom value.
+- **`decimal` (required, default: `"."`)**
+  - Decimal separator character: `"."` for dot or `","` for comma.
+- **`datetime_format` (optional, default: `%d.%m.%Y %H:%M`)**
+  - Input format of the `datetime` strings in the file.
+  - Default: `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`)
+  - Common formats: `%d.%m.%Y %H:%M`, `%Y.%m.%d %H:%M`, `%Y-%m-%d %H:%M`, `%m/%d/%Y %H:%M`, `%d/%m/%Y %H:%M`
+- **`unit_from_entity` (optional, default: `true`)**
+  - If `true`, the unit is taken from the entity's current state instead of the file.
+  - Only applicable for internal statistics (entity IDs with `.` separator).
+- **`timezone_identifier` (optional)**
+  - Defaults to Home Assistant's configured timezone if omitted. Typically can be left empty.
+  - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>).
+
+> **Note:** Timestamps must be full hours (minutes must be `:00`). Timestamps are interpreted in the specified timezone.
+>
+> **Performance note**: Importing large datasets may take time as the operation is synchronous. The action completes when all data is saved into the database.
+
+#### Example using the UI
+
+![import from file](assets/service_import_ui.png)
+
+#### Examples using YAML
+
+##### Import from TSV file
+
+```yaml
+action: import_statistics.import_from_file
+data:
+  filename: my_statistics.tsv
+  delimiter: \t
+  decimal: "."
+```
+
+##### Import from CSV file with custom format
+
+```yaml
+action: import_statistics.import_from_file
+data:
+  filename: my_statistics.csv
+  delimiter: ","
+  decimal: "."
+  datetime_format: "%Y-%m-%d %H:%M"
+  timezone_identifier: "Europe/Vienna"
+```
+
+##### Import from JSON
+
+```yaml
+action: import_statistics.import_from_json
+data:
+  statistics: <JSON content>
+```
+
+### File Format Requirements
 
 Your file must contain one type of statistics:
 
@@ -65,18 +140,20 @@ Example files:
 - [Counters (sum/state)](./assets/state_sum.tsv)
 - [Counters (delta)](./assets/delta.tsv)
 
-### Step 2: File Format Requirements
+#### Required Columns
 
-| Requirement              | Details                                                                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Timestamp format**     | `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`) (other formats are also possible)                                                                        |
-| **Timestamp constraint** | Minutes must be `:00` (full hours only)                                                                                                                 |
-| **Timezone**             | Timestamps are interpreted as local time; find yours at [Wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g., Europe/Vienna) |
-| **File encoding**        | UTF-8 (required for special characters like m³ or °C)                                                                                                  |
-| **Delimiter**            | Tab (default), comma, semicolon, or pipe                                                                                                               |
-| **Decimal separator**    | `.` (default) or `,`                                                                                                                                   |
+Only these columns are accepted (unknown columns cause an error):
 
-### Step 3: Statistic ID Format
+| Column               | Required     | Description                          |
+| -------------------- | ------------ | ------------------------------------ |
+| `statistic_id`       | Yes          | The sensor identifier                |
+| `start`              | Yes          | Timestamp                            |
+| `unit`               | Sometimes    | Required for external statistics     |
+| `min`, `max`, `mean` | For sensors  | Cannot mix with counter columns      |
+| `sum`, `state`       | For counters | Cannot mix with sensor columns       |
+| `delta`              | For counters | Alternative to sum/state (see below) |
+
+#### Statistic ID Format
 
 | Type         | Format                   | Example                  | When to use                                |
 | ------------ | ------------------------ | ------------------------ | ------------------------------------------ |
@@ -85,31 +162,17 @@ Example files:
 
 > Internal statistics must match an existing entity.
 
-### Step 4: Run the Import
+#### File Encoding
 
-1. Copy your file to your Home Assistant config folder
-2. Go to **Developer Tools → Actions**
-3. Select `import_statistics: import_from_file`
-4. Fill in the settings:
-
-![import from file](assets/service_import_ui.png)
-
-Or use YAML:
-
-```yaml
-action: import_statistics.import_from_file
-data:
-  filename: my_statistics.tsv
-  delimiter: \t
-  decimal: "."
-```
+- **Encoding**: UTF-8 (required for special characters like m³ or °C)
+- **Delimiter**: Tab (default), comma, semicolon, or pipe
+- **Decimal separator**: `.` (default) or `,`
 
 ### Import Behavior
 
 - **Overwrites existing data**: Importing the same timestamps replaces old values
 - **Gaps are preserved**: Missing hours will show as gaps in graphs
 - **Synchronous operation**: The action completes when all data is saved into the database. This can take a longer time for large input data
-- **Export performance**: Exporting large datasets (e.g., 450,000 statistics) may take ~45 seconds on Raspberry Pi hardware. The operation is memory-efficient and handles datasets of this size well.
 - **Validation errors**: Shown directly in the UI; check logs if import fails silently
 
 > If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
@@ -128,19 +191,6 @@ The integration performs strict validation on all import data:
   - Missing required columns
 
 This strict validation ensures data integrity and helps you identify and fix data quality issues immediately.
-
-### Allowed Columns
-
-Only these columns are accepted (unknown columns cause an error):
-
-| Column               | Required     | Description                          |
-| -------------------- | ------------ | ------------------------------------ |
-| `statistic_id`       | Yes          | The sensor identifier                |
-| `start`              | Yes          | Timestamp                            |
-| `unit`               | Sometimes    | Required for external statistics     |
-| `min`, `max`, `mean` | For sensors  | Cannot mix with counter columns      |
-| `sum`, `state`       | For counters | Cannot mix with sensor columns       |
-| `delta`              | For counters | Alternative to sum/state (see below) |
 
 ### JSON Import
 
@@ -302,7 +352,7 @@ See [Delta Import](./docs/user/counters.md#delta-import)
 - Test with a small dataset first (10-20 rows)
 - Create a test sensor for initial imports
 - Verify data in History graph before checking Energy Dashboard
-- Enable debug logging to see detailed error messages
+- Enable debug logging to see detailed error messages (see [Debug Logging Guide](./docs/user/debug-logging.md))
 - Existing values can be overwritten - use this to correct mistakes
 
 ### Data Preparation

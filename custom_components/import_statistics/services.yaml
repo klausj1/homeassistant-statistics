@@ -29,6 +29,7 @@ import_from_file:
           example: "dot ('.')"
           selector:
             select:
+              mode: dropdown
               options:
                 - "dot ('.')"
                 - "comma (',')"
@@ -125,6 +126,7 @@ export_statistics:
           example: "dot ('.')"
           selector:
             select:
+              mode: dropdown
               options:
                 - "dot ('.')"
                 - "comma (',')"

@@ -9,6 +9,10 @@
 - Add `import_statistics:` to your `configuration.yaml` file
 - Restart Home Assistant after adding the configuration
 
+## Check log files
+
+In case you want to analyse yourself, enable debug logging (see [Debug Logging Guide](./docs/user/debug-logging.md)), and check the logs. They are not so simple to understand, but can provide hints. When creating a bug, they are absolutely necessary.
+
 ## Data Import Issues
 
 ### Sum and State Column Confusion

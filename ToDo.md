@@ -4,7 +4,7 @@
 
 ### Docu
 - Update screenshots and yaml examples in readme
-- Add settings descriptions to import, like what has been done on export.
+- In Work Add settings descriptions to import, like what has been done on export.
 - Before release, update changelog (bundle changes). Check for the export improvement changes. Check readme.
 - Explain how to enable debug logging
 
