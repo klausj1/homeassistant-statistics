@@ -20,7 +20,7 @@ body:
         required: true
       - label: If there are problems with spikes for counters, I have read "Counter Statistics Explained" linked in the README.
         required: true
-      - label: I have enabled debug logging for my installation.
+      - label: I have enabled debug logging for my installation (link to Debug Logging Guide see below, or in README).
         required: true
       - label: I have filled out the issue template to the best of my ability.
         required: true

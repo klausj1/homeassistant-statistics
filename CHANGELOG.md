@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 4.0.0
+## [4.0.0] - Wild card based export, export all, developer docu, service parameter improvements
 
 ### Breaking Changes
 
@@ -11,11 +11,29 @@ All notable changes to this project will be documented in this file.
 - **Decimal separator parameter format**: Changed from boolean to explicit string selector
   - **Old format**: `decimal: false` (dot) or `decimal: true` (comma)
   - **New format**: `decimal: "dot ('.')"` or `decimal: "comma (',')"`
-  - **Migration**: Replace `decimal: false` with `decimal: "."` and `decimal: true` with `decimal: ","`
+  - **Migration**: Replace `decimal: false` with `decimal: "dot ('.')"` and `decimal: true` with `"comma (',')"`
   - **Reason**: More explicit and intuitive; eliminates confusion about boolean meaning
   - **Applies to**: Both `import_from_file` and `export_statistics` services
 
 ### Changes
+
+#### Export improvements
+
+- **Optional `entities` parameter**: Export all statistics when `entities` is omitted or empty
+  - Previously required; now **defaults to exporting all** available statistics
+  - entities parameter now accepts **glob patterns using `*` (e.g. `sensor.*_temperature`)**. Useful when exporting a subset of statistic IDs without enumerating them all.
+- **Optional `start_time` parameter**: Export from earliest available statistics when omitted
+  - Allows exporting complete historical data without knowing the exact start date
+- **Optional `end_time` parameter**: Export up to most recent statistics when omitted
+  - Allows exporting all data up to present without specifying end date
+- **Split statistics option**: New `split_by` parameter to separate sensors and counters into different files
+  - When `true`, creates separate files: `filename_sensors.ext` and `filename_counters.ext`
+  - Useful for re-importing data since `import_from_file` accepts only one type per file
+  - Works with both specific entity lists and "export all" mode
+- **Max statistics limit**: New `max_statistics` parameter to limit the number of statistic IDs exported
+  - Default: 1000 statistic IDs per export operation
+  - Helps manage large datasets and reduce file size/memory usage
+  - Statistic IDs are sorted deterministically before applying the limit
 
 #### UI Improvements
 
@@ -37,11 +55,10 @@ All notable changes to this project will be documented in this file.
   - UI provides dropdown with common delimiters: tab, semicolon, comma, pipe
   - **Applies to**: Both `import_from_file` and `export_statistics` services
 
-- **New/Improved export_statistics parameters**
-  - Optional entities parameter - Export all statistics when entities field is omitted
-  - entities parameter now accepts glob patterns using `*` (e.g. `sensor.*_temperature`). Useful when exporting a subset of statistic IDs without enumerating them all.
-  - Optional start_time/end_time - Auto-detect time range from database if not provided
-  - File splitting by type - New split_by option to export sensors and counters into different files
+#### File Encoding Validation
+
+- **UTF-8 encoding validation for import files**: Automatically detects and reports encoding issues before processing
+  - Prevents import failures due to encoding problems with special characters in units
 
 #### Developer habitability
 
@@ -50,45 +67,6 @@ All notable changes to this project will be documented in this file.
 
 #### Documentation improvements
 
-- **Debug logging guide**: Added comprehensive documentation on how to enable and use debug logging for troubleshooting ([`docs/user/debug-logging.md`](docs/user/debug-logging.md))
-- **Improved troubleshooting**: Enhanced troubleshooting documentation with more detailed guidance
-- **Developer workflow documentation**: Added comprehensive guides for contributors:
-  - [`docs/dev/vscode_debugging.md`](docs/dev/vscode_debugging.md) - VSCode debugging setup and configuration
-  - [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md) - VSCode tasks for common development workflows
-  - [`docs/dev/pr_process.md`](docs/dev/pr_process.md) - Pull request process and guidelines
-
-### Bug Fixes
-
-- **Better error messages**: Export now provides clearer error messages when no data is found for the specified entities or time range, or when there is no data in the database at all ([#167](https://github.com/klausj1/homeassistant-statistics/issues/167))
-
-
-## [3.1.0] - File Encoding Validation and Export Enhancements
-
-### Added
-
-#### File Encoding Validation
-
-- **UTF-8 encoding validation for import files**: Automatically detects and reports encoding issues before processing
-  - Prevents import failures due to encoding problems with special characters in units
-
-#### Export Enhancements
-
-- **Optional `entities` parameter**: Export all statistics when `entities` is omitted or empty
-  - Previously required; now defaults to exporting all available statistics
-- **Optional `start_time` parameter**: Export from earliest available statistics when omitted
-  - Allows exporting complete historical data without knowing the exact start date
-- **Optional `end_time` parameter**: Export up to most recent statistics when omitted
-  - Allows exporting all data up to present without specifying end date
-- **Split statistics option**: New `split_statistics` parameter to separate sensors and counters into different files
-  - When `true`, creates separate files: `filename_sensors.ext` and `filename_counters.ext`
-  - Useful for re-importing data since `import_from_file` accepts only one type per file
-  - Works with both specific entity lists and "export all" mode
-- **Max statistics limit**: New `max_statistics` parameter to limit the number of statistic IDs exported
-  - Default: 1000 statistic IDs per export operation
-  - Helps manage large datasets and reduce file size/memory usage
-  - Statistic IDs are sorted deterministically before applying the limit
-
-#### Documentation
 - **New troubleshooting guide**: Added comprehensive [`docs/user/troubleshooting-tips.md`](docs/user/troubleshooting-tips.md) covering:
   - Installation issues
   - File format problems (column names, delimiters, encoding)
@@ -96,28 +74,24 @@ All notable changes to this project will be documented in this file.
   - Common error messages and solutions
 - **Enhanced developer documentation**: Improved [`docs/dev/README.md`](docs/dev/README.md) with detailed setup and testing instructions
 - **Improved counter documentation**: Enhanced [`docs/user/counters.md`](docs/user/counters.md) with clearer explanations
+- **Developer workflow documentation**: Added comprehensive guides for contributors:
+  - [`docs/dev/vscode_debugging.md`](docs/dev/vscode_debugging.md) - VSCode debugging setup and configuration
+  - [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md) - VSCode tasks for common development workflows
+  - [`docs/dev/pr_process.md`](docs/dev/pr_process.md) - Pull request process and guidelines
 - **Architecture documentation**: Moved and improved architecture documentation to [`docs/dev/architecture.md`](docs/dev/architecture.md)
 - **Enhanced README.md**: Significantly improved user documentation with:
   - Better table formatting for all sections
   - Comprehensive export options documentation with detailed parameter descriptions
   - Multiple YAML examples for common export scenarios (selected entities, all statistics, split files, max statistics limit)
   - Clearer structure and improved readability throughout
+- **Debug logging guide**: Added comprehensive documentation on how to enable and use debug logging for troubleshooting ([`docs/user/debug-logging.md`](docs/user/debug-logging.md))
 
-### Changed
+### Bug Fixes
 
-#### Export Behavior
-- **More flexible export parameters**: `entities`, `start_time`, and `end_time` are now all optional
-  - Backward compatible: existing service calls continue to work unchanged
-  - Enables new use cases: full backups, open-ended time ranges, all statistics exports
-
-#### Error Messages
+- **Better error messages**: Export now provides clearer error messages when no data is found for the specified entities or time range, or when there is no data in the database at all ([#167](https://github.com/klausj1/homeassistant-statistics/issues/167))
 - **Improved column validation error messages**: More descriptive errors when unknown columns are detected
   - Now lists all invalid columns found in the file
   - Helps users quickly identify delimiter problems, typos, incorrect column names
-
-### Fixed
-
-- **Type hints and code quality**: Fixed Pylance type checking issues throughout the codebase
 
 ## [3.0.1] - Bug Fixes For Delta Import/Export Feature
 
