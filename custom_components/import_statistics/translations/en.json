@@ -40,7 +40,7 @@
                 },
                 "entities": {
                     "name": "entities",
-                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Leave empty to export all statistics. Make sure to use a Yaml list with '- '"
+                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Supports wildcard patterns using '*' (glob matching), e.g. sensor.*_temperature or sensor.*temp*. Leave empty to export all statistics. Constraints: '*' alone is not allowed; broad patterns like sensor.* / sensor:* must not be mixed with other entries. Make sure to use a Yaml list with '- '"
                 },
                 "start_time": {
                     "name": "start_time",

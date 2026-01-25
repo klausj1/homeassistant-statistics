@@ -1,6 +1,7 @@
 """Export statistics functionality."""
 
 import datetime as dt
+import fnmatch
 import zoneinfo
 from typing import TYPE_CHECKING, cast
 
@@ -36,6 +37,9 @@ from custom_components.import_statistics.export_service_helper import (
 )
 from custom_components.import_statistics.helpers import _LOGGER
 
+_BROAD_PATTERN_SINGLE_WILDCARD_COUNT = 1
+_BROAD_PATTERN_MIN_LEN = 2
+
 
 def _parse_and_validate_time(time_str: str | None, tz: zoneinfo.ZoneInfo, time_name: str) -> dt.datetime | None:
     """Parse and validate a time string to datetime."""
@@ -65,11 +69,51 @@ async def _get_statistic_ids(hass: HomeAssistant, entities_input: list[str] | No
         _LOGGER.info("Found %d statistics in database", len(statistic_ids))
         return statistic_ids
 
-    # Validate and use provided entities
-    statistic_ids = []
-    for entity in entities_input:
-        helpers.get_source(entity)  # Validate
-        statistic_ids.append(entity)
+    if "*" in entities_input and len(entities_input) > 1:
+        helpers.handle_error("'*' cannot be combined with other entities. Omit the entities field to export all statistics.")
+
+    def _is_broad_domain_pattern(pattern: str) -> bool:
+        return (
+            pattern.count("*") == _BROAD_PATTERN_SINGLE_WILDCARD_COUNT
+            and pattern.endswith("*")
+            and len(pattern) >= _BROAD_PATTERN_MIN_LEN
+            and pattern[-2] in {".", ":"}
+        )
+
+    broad_patterns = [pattern for pattern in entities_input if "*" in pattern and _is_broad_domain_pattern(pattern)]
+    if broad_patterns and len(entities_input) > 1:
+        helpers.handle_error(
+            f"Broad pattern(s) {broad_patterns!r} cannot be combined with other entities. Use only the pattern, or omit entities to export all statistics."
+        )
+
+    for entry in entities_input:
+        if entry == "*":
+            helpers.handle_error("Pattern cannot be just '*'")
+        if "*" not in entry:
+            helpers.get_source(entry)
+
+    all_stats = await recorder_instance.async_add_executor_job(lambda: list_statistic_ids(hass))
+    all_statistic_ids = [stat["statistic_id"] for stat in all_stats]
+
+    statistic_ids: list[str] = []
+    for entry in entities_input:
+        if "*" in entry:
+            matched_ids = [sid for sid in all_statistic_ids if fnmatch.fnmatchcase(sid, entry)]
+            if not matched_ids:
+                _LOGGER.warning("Pattern %s matched no statistics", entry)
+            statistic_ids.extend(matched_ids)
+            continue
+
+        if entry not in all_statistic_ids:
+            _LOGGER.warning("Statistic ID %s not found", entry)
+            continue
+        statistic_ids.append(entry)
+
+    statistic_ids = list(dict.fromkeys(statistic_ids))
+
+    if not statistic_ids:
+        helpers.handle_error("No statistics found for the provided entities/patterns")
+
     return statistic_ids
 
 

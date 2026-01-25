@@ -37,6 +37,12 @@ All notable changes to this project will be documented in this file.
   - UI provides dropdown with common delimiters: tab, semicolon, comma, pipe
   - **Applies to**: Both `import_from_file` and `export_statistics` services
 
+- **New/Improved export_statistics parameters**
+  - Optional entities parameter - Export all statistics when entities field is omitted
+  - entities parameter now accepts glob patterns using `*` (e.g. `sensor.*_temperature`). Useful when exporting a subset of statistic IDs without enumerating them all.
+  - Optional start_time/end_time - Auto-detect time range from database if not provided
+  - File splitting by type - New split_by option to export sensors and counters into different files
+
 #### Developer habitability
 
 - **Added VSCode tasks** for easier development (see [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md))

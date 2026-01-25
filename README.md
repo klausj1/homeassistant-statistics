@@ -230,6 +230,13 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 - **`entities` (optional)**
   - List of statistic IDs or entity IDs to export. Make sure to use a YAML list with `-`
   - Leave empty to export all available statistics.
+  - Supports wildcard patterns using `*` (glob matching) inside an entry:
+    - `sensor.paris_*` (prefix)
+    - `sensor.*_temperature` (suffix)
+    - `sensor.*temp*` (contains)
+  - Constraints:
+    - `*` alone is not allowed
+    - Broad patterns like `sensor.*` / `sensor:*` must not be mixed with other entries (omit `entities` to export all)
 - **`start_time` (optional)**
   - Start of the export range format: `%Y-%m-%d %H:%M:%S` ( `YYYY-MM-DD HH:MM:SS` ). Make sure you use quotes around the string.
   - Must be a full hour (`MM:SS` must be `00:00`).
@@ -283,6 +290,20 @@ data:
   delimiter: \t
   decimal: "."
   # timezone_identifier: Europe/Vienna  # Optional - defaults to HA timezone
+```
+
+##### Export using wildcard patterns
+
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: temperatures.tsv
+  entities:
+    - sensor.*_temperature
+  start_time: "2025-12-22 00:00:00"
+  end_time: "2025-12-23 00:00:00"
+  delimiter: \t
+  decimal: "."
 ```
 
 ##### Export all statistics
