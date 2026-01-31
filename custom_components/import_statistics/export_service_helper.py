@@ -29,7 +29,8 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
 
     try:
         file_obj = Path(file_path)
-        with file_obj.open("w", encoding="utf-8", newline="") as f:
+        # now using utf-8-sig to add BOM
+        with file_obj.open("w", encoding="utf-8-sig", newline="") as f:
             writer = csv.writer(f, delimiter=delimiter)
             writer.writerow(columns)
             writer.writerows(rows)

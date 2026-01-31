@@ -111,8 +111,8 @@ export_statistics:
       fields:
         delimiter:
           required: true
-          default: \t
-          example: \t
+          default: ","
+          example: ","
           selector:
             select:
               custom_value: true
