@@ -11,7 +11,7 @@ from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics import setup
+from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import (
     ATTR_DECIMAL,
     ATTR_DELIMITER,
@@ -38,8 +38,8 @@ class TestDeltaImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test delta CSV file
             test_file = Path(tmpdir) / "delta_test.csv"
@@ -125,8 +125,8 @@ class TestDeltaImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())  # Entities exist
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test delta CSV file with multiple statistics
             test_file = Path(tmpdir) / "delta_multiple.csv"
@@ -204,8 +204,8 @@ class TestDeltaImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test delta CSV file with negative values
             test_file = Path(tmpdir) / "delta_negative.csv"
@@ -267,8 +267,8 @@ class TestDeltaImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=None)  # No entity needed for external
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test delta CSV file with external statistic
             test_file = Path(tmpdir) / "delta_external.csv"
@@ -387,8 +387,8 @@ class TestDeltaImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())
 
-            setup(hass, {})
-            json_handler = hass.services.register.call_args_list[1][0][2]
+            await async_setup(hass, {})
+            json_handler = hass.services.async_register.call_args_list[1][0][2]
 
             call = ServiceCall(
                 hass,

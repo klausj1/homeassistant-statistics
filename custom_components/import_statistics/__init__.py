@@ -13,18 +13,18 @@ from custom_components.import_statistics.import_service import handle_import_fro
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
-def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=unused-argument  # noqa: ARG001
     """
     Set up the import_statistics component when Home Assistant is loading it.
 
-    The setup function is called when Home Assistant loads the import_statistics custom component.
+    The async_setup function is called when Home Assistant loads the import_statistics custom component.
     It registers three services under the component's domain: import_from_file, import_from_json,
     and export_statistics. These services enable users to programmatically import historical statistics
     into Home Assistant's recorder database or export existing statistics to files.
     It should setup all necessary services and return True if the component
     has been successfully initialized.
 
-    The setup function is primarily called during testing to initialize the component in a mock
+    The async_setup function is primarily called during testing to initialize the component in a mock
     Home Assistant environment. Test cases use it to verify that the registered services behave
     correctly when invoked.
 
@@ -41,19 +41,34 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         """Handle the service call."""
         await handle_import_from_file_impl(hass, call)
 
-    hass.services.register(DOMAIN, "import_from_file", handle_import_from_file)
+    hass.services.async_register(
+        DOMAIN,
+        "import_from_file",
+        handle_import_from_file,
+        description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
+    )
 
     async def handle_import_from_json(call: ServiceCall) -> None:
         """Handle the json service call."""
         await handle_import_from_json_impl(hass, call)
 
-    hass.services.register(DOMAIN, "import_from_json", handle_import_from_json)
+    hass.services.async_register(
+        DOMAIN,
+        "import_from_json",
+        handle_import_from_json,
+        description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
+    )
 
     async def handle_export_statistics(call: ServiceCall) -> None:
         """Handle the export statistics service call."""
         await handle_export_statistics_impl(hass, call)
 
-    hass.services.register(DOMAIN, "export_statistics", handle_export_statistics)
+    hass.services.async_register(
+        DOMAIN,
+        "export_statistics",
+        handle_export_statistics,
+        description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
+    )
 
     # Return boolean to indicate that initialization was successful.
     return True
