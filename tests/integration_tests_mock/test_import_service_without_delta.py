@@ -11,7 +11,7 @@ from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics import setup
+from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -39,8 +39,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test sum CSV file
             test_file = Path(tmpdir) / "sum_test.csv"
@@ -112,8 +112,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test mean CSV file
             test_file = Path(tmpdir) / "mean_test.csv"
@@ -180,8 +180,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())  # Entities exist
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file with multiple statistics
             test_file = Path(tmpdir) / "multiple.csv"
@@ -249,8 +249,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=None)  # No entity needed for external
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file with external statistic
             test_file = Path(tmpdir) / "external.csv"
@@ -315,8 +315,8 @@ class TestStandardImportIntegration:
             hass.states.get = MagicMock(return_value=mock_entity)
             hass.states.set = MagicMock()
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file without unit column
             test_file = Path(tmpdir) / "no_unit.csv"
@@ -367,8 +367,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())
 
-            setup(hass, {})
-            json_handler = hass.services.register.call_args_list[1][0][2]
+            await async_setup(hass, {})
+            json_handler = hass.services.async_register.call_args_list[1][0][2]
 
             call = ServiceCall(
                 hass,
@@ -429,8 +429,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())
 
-            setup(hass, {})
-            json_handler = hass.services.register.call_args_list[1][0][2]
+            await async_setup(hass, {})
+            json_handler = hass.services.async_register.call_args_list[1][0][2]
 
             call = ServiceCall(
                 hass,
@@ -499,8 +499,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file with comma as decimal separator
             test_file = Path(tmpdir) / "comma.csv"
@@ -551,8 +551,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file
             test_file = Path(tmpdir) / "tz_test.csv"
@@ -641,8 +641,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=None)  # Entity does not exist
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file
             test_file = Path(tmpdir) / "nonexistent.csv"
@@ -676,8 +676,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=MagicMock())
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file with ISO format
             test_file = Path(tmpdir) / "iso_format.csv"
@@ -729,8 +729,8 @@ class TestStandardImportIntegration:
             hass.states.set = MagicMock()
             hass.states.get = MagicMock(return_value=None)
 
-            setup(hass, {})
-            import_handler = hass.services.register.call_args_list[0][0][2]
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
 
             # Create test CSV file with multiple external statistics
             test_file = Path(tmpdir) / "multi_external.csv"
