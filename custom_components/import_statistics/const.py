@@ -18,3 +18,8 @@ TESTFILEPATHS = "tests/testfiles/"
 
 DATETIME_DEFAULT_FORMAT = "%d.%m.%Y %H:%M"
 DATETIME_INPUT_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# Upload-related constants
+UPLOAD_MAX_SIZE = 50 * 1024 * 1024  # 50 MB in bytes
+UPLOAD_ALLOWED_EXTENSIONS = [".csv", ".tsv", ".json"]
+UPLOAD_URL_PATH = "/api/import_statistics/upload"

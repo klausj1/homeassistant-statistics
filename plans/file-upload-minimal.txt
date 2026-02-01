@@ -1,0 +1,23 @@
+Under plans you find architecture and plan for import using file upload first, to ease the usage of export and import.
+
+As a very first step, implement a small breakthrough to prove that the concept is working:
+
+Implement minimal Upload View Backend, which just stores the file and sends a return code.
+
+Implement minimal Upload Form View, which
+- allows to select a file via file browser, and uploads the file
+- calls the import service with fixed parameters (except filename) via a second button
+
+Authentication must already be there, but it should be enough to be logged in in Home Assistant.
+
+action: import_statistics.import_from_file
+data:
+  delimiter: \t
+  decimal: dot ('.')
+  datetime_format: "%d.%m.%Y %H:%M"
+  unit_from_entity: true
+  filename: xx.tsv
+
+returns
+
+Make sure that the Upload Form View can be added to the home assistant, and create a documentation how to do this.

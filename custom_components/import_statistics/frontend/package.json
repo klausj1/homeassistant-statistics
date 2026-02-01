@@ -1,0 +1,20 @@
+{
+    "name": "@import-statistics/frontend",
+    "version": "1.0.0",
+    "description": "Frontend panel for Import Statistics custom component",
+    "type": "module",
+    "scripts": {
+        "build": "rollup -c",
+        "dev": "rollup -c -w"
+    },
+    "dependencies": {
+        "lit": "^3.0.0"
+    },
+    "devDependencies": {
+        "@rollup/plugin-node-resolve": "^15.0.0",
+        "@rollup/plugin-typescript": "^11.0.0",
+        "rollup": "^4.0.0",
+        "tslib": "^2.6.0",
+        "typescript": "^5.0.0"
+    }
+}

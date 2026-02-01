@@ -1,5 +1,7 @@
 """The import_statistics integration."""
 
+from pathlib import Path
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
@@ -8,6 +10,7 @@ from homeassistant.helpers.typing import ConfigType
 from custom_components.import_statistics.const import DOMAIN
 from custom_components.import_statistics.export_service import handle_export_statistics_impl
 from custom_components.import_statistics.import_service import handle_import_from_file_impl, handle_import_from_json_impl
+from custom_components.import_statistics.upload_view import ImportStatisticsUploadView
 
 # Use empty_config_schema because the component does not have any config options
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
@@ -36,6 +39,19 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
         bool: True if the component has been successfully initialized, False otherwise.
 
     """
+    # Register upload HTTP endpoint
+    hass.http.register_view(ImportStatisticsUploadView())
+
+    # Register static files for frontend panel
+    frontend_path = Path(__file__).parent / "frontend" / "dist"
+    if frontend_path.exists():
+        # Register static path for serving the frontend bundle
+        # The frontend will be accessible at /api/import_statistics/panel/
+        hass.http.app.router.add_static(
+            "/api/import_statistics/panel",
+            str(frontend_path),
+            name="import_statistics_panel",
+        )
 
     async def handle_import_from_file(call: ServiceCall) -> None:
         """Handle the service call."""

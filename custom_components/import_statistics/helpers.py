@@ -12,7 +12,7 @@ from homeassistant.components.recorder.statistics import valid_statistic_id
 from homeassistant.core import valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
+from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT, UPLOAD_ALLOWED_EXTENSIONS, UPLOAD_MAX_SIZE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -591,3 +591,76 @@ def format_decimal(value: float | None, *, use_comma: bool = False) -> str:
         formatted = formatted.replace(".", ",")
 
     return formatted
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename for safe storage.
+
+    Removes path separators, path traversal sequences, and special characters
+    while preserving the file extension. Only allows alphanumeric characters,
+    dots, hyphens, and underscores.
+
+    Args:
+    ----
+        filename: Original filename to sanitize
+
+    Returns:
+    -------
+        str: Sanitized filename safe for storage
+
+    Raises:
+    ------
+        HomeAssistantError: If filename is empty, contains only invalid characters,
+                           or results in an empty name after sanitization
+
+    """
+    if not filename or not filename.strip():
+        handle_error("Filename cannot be empty")
+
+    # Get the file extension first
+    path = Path(filename)
+    stem = path.stem
+    suffix = path.suffix.lower()
+
+    # Remove path separators and traversal sequences
+    stem = stem.replace("/", "").replace("\\", "").replace("..", "")
+
+    # Remove special characters, keep only alphanumeric, dash, underscore
+    sanitized_stem = "".join(c for c in stem if c.isalnum() or c in "._-")
+
+    # Remove leading/trailing dots and spaces
+    sanitized_stem = sanitized_stem.strip(". ")
+
+    if not sanitized_stem:
+        handle_error(f"Filename '{filename}' contains only invalid characters")
+
+    # Reconstruct with sanitized stem and original extension
+    return f"{sanitized_stem}{suffix}"
+
+
+def validate_upload_file(filename: str, file_size: int) -> None:
+    """
+    Validate an uploaded file's extension and size.
+
+    Args:
+    ----
+        filename: Name of the uploaded file
+        file_size: Size of the file in bytes
+
+    Raises:
+    ------
+        HomeAssistantError: If file extension is not allowed or file size exceeds limit
+
+    """
+    # Check file extension
+    file_ext = Path(filename).suffix.lower()
+    if file_ext not in UPLOAD_ALLOWED_EXTENSIONS:
+        allowed = ", ".join(UPLOAD_ALLOWED_EXTENSIONS)
+        handle_error(f"File extension '{file_ext}' not allowed. Allowed extensions: {allowed}")
+
+    # Check file size
+    if file_size > UPLOAD_MAX_SIZE:
+        max_mb = UPLOAD_MAX_SIZE / (1024 * 1024)
+        actual_mb = file_size / (1024 * 1024)
+        handle_error(f"File size {actual_mb:.2f} MB exceeds maximum allowed size of {max_mb:.0f} MB")

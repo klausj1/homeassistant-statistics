@@ -41,7 +41,11 @@
         }
     },
     "remoteUser": "vscode",
-    "features": {},
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        }
+    },
     "containerEnv": {
         "HA_TOKEN_DEV": "${localEnv:HA_TOKEN_DEV}"
     }
