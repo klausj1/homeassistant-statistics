@@ -16,7 +16,7 @@
                     "name": "filename"
                 },
                 "timezone_identifier": {
-                    "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If not specified, uses Home Assistant's configured timezone",
+                    "description": "Timezone identifier (check {pytz_url}). If not specified, uses Home Assistant's configured timezone",
                     "name": "timezone_identifier"
                 },
                 "datetime_format": {
@@ -56,7 +56,7 @@
                 },
                 "timezone_identifier": {
                     "name": "timezone_identifier",
-                    "description": "Timezone identifier (check pytz timezones or https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If not specified, uses Home Assistant's configured timezone"
+                    "description": "Timezone identifier (check {pytz_url}). If not specified, uses Home Assistant's configured timezone"
                 },
                 "delimiter": {
                     "name": "delimiter",
