@@ -23,7 +23,7 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
 )
 from custom_components.import_statistics.export_service import _get_statistic_ids, get_statistics_from_recorder
-from tests.conftest import mock_async_add_executor_job
+from tests.conftest import get_service_handler, mock_async_add_executor_job
 
 # Test constants
 EXPECTED_RESULT_TUPLE_LENGTH = 2
@@ -385,7 +385,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -443,7 +443,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -493,7 +493,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -547,7 +547,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             call = ServiceCall(
                 hass,
@@ -586,7 +586,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -647,7 +647,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             call = ServiceCall(
                 hass,
@@ -684,7 +684,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -738,7 +738,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -793,7 +793,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -854,7 +854,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -912,7 +912,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -970,7 +970,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -1028,7 +1028,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -1081,7 +1081,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [

@@ -31,6 +31,29 @@ async def mock_async_add_executor_job(func: Callable[..., Any], *args: Any) -> A
     return func(*args) if args else func()
 
 
+def get_service_handler(hass: MagicMock, service_name: str) -> Callable[..., Any]:
+    """
+    Find a registered service handler by name from mock hass.services.async_register calls.
+
+    Args:
+        hass: Mock Home Assistant instance
+        service_name: Name of the service (e.g., "export_statistics", "import_from_file")
+
+    Returns:
+        The service handler function
+
+    Raises:
+        ValueError: If the service handler is not found
+
+    """
+    for call in hass.services.async_register.call_args_list:
+        # call_args_list contains Call objects with positional args at index 0
+        if len(call[0]) >= 3 and call[0][1] == service_name:
+            return call[0][2]
+    msg = f"Service handler '{service_name}' not found in registered services"
+    raise ValueError(msg)
+
+
 def pytest_configure(config: Any) -> None:
     """Configure pytest."""
     config.addinivalue_line("markers", "integration: mark test as an integration test that requires sockets")
