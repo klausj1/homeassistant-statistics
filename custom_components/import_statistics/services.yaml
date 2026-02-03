@@ -155,3 +155,32 @@ export_statistics:
           selector:
             text:
 
+export_inventory:
+  fields:
+    filename:
+      required: true
+      example: "statistics_inventory.tsv"
+      selector:
+        text:
+
+    delimiter:
+      required: true
+      default: \t
+      example: \t
+      selector:
+        select:
+          custom_value: true
+          options:
+            - '\t'
+            - ";"
+            - ","
+            - "|"
+
+    use_different_timezone_than_home_assistant:
+      collapsed: true
+      fields:
+        timezone_identifier:
+          required: false
+          example: "Europe/Vienna"
+          selector:
+            text:

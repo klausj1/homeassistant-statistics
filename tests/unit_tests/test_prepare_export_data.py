@@ -407,7 +407,7 @@ class TestWriteExportFile:
             write_export_file(str(file_path), columns, rows, "\t")
 
             assert file_path.exists()
-            with file_path.open(encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8-sig") as f:
                 reader = csv.reader(f, delimiter="\t")
                 lines = list(reader)
                 assert lines[0] == columns
@@ -426,7 +426,7 @@ class TestWriteExportFile:
             write_export_file(str(file_path), columns, rows, ",")
 
             assert file_path.exists()
-            with file_path.open(encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8-sig") as f:
                 reader = csv.reader(f, delimiter=",")
                 lines = list(reader)
                 assert lines[0] == columns
@@ -440,7 +440,7 @@ class TestWriteExportFile:
 
             write_export_file(str(file_path), columns, rows, ";")
 
-            with file_path.open(encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8-sig") as f:
                 reader = csv.reader(f, delimiter=";")
                 lines = list(reader)
                 assert lines[0] == columns
@@ -472,7 +472,7 @@ class TestWriteExportFile:
 
             write_export_file(str(file_path), columns, rows, "\t")
 
-            with file_path.open(encoding="utf-8") as f:
+            with file_path.open(encoding="utf-8-sig") as f:
                 reader = csv.reader(f, delimiter="\t")
                 lines = list(reader)
                 assert len(lines) == 1  # Only header

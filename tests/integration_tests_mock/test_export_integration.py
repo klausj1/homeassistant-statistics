@@ -41,7 +41,7 @@ class TestExportIntegration:
         Handles whitespace differences and format variations.
         """
         file_obj = Path(file_path)
-        with file_obj.open(encoding="utf-8") as f:
+        with file_obj.open(encoding="utf-8-sig") as f:
             content = f.read()
 
         if file_path.endswith(".json"):
@@ -63,7 +63,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             # Create mock statistics data in raw format (from recorder API)
             mock_statistics = {
@@ -136,7 +136,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -180,11 +180,11 @@ class TestExportIntegration:
             assert sensors_file.exists(), "Sensors split file should be created"
             assert counters_file.exists(), "Counters split file should be created"
 
-            sensors_content = sensors_file.read_text(encoding="utf-8")
+            sensors_content = sensors_file.read_text(encoding="utf-8-sig")
             assert "mean" in sensors_content
             assert "sum" not in sensors_content
 
-            counters_content = counters_file.read_text(encoding="utf-8")
+            counters_content = counters_file.read_text(encoding="utf-8-sig")
             assert "sum" in counters_content
             assert "mean" not in counters_content
 
@@ -199,7 +199,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -243,11 +243,11 @@ class TestExportIntegration:
             assert sensors_file.exists(), "Sensors split JSON file should be created"
             assert counters_file.exists(), "Counters split JSON file should be created"
 
-            sensors_json = json.loads(sensors_file.read_text(encoding="utf-8"))
+            sensors_json = json.loads(sensors_file.read_text(encoding="utf-8-sig"))
             assert len(sensors_json) == 1
             assert sensors_json[0]["id"] == "sensor.temperature"
 
-            counters_json = json.loads(counters_file.read_text(encoding="utf-8"))
+            counters_json = json.loads(counters_file.read_text(encoding="utf-8-sig"))
             assert len(counters_json) == 1
             assert counters_json[0]["id"] == "counter.energy_consumed"
 
@@ -262,7 +262,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -306,7 +306,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             # Create mock counter statistics data
             mock_statistics = {
@@ -380,7 +380,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             # Create mock mixed statistics data
             mock_statistics = {
@@ -456,7 +456,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -518,7 +518,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "counter.energy": [
@@ -587,7 +587,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -674,7 +674,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -727,7 +727,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -779,7 +779,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             # UTC data
             mock_statistics = {
@@ -832,7 +832,7 @@ class TestExportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = hass.services.async_register.call_args_list[-2][0][2]  # export_statistics is second-to-last
 
             mock_statistics = {
                 "sensor.temperature": [

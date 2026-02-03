@@ -30,6 +30,24 @@
             },
             "name": "Import statistics from file"
         },
+        "export_inventory": {
+            "name": "Export Statistics Inventory",
+            "description": "Exports metadata-only inventory of all long-term statistics (no time-series data). Useful for migration planning and comparing statistics between Home Assistant instances.",
+            "fields": {
+                "filename": {
+                    "name": "filename",
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'statistics_inventory.tsv')"
+                },
+                "delimiter": {
+                    "name": "delimiter",
+                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe"
+                },
+                "timezone_identifier": {
+                    "name": "timezone_identifier",
+                    "description": "Timezone identifier for formatting timestamps. If not specified, uses Home Assistant's configured timezone"
+                }
+            }
+        },
         "export_statistics": {
             "name": "Export Statistics to file",
             "description": "Exports long term statistic values (1h) to a tsv/csv or a json file",
