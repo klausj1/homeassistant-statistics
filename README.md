@@ -11,7 +11,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 
 ## Quick Links
 
-- [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
+- [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
@@ -38,11 +38,12 @@ This is the user guide. If you are a developer, check the [Developer Documentati
 
 ## Available Actions
 
-| Action                                | Description                             |
-| ------------------------------------- | --------------------------------------- |
-| `import_statistics.import_from_file`  | Import statistics from a CSV/TSV file   |
-| `import_statistics.import_from_json`  | Import statistics from JSON (UI or API) |
-| `import_statistics.export_statistics` | Export statistics to CSV/TSV or JSON    |
+| Action                                | Description                                    |
+| ------------------------------------- | ---------------------------------------------- |
+| `import_statistics.import_from_file`  | Import statistics from a CSV/TSV file          |
+| `import_statistics.import_from_json`  | Import statistics from JSON (UI or API)        |
+| `import_statistics.export_statistics` | Export statistics to CSV/TSV or JSON           |
+| `import_statistics.export_inventory`  | Export metadata inventory of all statistics    |
 
 > As this integration uses database-independent methods, it works with all databases supported by Home Assistant.
 
@@ -129,7 +130,7 @@ data:
 Your file must contain one type of statistics:
 
 - **Sensors (state_class == measurement)** (temperature, humidity, etc.): columns `min`, `max`, `mean`
-- **Counters (state_class == increasing or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
+- **Counters (state_class == total or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
 
 > **Before importing counters, make sure to read** [Understanding counter statistics in Home Assistant](./docs/user/counters.md)
 > For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Delta Import](./docs/user/counters.md#delta-import)
@@ -355,9 +356,86 @@ The exported file contains:
 
 ---
 
+## Exporting Statistics Inventory
+
+Export a metadata-only inventory of all long-term statistics. This is useful for:
+
+- **Migration planning**: Compare statistics between old and new Home Assistant instances
+- **Database analysis**: Understand what statistics exist and their sizes
+- **Cleanup**: Identify deleted or orphaned statistics
+
+### How to Export Inventory
+
+1. Go to **Developer Tools → Actions**
+2. Select `import_statistics: export_inventory`
+3. Fill in the settings (from the UI or YAML)
+4. Click `perform action` to start the export.
+
+### Settings Description
+
+- **`filename` (required)**
+  - Output file name (relative to Home Assistant config directory).
+  - Use `.tsv` or `.csv` extension.
+- **`delimiter` (required, default: `\t`)**
+  - Delimiter between columns.
+  - Use `\t` for tab-separated output, `,` for CSV.
+- **`timezone_identifier` (optional)**
+  - Defaults to Home Assistant's configured timezone if omitted.
+  - Used for formatting `first_seen` and `last_seen` timestamps.
+
+### Example YAML
+
+```yaml
+action: import_statistics.export_inventory
+data:
+  filename: statistics_inventory.tsv
+  delimiter: "\t"
+  # timezone_identifier: Europe/Paris  # Optional - defaults to HA timezone
+```
+
+### Inventory Output
+
+The exported file contains a **summary block** at the top (lines starting with `#`) followed by a table with one row per statistic:
+
+#### Summary Block
+
+```text
+# Total statistic_ids: 47
+# Measurements: 28
+# Counters: 19
+# Total samples: 12542
+# Global start: 2025-06-29 07:00
+# Global end: 2026-02-03 10:00
+# Internal statistic_ids: 38
+# Deleted statistic_ids: 0
+# External statistic_ids: 9
+```
+
+#### Table Columns
+
+| Column | Description |
+| ------ | ----------- |
+| `statistic_id` | The statistic ID (e.g., `sensor.temperature`) |
+| `unit_of_measurement` | Unit (e.g., `°C`, `kWh`) |
+| `source` | Source of the statistic (e.g., `recorder`) |
+| `category` | Classification: `Internal`, `Deleted`, or `External` |
+| `type` | `Measurement` (has mean/min/max) or `Counter` (has sum) |
+| `samples_count` | Number of long-term (hourly) samples |
+| `first_seen` | Timestamp of earliest sample |
+| `last_seen` | Timestamp of most recent sample |
+| `days_span` | Number of days covered by samples |
+
+#### Category Classification
+
+- **Internal**: Active entity present in Home Assistant
+- **Deleted**: Entity was removed but statistics remain in database
+- **External**: External statistic (uses `:` separator, e.g., `energy:my_stat`)
+
+---
+
 ## Best Practices
 
-### Importing counters (state_class `total_increasing / increasing`)
+### Importing counters (state_class `total / total_increasing`)
 
 - Import `delta`, not `sum` and `state`
 - Export first
