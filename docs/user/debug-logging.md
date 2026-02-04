@@ -52,7 +52,7 @@ Example debug log output for an export (contains INFO logs as well, not complete
 2026-01-24 18:31:37.408 INFO (MainThread) [custom_components.import_statistics.helpers] Found 25 statistics in database
 2026-01-24 18:31:37.446 DEBUG (MainThread) [custom_components.import_statistics.helpers] Global statistics time range determined: start=2025-06-29 05:00:00+00:00 end=2025-12-30 10:00:00+00:00
 2026-01-24 18:31:37.463 INFO (SyncWorker_1) [custom_components.import_statistics.helpers] Preparing export data
-2026-01-24 18:31:37.464 INFO (SyncWorker_1) [custom_components.import_statistics.helpers] Export contains both sensor (mean/min/max) and counter (sum/state) statistics. Sensor columns will be empty for counters and vice versa.
+2026-01-24 18:31:37.464 INFO (SyncWorker_1) [custom_components.import_statistics.helpers] Export contains both measurement (mean/min/max) and counter (sum/state) statistics. Measurement columns will be empty for counters and vice versa.
 2026-01-24 18:31:37.465 DEBUG (SyncWorker_1) [custom_components.import_statistics.helpers] Export data prepared with columns: ['statistic_id', 'unit', 'start', 'min', 'max', 'mean', 'sum', 'state', 'delta']
 ```
 

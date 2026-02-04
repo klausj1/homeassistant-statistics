@@ -129,7 +129,7 @@ data:
 
 Your file must contain one type of statistics:
 
-- **Sensors (state_class == measurement)** (temperature, humidity, etc.): columns `min`, `max`, `mean`
+- **Measurements (state_class == measurement or measurement_angle)** (temperature, humidity, direction,etc.): columns `min`, `max`, `mean`
 - **Counters (state_class == total or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
 
 > **Before importing counters, make sure to read** [Understanding counter statistics in Home Assistant](./docs/user/counters.md)
@@ -137,7 +137,7 @@ Your file must contain one type of statistics:
 
 Example files:
 
-- [Sensors (min/max/mean)](./assets/min_max_mean.tsv)
+- [Measurements (min/max/mean)](./assets/min_max_mean.tsv)
 - [Counters (sum/state)](./assets/state_sum.tsv)
 - [Counters (delta)](./assets/delta.tsv)
 
@@ -145,20 +145,20 @@ Example files:
 
 Only these columns are accepted (unknown columns cause an error):
 
-| Column               | Required     | Description                          |
-| -------------------- | ------------ | ------------------------------------ |
-| `statistic_id`       | Yes          | The sensor identifier                |
-| `start`              | Yes          | Timestamp                            |
-| `unit`               | Sometimes    | Required for external statistics     |
-| `min`, `max`, `mean` | For sensors  | Cannot mix with counter columns      |
-| `sum`, `state`       | For counters | Cannot mix with sensor columns       |
-| `delta`              | For counters | Alternative to sum/state (see below) |
+| Column               | Required          | Description                          |
+| -------------------- | ----------------- | ------------------------------------ |
+| `statistic_id`       | Yes               | The entity identifier                |
+| `start`              | Yes               | Timestamp                            |
+| `unit`               | Sometimes         | Required for external statistics     |
+| `min`, `max`, `mean` | For measurements  | Cannot mix with counter columns      |
+| `sum`, `state`       | For counters      | Cannot mix with measurement columns  |
+| `delta`              | For counters      | Alternative to sum/state (see below) |
 
 #### Statistic ID Format
 
 | Type         | Format                   | Example                  | When to use                                |
 | ------------ | ------------------------ | ------------------------ | ------------------------------------------ |
-| **Internal** | `sensor.name` (with `.`) | `sensor.temperature`     | For existing Home Assistant entities       |
+| **Internal** | `domain.name` (with `.`) | `sensor.temperature`     | For existing Home Assistant entities       |
 | **External** | `domain:name` (with `:`) | `sensor:imported_energy` | For external (custom/synthetic) statistics |
 
 > Internal statistics must match an existing entity.
@@ -188,7 +188,7 @@ The integration performs strict validation on all import data:
 - **Common validation errors**:
   - Invalid timestamp format or non-full-hour timestamps
   - Invalid numeric values (non-numeric strings, NaN, empty values)
-  - Constraint violations (e.g., min > max for sensor data)
+  - Constraint violations (e.g., min > max for measurement data)
   - Missing required columns
 
 This strict validation ensures data integrity and helps you identify and fix data quality issues immediately.
@@ -259,10 +259,10 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
 - **`split_by` (optional, default: `none`)**
   - Split output into multiple files by statistic type:
     - `none`: default; write a single combined file
-    - `sensor`: write only sensor statistics (mean/min/max)
+    - `measurement`: write only measurements statistics (mean/min/max)
     - `counter`: write only counter statistics (sum/state/delta)
     - `both`: write both files
-  - Output files use suffixes `_sensors` and `_counters` before the extension.
+  - Output files use suffixes `_measurements` and `_counters` before the extension.
 
 > **Note:** If you omit `start_time`/`end_time`, the action will auto-detect the time range from the recorder.
 > This requires long-term (hourly) statistics to exist. On new Home Assistant instances you may only have short-term statistics at first;
@@ -317,7 +317,7 @@ data:
   decimal: "."
 ```
 
-##### Export all statistics into separate files (sensors + counters)
+##### Export all statistics into separate files (measurements + counters)
 
 ```yaml
 action: import_statistics.export_statistics
@@ -328,7 +328,7 @@ data:
   decimal: "."
 ```
 
-##### Export only sensors
+##### Export only measurements
 
 ```yaml
 action: import_statistics.export_statistics
@@ -339,7 +339,7 @@ data:
     - sensor.energy_consumption
   start_time: "2025-12-22 00:00:00"
   end_time: "2025-12-23 00:00:00"
-  split_by: sensor
+  split_by: measurements
   delimiter: \t
   decimal: "."
 ```
@@ -348,11 +348,11 @@ data:
 
 The exported file contains:
 
-| For Sensors          | For Counters            |
+| For Measurements     | For Counters            |
 | -------------------- | ----------------------- |
 | `min`, `max`, `mean` | `sum`, `state`, `delta` |
 
-> **Note:** You can export sensors and counters together, but you'll need to split them into separate files before re-importing (import only accepts one type per file).
+> **Note:** You can export measurements and counters together, but you'll need to split them into separate files before re-importing (import only accepts one type per file).
 
 ---
 
@@ -449,7 +449,7 @@ See [Delta Import](./docs/user/counters.md#delta-import)
 - Always make a backup before importing
   - Consider using the export functionality for backup as well
 - Test with a small dataset first (10-20 rows)
-- Create a test sensor for initial imports
+- Create a test entity for initial imports
 - Verify data in History graph before checking Energy Dashboard
 - Enable debug logging to see detailed error messages (see [Debug Logging Guide](./docs/user/debug-logging.md))
 - Existing values can be overwritten - use this to correct mistakes
