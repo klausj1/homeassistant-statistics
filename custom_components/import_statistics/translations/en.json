@@ -70,7 +70,7 @@
                 },
                 "split_by": {
                     "name": "split_by",
-                    "description": "Split output into multiple files by statistic type: 'none' (default, combined file), 'sensor' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _sensors and _counters before the extension."
+                    "description": "Split output into multiple files by statistic type: 'none' (default, combined file), 'measurement' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _measurements and _counters before the extension."
                 },
                 "timezone_identifier": {
                     "name": "timezone_identifier",

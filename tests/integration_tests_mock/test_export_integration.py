@@ -175,14 +175,14 @@ class TestExportIntegration:
                 mock_get_stats.return_value = (mock_statistics, mock_units)
                 await service_handler(call)
 
-            sensors_file = Path(tmpdir) / "export_split_sensors.tsv"
+            measurements_file = Path(tmpdir) / "export_split_measurements.tsv"
             counters_file = Path(tmpdir) / "export_split_counters.tsv"
-            assert sensors_file.exists(), "Sensors split file should be created"
+            assert measurements_file.exists(), "Measurements split file should be created"
             assert counters_file.exists(), "Counters split file should be created"
 
-            sensors_content = sensors_file.read_text(encoding="utf-8-sig")
-            assert "mean" in sensors_content
-            assert "sum" not in sensors_content
+            measurements_content = measurements_file.read_text(encoding="utf-8-sig")
+            assert "mean" in measurements_content
+            assert "sum" not in measurements_content
 
             counters_content = counters_file.read_text(encoding="utf-8-sig")
             assert "sum" in counters_content
@@ -238,14 +238,14 @@ class TestExportIntegration:
                 mock_get_stats.return_value = (mock_statistics, mock_units)
                 await service_handler(call)
 
-            sensors_file = Path(tmpdir) / "export_split_sensors.json"
+            measurements_file = Path(tmpdir) / "export_split_measurements.json"
             counters_file = Path(tmpdir) / "export_split_counters.json"
-            assert sensors_file.exists(), "Sensors split JSON file should be created"
+            assert measurements_file.exists(), "Measurements split JSON file should be created"
             assert counters_file.exists(), "Counters split JSON file should be created"
 
-            sensors_json = json.loads(sensors_file.read_text(encoding="utf-8-sig"))
-            assert len(sensors_json) == 1
-            assert sensors_json[0]["id"] == "sensor.temperature"
+            measurements_json = json.loads(measurements_file.read_text(encoding="utf-8-sig"))
+            assert len(measurements_json) == 1
+            assert measurements_json[0]["id"] == "sensor.temperature"
 
             counters_json = json.loads(counters_file.read_text(encoding="utf-8-sig"))
             assert len(counters_json) == 1

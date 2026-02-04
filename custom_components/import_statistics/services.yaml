@@ -103,7 +103,7 @@ export_statistics:
               custom_value: true
               options:
                 - "none"
-                - "sensor"
+                - "measurement"
                 - "counter"
                 - "both"
     define_export_format:

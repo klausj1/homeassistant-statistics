@@ -805,7 +805,7 @@ class TestIntegrationAll:
 
         # ==================== Variation 3: Split statistics (split_by="both") ====================
         _LOGGER.info("Variation 3: Split statistics into sensors and counters")
-        export_file_split_sensors = test_delta_dir / "export_variation3_split_sensors.tsv"
+        export_file_split_sensors = test_delta_dir / "export_variation3_split_measurements.tsv"
         export_file_split_counters = test_delta_dir / "export_variation3_split_counters.tsv"
         success = await self._call_service(
             "export_statistics",
@@ -890,7 +890,7 @@ class TestIntegrationAll:
 
         # ==================== Variation 5: Split + all entities (interaction test) ====================
         _LOGGER.info("Variation 5: Split statistics + all entities (interaction test)")
-        export_file_split_all_sensors = test_delta_dir / "export_variation5_split_all_sensors.tsv"
+        export_file_split_all_sensors = test_delta_dir / "export_variation5_split_all_measurements.tsv"
         export_file_split_all_counters = test_delta_dir / "export_variation5_split_all_counters.tsv"
         success = await self._call_service(
             "export_statistics",

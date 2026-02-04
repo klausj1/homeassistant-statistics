@@ -257,7 +257,11 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
     split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)
 
-    valid_split_values = {"none", "sensor", "counter", "both"}
+    # Backwards compatible rename: 'sensor' -> 'measurement'
+    if split_by == "sensor":
+        split_by = "measurement"
+
+    valid_split_values = {"none", "measurement", "counter", "both"}
     if split_by not in valid_split_values:
         helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
 
@@ -315,7 +319,7 @@ async def _export_split_statistics(  # noqa: PLR0913
     """Export statistics split by type."""
     sensor_stats, counter_stats, sensor_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
 
-    write_sensors = split_by in {"sensor", "both"}
+    write_sensors = split_by in {"measurement", "both"}
     write_counters = split_by in {"counter", "both"}
 
     if write_sensors:
@@ -324,7 +328,7 @@ async def _export_split_statistics(  # noqa: PLR0913
             filename,
             sensor_stats,
             sensor_units,
-            "_sensors",
+            "_measurements",
             timezone_identifier,
             datetime_format,
             decimal_separator=decimal_separator,

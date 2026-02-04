@@ -163,7 +163,9 @@ def prepare_export_data(
 
     # Validate if sensors and counters are mixed
     if has_sensors and has_counters:
-        _LOGGER.info("Export contains both sensor (mean/min/max) and counter (sum/state) statistics. Sensor columns will be empty for counters and vice versa.")
+        _LOGGER.info(
+            "Export contains both measurement (mean/min/max) and counter (sum/state) statistics. Measurement columns will be empty for counters and vice versa."
+        )
 
     # Build column list: always include statistic_id, unit, start
     # Then conditionally add sensor or counter columns, and delta if present
