@@ -288,7 +288,7 @@ async def _export_split_file(  # noqa: PLR0913
     delimiter: str,
     decimal_separator: str,
 ) -> None:
-    """Export a single split file (sensor or counter)."""
+    """Export a single split file (measurement or counter)."""
     if not stats_dict:
         return
 
@@ -317,17 +317,17 @@ async def _export_split_statistics(  # noqa: PLR0913
     delimiter: str,
 ) -> None:
     """Export statistics split by type."""
-    sensor_stats, counter_stats, sensor_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
+    measurement_stats, counter_stats, measurement_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
 
-    write_sensors = split_by in {"measurement", "both"}
+    write_measurements = split_by in {"measurement", "both"}
     write_counters = split_by in {"counter", "both"}
 
-    if write_sensors:
+    if write_measurements:
         await _export_split_file(
             hass,
             filename,
-            sensor_stats,
-            sensor_units,
+            measurement_stats,
+            measurement_units,
             "_measurements",
             timezone_identifier,
             datetime_format,
