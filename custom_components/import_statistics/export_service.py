@@ -3,6 +3,7 @@
 import datetime as dt
 import fnmatch
 import zoneinfo
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pytz
@@ -376,13 +377,27 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Validate and extract parameters
     filename, entities_input, start_time_str, end_time_str, split_by = _validate_service_parameters(call)
 
+    file_suffix = Path(filename).suffix.lower()
+    if file_suffix not in {".csv", ".tsv", ".json"}:
+        helpers.handle_error(f"Unsupported filename extension for {Path(filename).name!r}. Supported extensions: .csv, .tsv, .json")
+
     # Extract other parameters (with defaults)
     # Use HA timezone as default instead of hardcoded "Europe/Vienna"
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, hass.config.time_zone)
     if timezone_identifier not in pytz.all_timezones:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
-    delimiter = helpers.validate_delimiter(call.data.get(ATTR_DELIMITER, "\t"))
+    delimiter_raw = call.data.get(ATTR_DELIMITER)
+    if delimiter_raw is None:
+        if file_suffix == ".csv":
+            delimiter_raw = ","
+        elif file_suffix == ".tsv":
+            delimiter_raw = "\t"
+        else:
+            # .json export does not use a delimiter
+            delimiter_raw = "\t"
+
+    delimiter = helpers.validate_delimiter(delimiter_raw)
 
     # Get decimal separator from service call (default is "dot ('.')")
     decimal_input = call.data.get(ATTR_DECIMAL, "dot ('.')")

@@ -25,10 +25,12 @@ def _create_mock_hass(config_dir: str) -> MagicMock:
     return hass
 
 
-def _create_service_call(filename: str, delimiter: str = "\t", timezone: str | None = None) -> ServiceCall:
+def _create_service_call(filename: str, delimiter: str | None = "\t", timezone: str | None = None) -> ServiceCall:
     """Create a mock service call."""
     call = MagicMock(spec=ServiceCall)
-    data = {"filename": filename, "delimiter": delimiter}
+    data = {"filename": filename}
+    if delimiter is not None:
+        data["delimiter"] = delimiter
     if timezone:
         data["timezone_identifier"] = timezone
     call.data = MagicMock()
@@ -53,6 +55,46 @@ def _create_inventory_data(
 
 class TestExportInventoryService:
     """Tests for handle_export_inventory_impl."""
+
+    @pytest.mark.asyncio
+    async def test_export_inventory_infers_delimiter_when_omitted(self) -> None:
+        """Test inventory export infers delimiter from filename when omitted."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = _create_mock_hass(tmpdir)
+            call = _create_service_call("inventory.csv", delimiter=None)
+
+            metadata_rows = [
+                StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
+            ]
+            active_entity_ids = {"sensor.temperature"}
+            aggregates = {1: StatisticAggregates(1, 100, 1704067200.0, 1704153600.0)}
+            id_mapping = {"sensor.temperature": 1}
+            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, aggregates, id_mapping)
+
+            mock_recorder = MagicMock()
+            mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
+
+            with (
+                patch("custom_components.import_statistics.export_inventory_service.get_instance", return_value=mock_recorder),
+                patch("custom_components.import_statistics.export_inventory_service.fetch_inventory_data", return_value=inventory_data),
+            ):
+                await handle_export_inventory_impl(hass, call)
+
+            output_file = Path(tmpdir) / "inventory.csv"
+            assert output_file.exists()
+            content = output_file.read_text(encoding="utf-8-sig")
+            header_line = next(line for line in content.split("\n") if line.startswith("statistic_id"))
+            assert "," in header_line
+
+    @pytest.mark.asyncio
+    async def test_export_inventory_rejects_unsupported_extension(self) -> None:
+        """Test inventory export rejects unsupported extensions like .txt."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = _create_mock_hass(tmpdir)
+            call = _create_service_call("inventory.txt")
+
+            with pytest.raises(HomeAssistantError, match="Unsupported filename extension"):
+                await handle_export_inventory_impl(hass, call)
 
     @pytest.mark.asyncio
     async def test_export_inventory_happy_path(self) -> None:

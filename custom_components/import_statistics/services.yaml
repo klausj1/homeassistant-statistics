@@ -12,9 +12,8 @@ import_from_file:
       collapsed: false
       fields:
         delimiter:
-          required: true
+          required: false
           example: \t
-          default: \t
           selector:
             select:
               custom_value: true
@@ -110,8 +109,7 @@ export_statistics:
       collapsed: true
       fields:
         delimiter:
-          required: true
-          default: "\t"
+          required: false
           example: "\t"
           selector:
             select:
@@ -164,8 +162,7 @@ export_inventory:
         text:
 
     delimiter:
-      required: true
-      default: \t
+      required: false
       example: \t
       selector:
         select:

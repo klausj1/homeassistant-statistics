@@ -8,11 +8,11 @@
                     "name": "decimal"
                 },
                 "delimiter": {
-                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe",
+                    "description": "The delimiter between fields. If omitted, it is inferred from the filename extension: .csv uses comma (,), .tsv uses tab (\\t). Options: tab, semicolon, comma, or pipe",
                     "name": "delimiter"
                 },
                 "filename": {
-                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv' or 'myData.json')",
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'import.tsv' or 'import.csv'). Supported extensions: .csv, .tsv",
                     "name": "filename"
                 },
                 "timezone_identifier": {
@@ -36,11 +36,11 @@
             "fields": {
                 "filename": {
                     "name": "filename",
-                    "description": "Filename relative to config directory on the home assistant server (e.g., 'statistics_inventory.tsv')"
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'statistics_inventory.tsv' or 'statistics_inventory.csv'). Supported extensions: .csv, .tsv"
                 },
                 "delimiter": {
                     "name": "delimiter",
-                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe"
+                    "description": "The delimiter between fields. If omitted, it is inferred from the filename extension: .csv uses comma (,), .tsv uses tab (\\t). Options: tab, semicolon, comma, or pipe"
                 },
                 "timezone_identifier": {
                     "name": "timezone_identifier",
@@ -54,7 +54,7 @@
             "fields": {
                 "filename": {
                     "name": "filename",
-                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv' or 'myData.json')"
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv', 'exported.csv', or 'exported.json'). Supported extensions: .csv, .tsv, .json"
                 },
                 "entities": {
                     "name": "entities",
@@ -78,7 +78,7 @@
                 },
                 "delimiter": {
                     "name": "delimiter",
-                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe"
+                    "description": "The delimiter between fields. If omitted, it is inferred from the filename extension: .csv uses comma (,), .tsv uses tab (\\t). Options: tab, semicolon, comma, or pipe"
                 },
                 "decimal": {
                     "name": "decimal",

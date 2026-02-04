@@ -66,11 +66,13 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
 - **`filename` (required)**
   - Input file name (relative to Home Assistant config directory).
   - Supported:
-    - `.csv`, `.tsv`, or any text file for CSV/TSV import
+    - `.csv` or `.tsv` for CSV/TSV import
     - `.json` for JSON import (use `import_from_json` action)
-- **`delimiter` (required, default: `\t`)**
+- **`delimiter` (optional)**
   - Delimiter between columns for CSV/TSV import.
-  - Use `\t` for tab-separated input.
+  - If omitted, it is inferred from the filename extension:
+    - `.csv` uses comma (`,`) by default
+    - `.tsv` uses tab (`\t`) by default
   - Options: `\t` (tab), `;` (semicolon), `,` (comma), `|` (pipe), or custom value.
 - **`decimal` (required, default: `"."`)**
   - Decimal separator character: `"."` for dot or `","` for comma.
@@ -227,7 +229,7 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
   - Output file name (relative to Home Assistant config directory).
   - Supported:
     - `.json` for JSON export
-    - anything else for TSV/CSV export (controlled by `delimiter`)
+    - `.csv` or `.tsv` for TSV/CSV export
 - **`entities` (optional)**
   - List of statistic IDs or entity IDs to export. Make sure to use a YAML list with `-`
   - Leave empty to export all available statistics.
@@ -251,9 +253,11 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
   - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>).
 - **`datetime_format` (optional, default: `%d.%m.%Y %H:%M`)**
   - Output format of the `datetime` strings in the exported file.
-- **`delimiter` (required, default: `\t`)**
+- **`delimiter` (optional)**
   - Delimiter between columns for TSV/CSV export.
-  - Use `\t` for tab-separated output.
+  - If omitted, it is inferred from the filename extension:
+    - `.csv` uses comma (`,`) by default
+    - `.tsv` uses tab (`\t`) by default
 - **`decimal` (required, default: `"."`)**
   - Decimal separator character: `"."` for dot or `","` for comma.
 - **`split_by` (optional, default: `none`)**
@@ -376,9 +380,11 @@ Export a metadata-only inventory of all long-term statistics. This is useful for
 - **`filename` (required)**
   - Output file name (relative to Home Assistant config directory).
   - Use `.tsv` or `.csv` extension.
-- **`delimiter` (required, default: `\t`)**
+- **`delimiter` (optional)**
   - Delimiter between columns.
-  - Use `\t` for tab-separated output, `,` for CSV.
+  - If omitted, it is inferred from the filename extension:
+    - `.csv` uses comma (`,`) by default
+    - `.tsv` uses tab (`\t`) by default
 - **`timezone_identifier` (optional)**
   - Defaults to Home Assistant's configured timezone if omitted.
   - Used for formatting `first_seen` and `last_seen` timestamps.

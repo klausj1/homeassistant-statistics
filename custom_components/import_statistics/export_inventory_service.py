@@ -1,6 +1,7 @@
 """Export inventory service for exporting statistics metadata."""
 
 import logging
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -30,7 +31,16 @@ async def handle_export_inventory_impl(hass: HomeAssistant, call: ServiceCall) -
 
     """
     filename = call.data.get("filename")
-    delimiter = call.data.get("delimiter", "\t")
+    if not filename or not isinstance(filename, str):
+        handle_error("filename is required and must be a string")
+
+    file_suffix = Path(filename).suffix.lower()
+    if file_suffix not in {".csv", ".tsv"}:
+        handle_error(f"Unsupported filename extension for {Path(filename).name!r}. Supported extensions: .csv, .tsv")
+
+    delimiter = call.data.get("delimiter")
+    if delimiter is None:
+        delimiter = "," if file_suffix == ".csv" else "\t"
     timezone_identifier = call.data.get("timezone_identifier")
 
     _LOGGER.info(

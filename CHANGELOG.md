@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [x.x.x] - Wild card based export, export all, developer docu, service parameter improvements
+
+### Breaking Changes
+
+- No breaking change on paramters because
+
+
+### Changes
+
+#### New export inventory service
+
+- Implement new service `import_statistics.export_inventory` that exports metadata-only inventory of all long-term statistics to CSV/TSV file. For more information refer to the section: **Exporting Statistics Inventory** in the README file
+
+#### UI Improvements
+
+- Statistics messages now uses new terminology of measurements instead of sensor
+
+- **Enhanced service UI**: The import and export service forms now have improved organization with collapsible sections and better field grouping for easier configuration
+- **Decimal delimiter clarity**: The decimal parameter now shows explicit labels like "dot ('.')" and "comma (',')" instead of confusing boolean values, making it clearer which format to use
+
+#### Parameter change/improvements
+
+- **Delimiter parameter is now optional**:
+  - No longer need to specify delimiter for most users
+  - Defaults to comma ',' for .csv files and to tab '\t' for .tsv file
+  - Still accepts explicit delimiter if user want specific delimiter
+  - **Applies to**: Both `import_from_file` and `export_statistics` services
+- **split_by parameter** in export_satistics takes different values:
+  - `none`: default; write a single combined file
+  - `measurement`: write only measurements statistics (mean/min/max)
+  - `counter`: write only counter statistics (sum/state/delta)
+  - `both`: write both files
+
+
+
+#### File Name Validation
+
+- Supported Input file name is
+  - `.csv` or `.tsv` for CSV/TSV import
+  - `.json` for JSON import (use `import_from_json` action)
+- Supported Ouput file name is
+  - `.json` for JSON export
+  - `.csv` or `.tsv` for TSV/CSV export
+- Any other extension (e.g. .txt) will abort the service with an error message
+
+#### Documentation improvements
+
+- **Improved counter documentation**: Enhanced [`docs/user/counters.md`](docs/user/counters.md) with clearer explanations
+- **Developer workflow documentation**: Added comprehensive guides for contributors:
+  - [`docs/dev/vscode_debugging.md`](docs/dev/vscode_debugging.md) - VSCode debugging setup and configuration
+  - [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md) - VSCode tasks for common development workflows
+  - [`docs/dev/pr_process.md`](docs/dev/pr_process.md) - Pull request process and guidelines
+- **Enhanced README.md**: Significantly improved user documentation with:
+  - Better table formatting for all sections
+  - Comprehensive export options documentation with detailed parameter descriptions
+  - Multiple YAML examples for common export scenarios (selected entities, all statistics, split files, max statistics limit)
+  - Clearer structure and improved readability throughout
+
+### Bug Fixes
+
+- UTF-8 Characters not handled correctly on Windows. Now output uses UTF-8-sig writing BOM in header
+- Fixed messages in UI not displaying correctly pattern matching
+
+
+---
+
 ## [4.0.0] - Wild card based export, export all, developer docu, service parameter improvements
 
 ### Breaking Changes
