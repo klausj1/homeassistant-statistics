@@ -74,7 +74,11 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
         HomeAssistantError: If there is a validation error.
 
     """
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone)
+    file_suffix = Path(file_path).suffix.lower()
+    if file_suffix not in {".csv", ".tsv"}:
+        helpers.handle_error(f"Unsupported filename extension for {Path(file_path).name!r}. Supported extensions: .csv, .tsv")
+
+    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename=Path(file_path).name)
 
     _LOGGER.info("Importing statistics from file: %s", file_path)
     if not Path(file_path).exists():
@@ -108,7 +112,7 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
         HomeAssistantError: If there is a validation error.
 
     """
-    _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone)
+    _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename=None)
 
     valid_columns = ["state", "sum", "min", "max", "mean"]
     columns = ["statistic_id", "unit", "start"]
@@ -140,7 +144,7 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
     return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
 
 
-def handle_arguments(call: ServiceCall, ha_timezone: str) -> tuple:
+def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | None = None) -> tuple:
     """
     Handle the arguments for importing statistics from a file.
 
@@ -148,6 +152,7 @@ def handle_arguments(call: ServiceCall, ha_timezone: str) -> tuple:
     ----
         call (ServiceCall): The service call object containing additional data.
         ha_timezone: Home Assistant's configured timezone identifier.
+        filename: Filename used to infer delimiter when ATTR_DELIMITER is omitted.
 
     Returns:
     -------
@@ -183,8 +188,20 @@ def handle_arguments(call: ServiceCall, ha_timezone: str) -> tuple:
     if timezone_identifier not in pytz.all_timezones:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
-    delimiter = call.data.get(ATTR_DELIMITER, "\t")
-    delimiter = helpers.validate_delimiter(delimiter)
+    delimiter_raw = call.data.get(ATTR_DELIMITER)
+    if delimiter_raw is None:
+        if filename is None:
+            delimiter_raw = "\t"
+        else:
+            suffix = Path(filename).suffix.lower()
+            if suffix == ".csv":
+                delimiter_raw = ","
+            elif suffix == ".tsv":
+                delimiter_raw = "\t"
+            else:
+                helpers.handle_error(f"Unsupported filename extension for {filename!r}. Supported extensions: .csv, .tsv")
+
+    delimiter = helpers.validate_delimiter(delimiter_raw)
 
     _LOGGER.debug("Timezone_identifier: %s", timezone_identifier)
     _LOGGER.debug("Delimiter: %s", delimiter)

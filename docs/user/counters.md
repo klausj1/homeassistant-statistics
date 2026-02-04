@@ -2,53 +2,66 @@
 
 ## Understanding Counter Statistics (sum/state)
 
-Counters are entities with a state_class `increasing` or `total_increasing`.
+There are two types of statistics:
+- measurement type with a state_class `measurement` or `measurement_angle`
+- counter type with a state_class `total` or `total_increasing`
 
-Counter statistics (like energy meters) are more complex than sensor statistics. Here's what you need to know:
+Counter statistics (like energy meters) are more complex than measurement statistics. Here's what you need to know:
 
 ### What are `sum` and `state`?
 
 | Column | Description | Example |
 |--------|-------------|---------|
 | **state** | The actual meter reading | `6913.045 kWh` (your meter shows this) |
-| **sum** | Cumulative value since sensor creation | Can be identical to `state` if the sensor started at 0 when connected to HA |
+| **sum** | Cumulative value since counter creation | Can be identical to `state` if the counter started at 0 when connected to HA |
 | **delta** | Change of `sum` in previous hour | `0.751 kWh` consumed this hour |
 
 > `last_reset` is not explained. As long as the `sum` attribute increases monotonically, the integration should handle this fine.
 
 ### How Home Assistant Records Counter Statistics
 
-The table below demonstrates how Home Assistant processes sensor state changes and converts them into (long term) statistics entries. Each row represents a point in time where either a state change occurs or an hourly statistics record is created.
+Home Assistant provides support to process statistics through the following simplified workflow:
 
-**Column Definitions:**
+1. **Entity state changes** are recorded in the `states` table (sampled every 5 seconds by default)
+2. **Every 5 minutes**, the statistics compilation process writes to `statistics_short_term`
+3. **Every 60 minutes**, short-term statistics are aggregated into `statistics`
 
-- **currentTime**: The actual clock time when the observation is made
-- **stateTime**: The timestamp when the entity's state was last updated (only populated when state changes occur)
-- **state**: The current sensor value at that moment (only populated when state changes occur)
-- **statisticsTime**: The timestamp assigned to the statistics record (typically the start of the hour)
-- **statisticsState**: The state value stored in the statistics table for this hour
-- **statisticsSum**: The cumulative sum value stored in the statistics table (used for calculating deltas). The sum value starts at 0 when the sensor is created, and increases by the same amount as the state.
-- **statisticsDelta**: The change of the value from the previous hour's statistics sum
+> Note that the states are not stored in the state table if their value has not changed or is invalid (`unavailable` and `unknown`)
 
-> The statisticsDelta is not stored in the HA database, but it can be used for importing.
+The statistics and statistics_short_term tables store the following information :
 
-This demonstrates that:
+| Field           | Description                                                     | Example                             |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------- |
+| `id`            | Primary key for this statistic record                           | Auto-increment                      |
+| `created_ts`    | When the statistics were calculated and written to the database | 2024-01-11 12:05:00                 |
+| `metadata_id`   | Foreign key to statistics_meta                                  | References statistics_meta.id       |
+| `start_ts`      | Unix timestamp of period start                                  | 2024-01-11 12:00:00 (start of hour) |
+| `mean`          | Average value during the period                                 | 234.5 (average voltage)             |
+| `mean_weight`   | Weight factor for circular averaging (angular measurements)     | 0.95 (high consistency)             |
+| `min`           | Minimum value during the period                                 | 230.0 (lowest voltage)              |
+| `max`           | Maximum value during the period                                 | 238.0 (highest voltage)             |
+| `last_reset_ts` | When the counter last reset (for sum)                           | Timestamp of reset, or NULL         |
+| `state`         | Last known state at end of period                               | 235.0 (final voltage reading)       |
+| `sum`           | Cumulative sum (for counters like energy)                       | 1523.4 (total kWh)                  |
 
-1. State changes are recorded when they occur
-2. At each hour boundary, a statistics entry is created using the most recent state value, with the timestamp one hour earlier
-3. The delta is computed from the difference between consecutive statistics entries
-4. The statistics timestamp represents the start of the period, not the time the record was created
+Here is an example of an energy counter:
 
-| currentTime | stateTime | state | statisticsTime | statisticsState | statisticsSum | statisticsDelta | comment
-|---|---|---|---|---|---|---|---|
-|06:59:50|06:59:50|100|||||state changes
-|07:00:00|||06:00:00|100|50||At 7 am, the current value 100 is used as the end value of the interval starting at 6 am, with the timestamp in the statistics 6 am. As this was the first value, no delta is available. Sum is 50 less then state.
-|07:59:51|07:59:51|130|||||state changes
-|08:00:00|||07:00:00|130|130|30|At 8 am, the current value 130 is used as the end value of the interval starting at 7 am, with the timestamp in the statistics 7 am. Delta is calculated from the statisticsSum: 130 - 100 = 30 (The difference of the state values is the same). The delta with the statistics timestamp 7 am is the difference of the statistic values at 7 am and 6 am (which are the values at 8 am and 7 am), so this delta is the state change between 8 am and 7 am, and gets the timestamp 7 am.
+| statistic_id | period_start | created_at | state | sum | period_delta |
+| ------------ | ------------ | ---------- | ----- | --- | ------------ |
+| sensor.linky_east | 1/27/2026 13:00 | 1/27/2026 14:00 | 72201200 | 295880 | |
+| sensor.linky_east | 1/27/2026 14:00 | 1/27/2026 15:00 | 72202864 | 297544 | 1664 |
+| sensor.linky_east | 1/27/2026 15:00 | 1/27/2026 16:00 | 72204536 | 299216 | 1672 |
+| sensor.linky_east | 1/27/2026 16:00 | 1/27/2026 17:00 | 72206240 | 300920 | 1704 |
 
-The energy board uses the sum, so the sum is the more important value. Also the delta-attribute in the statistics graph card uses the sum to calculate the delta.
+We can see that:
+- The sum increases by the same amount as the state. The difference between state and sum is the initial value of the counter. In this example, the initial value is 71905320 (72201200-295880).
+- The period_delta is the difference between the sum of the current period and the sum of the previous period. This value is actually
+not stored in the database for saving space, but is it used by the statistics graph card (easy to compute) , and it can be used
+for importing
 
-What's confusing (at least for me) is that in the statistics graph card, the sum in the graph always starts at 0, whereas the state shows the value from the statistics database.
+The **statistics graph card** can display the state (not very useful), the sum, or the delta. The sum displayed (usually using a line chart) is not the sum from the database, but a cumulative sum that starts at 0 at the beginning of the displayed period (so it is easier to see the consumption on the displayed period). the delta is useful to show the consumption during the specified period (usually using a Bar chart).
+
+![counter_change](../../assets/counter_change.png) ![counter_sum](../../assets/counter_sum.png)
 
 > In case only a few existing entries should be corrected, its probably easier to use the [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab) to correct them. The `adjustment value` entered there is the delta of the selected hour, not the sum. What happens in the database is that starting from the selected time, the difference between the `adjustment value` and the value shown in the dialog before is added to all existing sum values. The effect of this is that the delta of the selected time changes, and all other deltas stay the same.
 

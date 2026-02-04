@@ -3,6 +3,7 @@
 import datetime as dt
 import fnmatch
 import zoneinfo
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pytz
@@ -257,7 +258,11 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
     split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)
 
-    valid_split_values = {"none", "sensor", "counter", "both"}
+    # Backwards compatible rename: 'sensor' -> 'measurement'
+    if split_by == "sensor":
+        split_by = "measurement"
+
+    valid_split_values = {"none", "measurement", "counter", "both"}
     if split_by not in valid_split_values:
         helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
 
@@ -284,7 +289,7 @@ async def _export_split_file(  # noqa: PLR0913
     delimiter: str,
     decimal_separator: str,
 ) -> None:
-    """Export a single split file (sensor or counter)."""
+    """Export a single split file (measurement or counter)."""
     if not stats_dict:
         return
 
@@ -313,18 +318,18 @@ async def _export_split_statistics(  # noqa: PLR0913
     delimiter: str,
 ) -> None:
     """Export statistics split by type."""
-    sensor_stats, counter_stats, sensor_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
+    measurement_stats, counter_stats, measurement_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
 
-    write_sensors = split_by in {"sensor", "both"}
+    write_measurements = split_by in {"measurement", "both"}
     write_counters = split_by in {"counter", "both"}
 
-    if write_sensors:
+    if write_measurements:
         await _export_split_file(
             hass,
             filename,
-            sensor_stats,
-            sensor_units,
-            "_sensors",
+            measurement_stats,
+            measurement_units,
+            "_measurements",
             timezone_identifier,
             datetime_format,
             decimal_separator=decimal_separator,
@@ -372,13 +377,27 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     # Validate and extract parameters
     filename, entities_input, start_time_str, end_time_str, split_by = _validate_service_parameters(call)
 
+    file_suffix = Path(filename).suffix.lower()
+    if file_suffix not in {".csv", ".tsv", ".json"}:
+        helpers.handle_error(f"Unsupported filename extension for {Path(filename).name!r}. Supported extensions: .csv, .tsv, .json")
+
     # Extract other parameters (with defaults)
     # Use HA timezone as default instead of hardcoded "Europe/Vienna"
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, hass.config.time_zone)
     if timezone_identifier not in pytz.all_timezones:
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier}")
 
-    delimiter = helpers.validate_delimiter(call.data.get(ATTR_DELIMITER, "\t"))
+    delimiter_raw = call.data.get(ATTR_DELIMITER)
+    if delimiter_raw is None:
+        if file_suffix == ".csv":
+            delimiter_raw = ","
+        elif file_suffix == ".tsv":
+            delimiter_raw = "\t"
+        else:
+            # .json export does not use a delimiter
+            delimiter_raw = "\t"
+
+    delimiter = helpers.validate_delimiter(delimiter_raw)
 
     # Get decimal separator from service call (default is "dot ('.')")
     decimal_input = call.data.get(ATTR_DECIMAL, "dot ('.')")

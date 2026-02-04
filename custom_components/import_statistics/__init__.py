@@ -6,6 +6,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from custom_components.import_statistics.const import DOMAIN
+from custom_components.import_statistics.export_inventory_service import handle_export_inventory_impl
 from custom_components.import_statistics.export_service import handle_export_statistics_impl
 from custom_components.import_statistics.import_service import handle_import_from_file_impl, handle_import_from_json_impl
 
@@ -68,6 +69,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylin
         "export_statistics",
         handle_export_statistics,
         description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
+    )
+
+    async def handle_export_inventory(call: ServiceCall) -> None:
+        """Handle the export inventory service call."""
+        await handle_export_inventory_impl(hass, call)
+
+    hass.services.async_register(
+        DOMAIN,
+        "export_inventory",
+        handle_export_inventory,
     )
 
     # Return boolean to indicate that initialization was successful.

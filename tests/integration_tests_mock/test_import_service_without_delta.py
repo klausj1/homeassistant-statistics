@@ -28,6 +28,116 @@ class TestStandardImportIntegration:
     """Integration tests for standard (non-delta) column import functionality."""
 
     @pytest.mark.asyncio
+    async def test_import_infers_csv_delimiter_when_omitted(self) -> None:
+        """Test importing a comma-separated .csv file without specifying delimiter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+            hass.states.set = MagicMock()
+            hass.states.get = MagicMock(return_value=MagicMock())
+
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
+
+            test_file = Path(tmpdir) / "csv_comma.csv"
+            test_file.write_text(
+                "statistic_id,start,unit,sum,state\ncounter.energy,01.01.2022 00:00,kWh,100.5,100.5\ncounter.energy,01.01.2022 01:00,kWh,105.7,105.7\n"
+            )
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "csv_comma.csv",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DECIMAL: "dot ('.')",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
+                await import_handler(call)
+                assert mock_import.called
+
+    @pytest.mark.asyncio
+    async def test_import_infers_tsv_delimiter_when_omitted(self) -> None:
+        """Test importing a tab-separated .tsv file without specifying delimiter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+            hass.states.set = MagicMock()
+            hass.states.get = MagicMock(return_value=MagicMock())
+
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
+
+            test_file = Path(tmpdir) / "tab_data.tsv"
+            test_file.write_text(
+                "statistic_id\tstart\tunit\tsum\tstate\n"
+                "counter.energy\t01.01.2022 00:00\tkWh\t100.5\t100.5\n"
+                "counter.energy\t01.01.2022 01:00\tkWh\t105.7\t105.7\n"
+            )
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "tab_data.tsv",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DECIMAL: "dot ('.')",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
+                await import_handler(call)
+                assert mock_import.called
+
+    @pytest.mark.asyncio
+    async def test_import_rejects_unsupported_extension(self) -> None:
+        """Test importing rejects unsupported extensions like .txt."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+            hass.states.set = MagicMock()
+            hass.states.get = MagicMock(return_value=MagicMock())
+
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
+
+            test_file = Path(tmpdir) / "data.txt"
+            test_file.write_text("statistic_id\tstart\tunit\tsum\tstate\n")
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "data.txt",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DECIMAL: "dot ('.')",
+                },
+            )
+
+            with pytest.raises(HomeAssistantError, match="Unsupported filename extension"):
+                await import_handler(call)
+
+    @pytest.mark.asyncio
     async def test_import_sum_single_statistic(self) -> None:
         """Test importing sum data for a single statistic (counter)."""
         with tempfile.TemporaryDirectory() as tmpdir:
