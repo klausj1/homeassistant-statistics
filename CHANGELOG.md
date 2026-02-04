@@ -2,25 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [x.x.x] - Wild card based export, export all, developer docu, service parameter improvements
-
-### Breaking Changes
-
-- No breaking change on paramters because
-
+## [x.x.x] - New export_inventory service, automatic separator selection, clearer terminology
 
 ### Changes
 
 #### New export inventory service
 
-- Implement new service `import_statistics.export_inventory` that exports metadata-only inventory of all long-term statistics to CSV/TSV file. For more information refer to the section: **Exporting Statistics Inventory** in the README file
-
-#### UI Improvements
-
-- Statistics messages now uses new terminology of measurements instead of sensor
-
-- **Enhanced service UI**: The import and export service forms now have improved organization with collapsible sections and better field grouping for easier configuration
-- **Decimal delimiter clarity**: The decimal parameter now shows explicit labels like "dot ('.')" and "comma (',')" instead of confusing boolean values, making it clearer which format to use
+- Implement new service `import_statistics.export_inventory` that exports metadata-only inventory of all long-term statistics to CSV/TSV file. For more information refer to the section: [Exporting Statistics Inventory](./README.md#exporting-statistics-inventory) in the README.md file
 
 #### Parameter change/improvements
 
@@ -28,43 +16,41 @@ All notable changes to this project will be documented in this file.
   - No longer need to specify delimiter for most users
   - Defaults to comma ',' for .csv files and to tab '\t' for .tsv file
   - Still accepts explicit delimiter if user want specific delimiter
-  - **Applies to**: Both `import_from_file` and `export_statistics` services
-- **split_by parameter** in export_satistics takes different values:
-  - `none`: default; write a single combined file
-  - `measurement`: write only measurements statistics (mean/min/max)
-  - `counter`: write only counter statistics (sum/state/delta)
-  - `both`: write both files
+  - **Applies to**:  `import_from_file`, `export_statistics`,  and `export_inventory` services
 
+- **split_by parameter** in `export_statistics` takes new values: the `sensor` value has been replaced by `measurement` but for upward compatibility the `sensor` value is still accepted.
 
+- parameter messages: updated to new terminology (see documentation)
 
 #### File Name Validation
 
 - Supported Input file name is
   - `.csv` or `.tsv` for CSV/TSV import
   - `.json` for JSON import (use `import_from_json` action)
-- Supported Ouput file name is
-  - `.json` for JSON export
-  - `.csv` or `.tsv` for TSV/CSV export
+- Supported Output file name is
+  - `.json` for JSON export (only for `export_statistics` service)
+  - `.csv` or `.tsv` for TSV/CSV export (apply to both `export_statistics` as well as `export_inventory`)
 - Any other extension (e.g. .txt) will abort the service with an error message
 
 #### Documentation improvements
 
+- Change in terminology:
+  - statistics with `state_class` equal to `measurement` or `measurement_angle` are called **type measurements** instead of **type sensor** as this term was confusing. This change affects several documents.
+  - Statistics with `state_class` equal to `total` or `total_increasing` are called **type counter**
+
 - **Improved counter documentation**: Enhanced [`docs/user/counters.md`](docs/user/counters.md) with clearer explanations
-- **Developer workflow documentation**: Added comprehensive guides for contributors:
-  - [`docs/dev/vscode_debugging.md`](docs/dev/vscode_debugging.md) - VSCode debugging setup and configuration
-  - [`docs/dev/vscode_tasks.md`](docs/dev/vscode_tasks.md) - VSCode tasks for common development workflows
-  - [`docs/dev/pr_process.md`](docs/dev/pr_process.md) - Pull request process and guidelines
-- **Enhanced README.md**: Significantly improved user documentation with:
-  - Better table formatting for all sections
-  - Comprehensive export options documentation with detailed parameter descriptions
-  - Multiple YAML examples for common export scenarios (selected entities, all statistics, split files, max statistics limit)
-  - Clearer structure and improved readability throughout
+- **Enhanced README.md**:
+  - Comprehensive export inventory options documentation with detailed parameter descriptions
+  - Terminology modification (sensor -> measurement)
+  - Fixed several incorrect terminology used
+  - File extension validation explained for the different services
 
 ### Bug Fixes
 
 - UTF-8 Characters not handled correctly on Windows. Now output uses UTF-8-sig writing BOM in header
-- Fixed messages in UI not displaying correctly pattern matching
-
+- Fixed messages in UI not displaying correctly the pattern matching syntax
+- Replace all hardcoded `call_args_list[-2][0][2]` lookups with new `get_service_handler()` helper function that finds service handlers by name. This makes tests more maintainable and robust to changes in service registration order.
+- Fix pytest failing when HA is running before test starts.
 
 ---
 
@@ -164,6 +150,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 #### Timestamp Sorting and Processing
+
 - **Fixed timestamp sorting in CSV/TSV exports**: Export now sorts by numeric timestamps instead of formatted strings
   - Before the values in the delta column have been wrong because of the wrong sorting
 - **Fixed timestamp range detection for imports**:
@@ -177,6 +164,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 #### Delta Import Support
+
 - **Delta column import**: Import counter statistics using delta (change) values instead of absolute sum/state values
   - Automatically detects when a `delta` column is present in the import file
   - Converts delta values to absolute sum/state values using existing database values as reference points
@@ -186,16 +174,19 @@ All notable changes to this project will be documented in this file.
     3. Import in the middle of existing range (overwrites with new deltas)
 
 #### Validation
+
 - Timestamp validation to prevent future values
 
 ### Changed
 
 #### Import Behavior
+
 - **Import is now synchronous**: The import action waits until all data is committed to the database before returning
   - Provides immediate feedback on import completion
   - Eliminates race conditions when chaining imports
 
 #### Export Enhancement
+
 - Export now includes calculated `delta` column for counter statistics
 - Delta column shows the change between consecutive hours
 - Exported files can be directly used for delta imports (after removing sum/state columns)
@@ -205,4 +196,3 @@ All notable changes to this project will be documented in this file.
 This is a backward-compatible change. Existing imports using sum/state columns continue to work as before. The new delta import functionality is automatically activated when a `delta` column is detected in the import file.
 
 No action required for existing users. New delta import feature is opt-in by using the delta column.
-

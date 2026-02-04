@@ -14,8 +14,8 @@ logger:
     custom_components.import_statistics: debug
 ```
 
-3. Save the file
-4. Restart Home Assistant or reload the logger configuration:
+1. Save the file
+2. Restart Home Assistant or reload the logger configuration:
    - Go to **Developer Tools → YAML**
    - Click **Reload** next to "Logger"
 
@@ -42,7 +42,7 @@ After enabling debug logging and reproducing the issue, you need to collect the 
 
 Example debug log output for an export (contains INFO logs as well, not complete):
 
-```
+```text
 2026-01-24 18:31:37.399 INFO (MainThread) [custom_components.import_statistics.helpers] Service handle_export_statistics called
 2026-01-24 18:31:37.399 INFO (MainThread) [custom_components.import_statistics.helpers] Exporting entities: ALL
 2026-01-24 18:31:37.399 INFO (MainThread) [custom_components.import_statistics.helpers] Time range: AUTO to AUTO
@@ -87,7 +87,7 @@ logger:
     custom_components.import_statistics: info  # or remove this line entirely
 ```
 
-3. Restart Home Assistant or reload the logger configuration
+1. Restart Home Assistant or reload the logger configuration
 
 ## Additional Resources
 
