@@ -59,7 +59,7 @@ We can see that:
 not stored in the database for saving space, but is it used by the statistics graph card (easy to compute) , and it can be used
 for importing
 
-The **statistics graph card** can display the state (not very useful), the sum, or the delta. The sum displayed (usually using a line chart) is not the sum from the database, but a cumulative sum that starts at 0 at the beginning of the displayed period (so it is easier to see the consumption on the displayed period). the delta is useful to show the consumption during the specified period (usually using a Bar chart).
+The **statistics graph card** can display the state (not very useful), the sum, or the delta. The sum displayed (usually using a line chart) is not the sum from the database, but a cumulative sum that starts at 0 at the beginning of the displayed period (so it is easier to see the consumption on the displayed period). The delta is useful to show the consumption during the specified period (usually using a Bar chart).
 
 ![counter_change](../../assets/counter_change.png) ![counter_sum](../../assets/counter_sum.png)
 

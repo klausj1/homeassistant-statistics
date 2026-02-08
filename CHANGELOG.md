@@ -45,13 +45,6 @@ All notable changes to this project will be documented in this file.
   - Fixed several incorrect terminology used
   - File extension validation explained for the different services
 
-### Bug Fixes
-
-- UTF-8 Characters not handled correctly on Windows. Now output uses UTF-8-sig writing BOM in header
-- Fixed messages in UI not displaying correctly the pattern matching syntax
-- Replace all hardcoded `call_args_list[-2][0][2]` lookups with new `get_service_handler()` helper function that finds service handlers by name. This makes tests more maintainable and robust to changes in service registration order.
-- Fix pytest failing when HA is running before test starts.
-
 ---
 
 ## [4.0.0] - Wild card based export, export all, developer docu, service parameter improvements
