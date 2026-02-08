@@ -7,11 +7,11 @@ A Home Assistant custom integration to import and export long-term statistics fr
 [![License][license-shield]](LICENSE)
 [![Community Forum][forum-shield]][forum]
 
-> **Note:** This integration provides actions only (no entities or dashboard cards). You call its actions from Developer Tools or automations.
+> **Note:** This integration provides actions only (no entities or dashboard cards). You call its actions from Developer Tools, automations, or the web-based file upload panel.
 
 ## Quick Links
 
-- [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
+- [Installation](#installation) | [File Upload Panel](./docs/user/file-upload-panel.md) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
@@ -54,11 +54,25 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
 
 ### How to Import
 
+#### Option 1: File Upload Panel (Recommended)
+
+Use the web-based file upload panel for a user-friendly experience:
+
+1. Navigate to: `http://YOUR_HOME_ASSISTANT_IP:8123/api/import_statistics/panel/index.html`
+2. Select and upload your CSV/TSV/JSON file
+3. Click "Import Statistics" to import the data
+
+**See the [File Upload Panel Guide](./docs/user/file-upload-panel.md) for detailed instructions.**
+
+#### Option 2: Developer Tools (Manual)
+
+For advanced users or when you need custom import parameters:
+
 1. Copy your file to your Home Assistant config folder
 2. Go to **Developer Tools → Actions**
 3. Select `import_statistics: import_from_file` (or `import_from_json`)
 4. Fill in the settings (from the UI or YAML)
-5. Click `perform action` to start the import.
+5. Click `perform action` to start the import
 
 ### Settings Description
 

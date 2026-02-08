@@ -27,4 +27,9 @@ export interface ImportResponse {
  */
 export interface HomeAssistant {
     callService(domain: string, service: string, data?: Record<string, unknown>): Promise<void>;
+    auth?: {
+        data?: {
+            access_token?: string;
+        };
+    };
 }

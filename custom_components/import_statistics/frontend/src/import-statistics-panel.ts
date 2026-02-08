@@ -237,9 +237,17 @@ export class ImportStatisticsPanel extends LitElement {
             const formData = new FormData();
             formData.append('file', this.selectedFile);
 
+            // Get auth token from hass object if available
+            const headers: HeadersInit = {};
+            if (this.hass?.auth?.data?.access_token) {
+                headers['Authorization'] = `Bearer ${this.hass.auth.data.access_token}`;
+            }
+
             const response = await fetch('/api/import_statistics/upload', {
                 method: 'POST',
                 body: formData,
+                headers,
+                credentials: 'include',
             });
 
             if (!response.ok) {

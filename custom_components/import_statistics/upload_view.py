@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 from aiohttp import web
+from homeassistant.components.http import require_admin
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.http import HomeAssistantView
 
@@ -25,6 +26,7 @@ class ImportStatisticsUploadView(HomeAssistantView):
         """Initialize the upload view."""
         super().__init__()
 
+    @require_admin
     async def post(self, request: web.Request) -> web.Response:  # noqa: PLR0911
         """
         Handle file upload via HTTP POST.
@@ -43,13 +45,6 @@ class ImportStatisticsUploadView(HomeAssistantView):
 
         """
         hass = request.app["hass"]
-
-        # Check if user is admin
-        if not request["hass_user"].is_admin:
-            return web.json_response(
-                {"success": False, "error": "Admin access required"},
-                status=403,
-            )
 
         try:
             # Read multipart form data

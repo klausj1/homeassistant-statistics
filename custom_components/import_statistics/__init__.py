@@ -10,6 +10,7 @@ from homeassistant.helpers.typing import ConfigType
 from custom_components.import_statistics.const import DOMAIN
 from custom_components.import_statistics.export_service import handle_export_statistics_impl
 from custom_components.import_statistics.import_service import handle_import_from_file_impl, handle_import_from_json_impl
+from custom_components.import_statistics.panel_view import ImportStatisticsAssetView, ImportStatisticsPanelView
 from custom_components.import_statistics.upload_view import ImportStatisticsUploadView
 
 # Use empty_config_schema because the component does not have any config options
@@ -42,16 +43,12 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylint: disable=u
     # Register upload HTTP endpoint
     hass.http.register_view(ImportStatisticsUploadView())
 
-    # Register static files for frontend panel
+    # Register frontend panel views (authenticated)
     frontend_path = Path(__file__).parent / "frontend" / "dist"
     if frontend_path.exists():
-        # Register static path for serving the frontend bundle
-        # The frontend will be accessible at /api/import_statistics/panel/
-        hass.http.app.router.add_static(
-            "/api/import_statistics/panel",
-            str(frontend_path),
-            name="import_statistics_panel",
-        )
+        # Register authenticated views for panel HTML and assets
+        hass.http.register_view(ImportStatisticsPanelView(frontend_path))
+        hass.http.register_view(ImportStatisticsAssetView(frontend_path))
 
     async def handle_import_from_file(call: ServiceCall) -> None:
         """Handle the service call."""
