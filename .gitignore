@@ -27,3 +27,7 @@ mcp.json
 
 # environment variables
 .env
+
+# Frontend
+**/frontend/node_modules
+**/frontend/dist

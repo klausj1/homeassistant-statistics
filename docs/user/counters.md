@@ -3,6 +3,7 @@
 ## Understanding Counter Statistics (sum/state)
 
 There are two types of statistics:
+
 - measurement type with a state_class `measurement` or `measurement_angle`
 - counter type with a state_class `total` or `total_increasing`
 
@@ -46,30 +47,82 @@ The statistics and statistics_short_term tables store the following information 
 
 Here is an example of an energy counter:
 
-| statistic_id | period_start | created_at | state | sum | period_delta |
+| statistic_id | period_start | created_at | state | sum | delta |
 | ------------ | ------------ | ---------- | ----- | --- | ------------ |
-| sensor.linky_east | 1/27/2026 13:00 | 1/27/2026 14:00 | 72201200 | 295880 | |
-| sensor.linky_east | 1/27/2026 14:00 | 1/27/2026 15:00 | 72202864 | 297544 | 1664 |
-| sensor.linky_east | 1/27/2026 15:00 | 1/27/2026 16:00 | 72204536 | 299216 | 1672 |
-| sensor.linky_east | 1/27/2026 16:00 | 1/27/2026 17:00 | 72206240 | 300920 | 1704 |
+| sensor.consumed_kWh | 1/27/2026 13:00 | 1/27/2026 14:00 | 100 | 10 | |
+| sensor.consumed_kWh | 1/27/2026 14:00 | 1/27/2026 15:00 | 102 | 12 | 2 |
+| sensor.consumed_kWh | 1/27/2026 15:00 | 1/27/2026 16:00 | 105 | 15 | 3 |
+| sensor.consumed_kWh | 1/27/2026 16:00 | 1/27/2026 17:00 | 109 | 19 | 4 |
 
-We can see that:
-- The sum increases by the same amount as the state. The difference between state and sum is the initial value of the counter. In this example, the initial value is 71905320 (72201200-295880).
-- The period_delta is the difference between the sum of the current period and the sum of the previous period. This value is actually
-not stored in the database for saving space, but is it used by the statistics graph card (easy to compute) , and it can be used
-for importing
+The sum increases by the same amount as the state. The difference between state and sum is the initial value of the counter. In this example, the initial value is 90 (100-10).
 
-The **statistics graph card** can display the state (not very useful), the sum, or the delta. The sum displayed (usually using a line chart) is not the sum from the database, but a cumulative sum that starts at 0 at the beginning of the displayed period (so it is easier to see the consumption on the displayed period). The delta is useful to show the consumption during the specified period (usually using a Bar chart).
+### Understanding Timestamps and Delta
+
+Using the second row to explain:
+
+1. Before 15:00 (e.g. 14:59:59), the measured sensor value was 102, the sum value 12
+2. This is stored in the statistics table with the timestamp 14:00
+3. The delta at 14:00 represents consumption during the 14:00-15:00 period (the values of this period are stored with the timestamps 13:00 and 14:00 in the database)
+
+The **energy board** uses the `sum` column to calculate the graphs.
+
+The **statistics graph card** can display the state, the sum, or the delta. The sum displayed (usually using a line chart) is not the sum from the database, but a cumulative sum that starts at 0 at the beginning of the displayed period (so it is easier to see the consumption on the displayed period). The delta is useful to show the consumption during the specified period (usually using a Bar chart).
 
 ![counter_change](../../assets/counter_change.png) ![counter_sum](../../assets/counter_sum.png)
 
 > In case only a few existing entries should be corrected, its probably easier to use the [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab) to correct them. The `adjustment value` entered there is the delta of the selected hour, not the sum. What happens in the database is that starting from the selected time, the difference between the `adjustment value` and the value shown in the dialog before is added to all existing sum values. The effect of this is that the delta of the selected time changes, and all other deltas stay the same.
+
+<details>
+<summary><strong>More detailed explanation</strong></summary>
+
+**How Home Assistant records statistics:**
+
+1. State changes are recorded when they occur (e.g., at 14:59:50, state changes to 102)
+2. At each hour boundary (e.g., at 15:00:00), Home Assistant creates a statistics entry
+3. This entry uses the **most recent state value** (102) but timestamps it with the **start of the period** (14:00:00)
+4. The statistics timestamp represents the **start** of the period, not when the value was recorded
+
+**Timestamp meanings:**
+
+- **`period_start`**: Start of the measurement hour (14:00 = period from 14:00 to 15:00)
+  - The state/sum values shown are actually measured at 15:00 but timestamped as 14:00
+- **`created_at`**: When Home Assistant calculated and stored this statistic (at the hour boundary, e.g., 15:00)
+- **`state`**: The meter reading at the end of the period (measured at 15:00, timestamped as 14:00)
+- **`sum`**: The cumulative total at the end of the period (measured at 15:00, timestamped as 14:00)
+- **`delta`**: The consumption during the hour from period_start to period_start+1
+
+**How delta relates to timestamps:**
+
+- The delta with timestamp 14:00 represents consumption from 14:00 to 15:00
+- It's calculated as: sum(14:00) - sum(13:00) = 12 - 10 = 2
+- This is the difference between the state at 15:00 (timestamped 14:00) and the state at 14:00 (timestamped 13:00)
+- The first entry (13:00) has no delta because there's no previous value to subtract
+
+**Reading the example above:**
+
+- Entry with timestamp 13:00: state=100, sum=10 (first entry, no delta)
+  - This value was actually measured at 14:00 but timestamped as 13:00
+- Entry with timestamp 14:00: state=102, sum=12, delta=2
+  - This value was actually measured at 15:00 but timestamped as 14:00
+  - Delta = 12 - 10 = 2 (consumption from 14:00 to 15:00)
+- Entry with timestamp 15:00: state=105, sum=15, delta=3
+  - This value was actually measured at 16:00 but timestamped as 15:00
+  - Delta = 15 - 12 = 3 (consumption from 15:00 to 16:00)
+
+**Key observations:**
+
+- The sum increases by the same amount as the state (both increase by 2, then 3, then 4)
+- The difference between state and sum is constant (100-10=90 throughout)
+- This constant difference (90) represents the initial meter reading when the counter was connected to Home Assistant
+- The delta is not stored in the database (to save space), but is calculated on-demand by the statistics graph card and can be used for importing
 
 For more details regarding long term statistics, see
 
 - [Home Assistant blog](https://developers.home-assistant.io/blog/2021/08/16/state_class_total/)
 - [Home Assistant documentation](https://developers.home-assistant.io/docs/core/entity/sensor/#state_class_total_increasing)
 - [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab)
+
+</details>
 
 ---
 
@@ -113,6 +166,7 @@ You have data from before your sensor was added to Home Assistant.
 Use case: The sensor was not available in Home Assistant before, but there are other sources available
 
 **Database before import:**
+
 - 29.12.2025 08:00: sum=0, state=10
 - 29.12.2025 09:00: sum=1, state=11
 - 29.12.2025 10:00: sum=3, state=13
@@ -120,13 +174,14 @@ Use case: The sensor was not available in Home Assistant before, but there are o
 **Values to import:**
 
 ```tsv
-statistic_id	start	unit	delta
-sensor.imp_before	28.12.2025 09:00	kWh	10
-sensor.imp_before	28.12.2025 10:00	kWh	20
-sensor.imp_before	28.12.2025 11:00	kWh	30
+statistic_id start unit delta
+sensor.imp_before 28.12.2025 09:00 kWh 10
+sensor.imp_before 28.12.2025 10:00 kWh 20
+sensor.imp_before 28.12.2025 11:00 kWh 30
 ```
 
 **Result after import:**
+
 - 28.12.2025 08:00: sum=-60, state=-50 (no delta available, as this is the first value in the database)
 - 28.12.2025 09:00: sum=-50, state=-40 (delta: 10)
 - 28.12.2025 10:00: sum=-30, state=-20 (delta: 20; sum and state calculated from first database value)
@@ -145,6 +200,7 @@ Use case: Your sensor was offline and recorded wrong values.
 Use case: Correct values in the middle of the timerange available in the database, e.g. if a sensor was not active for some time
 
 **Database before import:**
+
 - 29.12.2025 08:00: sum=0, state=10
 - 29.12.2025 09:00: sum=1, state=11 (delta: 1)
 - 29.12.2025 10:00: sum=3, state=13 (delta: 2)
@@ -156,17 +212,19 @@ Use case: Correct values in the middle of the timerange available in the databas
 - 29.12.2025 16:00: sum=36, state=46 (delta: 8)
 
 **Values to import:**
+
 ```tsv
-statistic_id	start	unit	delta
-sensor:imp_inside	29.12.2025 09:00	kWh	2
-sensor:imp_inside	29.12.2025 10:00	kWh	2
-sensor:imp_inside	29.12.2025 11:00	kWh	2
-sensor:imp_inside	29.12.2025 12:00	kWh	5
-sensor:imp_inside	29.12.2025 13:00	kWh	5
-sensor:imp_inside	29.12.2025 14:00	kWh	5
+statistic_id start unit delta
+sensor:imp_inside 29.12.2025 09:00 kWh 2
+sensor:imp_inside 29.12.2025 10:00 kWh 2
+sensor:imp_inside 29.12.2025 11:00 kWh 2
+sensor:imp_inside 29.12.2025 12:00 kWh 5
+sensor:imp_inside 29.12.2025 13:00 kWh 5
+sensor:imp_inside 29.12.2025 14:00 kWh 5
 ```
 
 **Result after import:**
+
 - 29.12.2025 08:00: sum=0, state=10 (unchanged, reference point)
 - 29.12.2025 09:00: sum=2, state=12 (delta: 2, corrected)
 - 29.12.2025 10:00: sum=4, state=14 (delta: 2, corrected)
@@ -189,6 +247,7 @@ sensor:imp_inside	29.12.2025 14:00	kWh	5
 Use case: Your sensor was offline and recorded wrong values. There is a problem in the import file which creates a spike.
 
 **Database before import:**
+
 - 29.12.2025 08:00: sum=0, state=10
 - 29.12.2025 09:00: sum=1, state=11 (delta: 1)
 - 29.12.2025 10:00: sum=3, state=13 (delta: 2)
@@ -200,17 +259,19 @@ Use case: Your sensor was offline and recorded wrong values. There is a problem 
 - 29.12.2025 16:00: sum=36, state=46 (delta: 8)
 
 **Values to import:**
+
 ```tsv
-statistic_id	start	unit	delta
-sensor:imp_inside_spike	29.12.2025 09:00	kWh	12
-sensor:imp_inside_spike	29.12.2025 10:00	kWh	12
-sensor:imp_inside_spike	29.12.2025 11:00	kWh	12
-sensor:imp_inside_spike	29.12.2025 12:00	kWh	15
-sensor:imp_inside_spike	29.12.2025 13:00	kWh	15
-sensor:imp_inside_spike	29.12.2025 14:00	kWh	15
+statistic_id start unit delta
+sensor:imp_inside_spike 29.12.2025 09:00 kWh 12
+sensor:imp_inside_spike 29.12.2025 10:00 kWh 12
+sensor:imp_inside_spike 29.12.2025 11:00 kWh 12
+sensor:imp_inside_spike 29.12.2025 12:00 kWh 15
+sensor:imp_inside_spike 29.12.2025 13:00 kWh 15
+sensor:imp_inside_spike 29.12.2025 14:00 kWh 15
 ```
 
 **Result after import:**
+
 - 29.12.2025 08:00: sum=0, state=10 (unchanged, reference point)
 - 29.12.2025 09:00: sum=12, state=22 (delta: 12, corrected - much higher than original 1)
 - 29.12.2025 10:00: sum=24, state=34 (delta: 12, corrected)
@@ -232,19 +293,22 @@ sensor:imp_inside_spike	29.12.2025 14:00	kWh	15
 Use case: Manually add consumption data for hours not yet in the database.
 
 **Database before import:**
+
 - 29.12.2025 08:00: sum=0, state=10
 - 29.12.2025 09:00: sum=1, state=11
 - 29.12.2025 10:00: sum=3, state=13
 
 **Values to import:**
+
 ```tsv
-statistic_id	start	unit	delta
-sensor.imp_after	30.12.2025 09:00	kWh	10
-sensor.imp_after	30.12.2025 10:00	kWh	20
-sensor.imp_after	30.12.2025 11:00	kWh	30
+statistic_id start unit delta
+sensor.imp_after 30.12.2025 09:00 kWh 10
+sensor.imp_after 30.12.2025 10:00 kWh 20
+sensor.imp_after 30.12.2025 11:00 kWh 30
 ```
 
 **Result after import:**
+
 - 29.12.2025 08:00: sum=0, state=10 (unchanged)
 - 29.12.2025 09:00: sum=1, state=11 (unchanged)
 - 29.12.2025 10:00: sum=3, state=13 (unchanged, reference point)
