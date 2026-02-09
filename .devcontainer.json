@@ -22,7 +22,8 @@
                 "github.copilot",
                 "rooveterinaryinc.roo-cline",
                 "mhutchie.git-graph",
-                "anthropic.claude-code"
+                "anthropic.claude-code",
+                "davidanson.vscode-markdownlint"
             ],
             "settings": {
                 "files.eol": "\n",

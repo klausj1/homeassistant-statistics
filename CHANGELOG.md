@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [x.x.x] - New export_inventory service, automatic separator selection, clearer terminology
+## [4.1.0] - New export_inventory service, automatic separator selection, clearer terminology
 
 ### Changes
 
