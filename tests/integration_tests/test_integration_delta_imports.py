@@ -220,10 +220,10 @@ class TestIntegrationAll:
     @staticmethod
     def _compare_tsv_files_strict(actual_path: Path, expected_path: Path, tolerance: float = 0.01) -> bool:
         """Compare two TSV files for equality with numeric tolerance (strict mode - raises on mismatch)."""
-        with actual_path.open(encoding="utf-8") as f:
+        with actual_path.open(encoding="utf-8-sig") as f:
             actual_rows = [line.split("\t") for line in f.read().strip().split("\n")]
 
-        with expected_path.open(encoding="utf-8") as f:
+        with expected_path.open(encoding="utf-8-sig") as f:
             expected_rows = [line.split("\t") for line in f.read().strip().split("\n")]
 
         assert len(actual_rows) == len(expected_rows), f"Row count mismatch: {len(actual_rows)} vs {len(expected_rows)}"
@@ -405,7 +405,7 @@ class TestIntegrationAll:
         # STEP 1: Import sensor_mean_min_max
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_sensor/sensor_mean_min_max.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "dot ('.')"},
+            {"filename": "test_sensor/sensor_mean_min_max.tsv", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "dot ('.')"},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -434,7 +434,7 @@ class TestIntegrationAll:
         # STEP 2: Import changes
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_sensor/sensor_mean_min_max_changes.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "dot ('.')"},
+            {"filename": "test_sensor/sensor_mean_min_max_changes.tsv", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "dot ('.')"},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -472,7 +472,7 @@ class TestIntegrationAll:
         # STEP 1: Import counter_sum_state
         success = await self._call_service(
             "import_from_file",
-            {"filename": "test_counter_no_delta/counter_sum_state.txt", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "dot ('.')"},
+            {"filename": "test_counter_no_delta/counter_sum_state.tsv", "timezone_identifier": "Europe/Vienna", "delimiter": "\t", "decimal": "dot ('.')"},
             ha_url=self.ha_url,
             token=self.ha_token,
         )
@@ -502,7 +502,7 @@ class TestIntegrationAll:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_counter_no_delta/counter_sum_state_changes.txt",
+                "filename": "test_counter_no_delta/counter_sum_state_changes.tsv",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": "dot ('.')",
@@ -563,7 +563,7 @@ class TestIntegrationAll:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_delta/sum_state.txt",
+                "filename": "test_delta/sum_state.tsv",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": "dot ('.')",
@@ -613,7 +613,7 @@ class TestIntegrationAll:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_delta/sum_delta_unchanged.txt",
+                "filename": "test_delta/sum_delta_unchanged.tsv",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": "dot ('.')",
@@ -663,7 +663,7 @@ class TestIntegrationAll:
         success = await self._call_service(
             "import_from_file",
             {
-                "filename": "test_delta/sum_delta_changed.txt",
+                "filename": "test_delta/sum_delta_changed.tsv",
                 "timezone_identifier": "Europe/Vienna",
                 "delimiter": "\t",
                 "decimal": "dot ('.')",
@@ -805,7 +805,7 @@ class TestIntegrationAll:
 
         # ==================== Variation 3: Split statistics (split_by="both") ====================
         _LOGGER.info("Variation 3: Split statistics into sensors and counters")
-        export_file_split_sensors = test_delta_dir / "export_variation3_split_sensors.tsv"
+        export_file_split_sensors = test_delta_dir / "export_variation3_split_measurements.tsv"
         export_file_split_counters = test_delta_dir / "export_variation3_split_counters.tsv"
         success = await self._call_service(
             "export_statistics",
@@ -890,7 +890,7 @@ class TestIntegrationAll:
 
         # ==================== Variation 5: Split + all entities (interaction test) ====================
         _LOGGER.info("Variation 5: Split statistics + all entities (interaction test)")
-        export_file_split_all_sensors = test_delta_dir / "export_variation5_split_all_sensors.tsv"
+        export_file_split_all_sensors = test_delta_dir / "export_variation5_split_all_measurements.tsv"
         export_file_split_all_counters = test_delta_dir / "export_variation5_split_all_counters.tsv"
         success = await self._call_service(
             "export_statistics",

@@ -199,3 +199,77 @@ def test_prepare_data_to_import_unit_from_entity_with_unit_column() -> None:
         match=re.escape("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file."),
     ):
         prepare_data_to_import(file_path, call, ha_timezone)
+
+
+def test_prepare_data_to_import_rejects_unsupported_extension() -> None:
+    """Test prepare_data_to_import rejects unsupported extensions like .txt."""
+    file_path = "tests/testfiles/correctcolumnsdot.csv"
+
+    data = {
+        ATTR_DECIMAL: ",",
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+        ATTR_UNIT_FROM_ENTITY: False,
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+    ha_timezone = "UTC"
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Unsupported filename extension"),
+    ):
+        prepare_data_to_import(file_path.replace(".csv", ".txt"), call, ha_timezone)
+
+
+def test_prepare_data_to_import_infers_delimiter_from_csv_extension() -> None:
+    """Test that delimiter is inferred as comma when omitted for a .csv file."""
+    my_df = pd.DataFrame(
+        [
+            ["sensor.temperature", "26.01.2024 00:00", "°C", 20.1, 25.5, 22.8],
+        ],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean"],
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.csv")
+        my_df.to_csv(file_path, sep=",", index=False, decimal=".")
+
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_UNIT_FROM_ENTITY: False,
+        }
+
+        call = ServiceCall("domain_name", "service_name", data, data)
+        ha_timezone = "UTC"
+
+        df, _timezone_id, _datetime_format, _unit_from_entity, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+        assert "statistic_id" in df.columns
+        assert len(df) == 1
+
+
+def test_prepare_data_to_import_infers_delimiter_from_tsv_extension() -> None:
+    """Test that delimiter is inferred as tab when omitted for a .tsv file."""
+    my_df = pd.DataFrame(
+        [
+            ["sensor.temperature", "26.01.2024 00:00", "°C", 20.1, 25.5, 22.8],
+        ],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean"],
+    )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        my_df.to_csv(file_path, sep="\t", index=False, decimal=".")
+
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_UNIT_FROM_ENTITY: False,
+        }
+
+        call = ServiceCall("domain_name", "service_name", data, data)
+        ha_timezone = "UTC"
+
+        df, _timezone_id, _datetime_format, _unit_from_entity, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+        assert "statistic_id" in df.columns
+        assert len(df) == 1

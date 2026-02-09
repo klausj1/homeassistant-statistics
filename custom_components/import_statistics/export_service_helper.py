@@ -29,7 +29,8 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
 
     try:
         file_obj = Path(file_path)
-        with file_obj.open("w", encoding="utf-8", newline="") as f:
+        # now using utf-8-sig to add BOM
+        with file_obj.open("w", encoding="utf-8-sig", newline="") as f:
             writer = csv.writer(f, delimiter=delimiter)
             writer.writerow(columns)
             writer.writerows(rows)
@@ -41,23 +42,23 @@ def write_export_file(file_path: str, columns: list, rows: list, delimiter: str)
 
 def split_statistics_by_type(statistics_dict: dict, *, units_dict: dict | None = None) -> tuple[dict, dict, dict, dict]:
     """
-    Split statistics dictionary into sensor and counter types.
+    Split statistics dictionary into measurement and counter types.
 
     Args:
         statistics_dict: Dictionary of statistics to split
         units_dict: Optional dictionary mapping statistic_id to unit_of_measurement
 
     Returns:
-        tuple: (sensor_statistics_dict, counter_statistics_dict, sensor_units_dict, counter_units_dict)
+        tuple: (measurement_statistics_dict, counter_statistics_dict, measurement_units_dict, counter_units_dict)
 
     """
-    sensor_statistics_dict: dict = {}
+    measurement_statistics_dict: dict = {}
     counter_statistics_dict: dict = {}
 
     if units_dict is None:
         units_dict = {}
 
-    sensor_units_dict: dict = {}
+    measurement_units_dict: dict = {}
     counter_units_dict: dict = {}
 
     for statistic_id, statistics_list in statistics_dict.items():
@@ -66,15 +67,15 @@ def split_statistics_by_type(statistics_dict: dict, *, units_dict: dict | None =
 
         stat_type = _detect_statistic_type(statistics_list)
         if stat_type == "sensor":
-            sensor_statistics_dict[statistic_id] = statistics_list
+            measurement_statistics_dict[statistic_id] = statistics_list
             if statistic_id in units_dict:
-                sensor_units_dict[statistic_id] = units_dict[statistic_id]
+                measurement_units_dict[statistic_id] = units_dict[statistic_id]
         elif stat_type == "counter":
             counter_statistics_dict[statistic_id] = statistics_list
             if statistic_id in units_dict:
                 counter_units_dict[statistic_id] = units_dict[statistic_id]
 
-    return sensor_statistics_dict, counter_statistics_dict, sensor_units_dict, counter_units_dict
+    return measurement_statistics_dict, counter_statistics_dict, measurement_units_dict, counter_units_dict
 
 
 def prepare_export_data(
@@ -110,8 +111,8 @@ def prepare_export_data(
     if units_dict is None:
         units_dict = {}
 
-    # Analyze what types of statistics we have (sensors vs counters)
-    has_sensors = False  # mean/min/max
+    # Analyze what types of statistics we have (measurements vs counters)
+    has_measurements = False  # mean/min/max
     has_counters = False  # sum/state
     has_deltas = False  # will be set if we calculate deltas
 
@@ -131,7 +132,7 @@ def prepare_export_data(
         stat_type = _detect_statistic_type(statistics_list)
 
         if stat_type == "sensor":
-            has_sensors = True
+            has_measurements = True
         elif stat_type == "counter":
             has_counters = True
 
@@ -160,14 +161,16 @@ def prepare_export_data(
         rows = get_delta_from_stats(rows, decimal_comma=use_comma)
         has_deltas = True
 
-    # Validate if sensors and counters are mixed
-    if has_sensors and has_counters:
-        _LOGGER.info("Export contains both sensor (mean/min/max) and counter (sum/state) statistics. Sensor columns will be empty for counters and vice versa.")
+    # Validate if measurements and counters are mixed
+    if has_measurements and has_counters:
+        _LOGGER.info(
+            "Export contains both measurement (mean/min/max) and counter (sum/state) statistics. Measurement columns will be empty for counters and vice versa."
+        )
 
     # Build column list: always include statistic_id, unit, start
-    # Then conditionally add sensor or counter columns, and delta if present
+    # Then conditionally add measurement or counter columns, and delta if present
     column_order = ["statistic_id", "unit", "start"]
-    if has_sensors:
+    if has_measurements:
         column_order.extend(["min", "max", "mean"])
     if has_counters:
         column_order.extend(["sum", "state"])
@@ -322,7 +325,7 @@ def _process_statistic_record(
         "start": helpers.format_datetime(stat_record["start"], timezone, datetime_format),
     }
 
-    # Add sensor columns (empty for counters)
+    # Add measurement columns (empty for counters)
     if "mean" in stat_record:
         row_dict["min"] = helpers.format_decimal(stat_record.get("min"), use_comma=decimal_comma)
         row_dict["max"] = helpers.format_decimal(stat_record.get("max"), use_comma=decimal_comma)
@@ -330,7 +333,7 @@ def _process_statistic_record(
         if "min" not in all_columns:
             all_columns.extend(["min", "max", "mean"])
 
-    # Add counter columns (empty for sensors)
+    # Add counter columns (empty for measurements)
     if "sum" in stat_record:
         row_dict["sum"] = helpers.format_decimal(stat_record["sum"], use_comma=decimal_comma)
         if "sum" not in all_columns:
@@ -352,7 +355,7 @@ def _process_statistic_record(
 
 def _detect_statistic_type(statistics_list: list) -> str:
     """
-    Detect if statistics are sensor (mean/min/max) or counter (sum/state) type.
+    Detect if statistics are measurement (mean/min/max) or counter (sum/state) type.
 
     Args:
          statistics_list: List of statistic records from recorder
@@ -362,7 +365,7 @@ def _detect_statistic_type(statistics_list: list) -> str:
 
     """
     for stat_record in statistics_list:
-        # Check if this is a sensor (has non-None mean/min/max values)
+        # Check if this is a measurement (has non-None mean/min/max values)
         if stat_record.get("mean") is not None or stat_record.get("min") is not None or stat_record.get("max") is not None:
             return "sensor"
         # Check if this is a counter (has non-None sum/state values)

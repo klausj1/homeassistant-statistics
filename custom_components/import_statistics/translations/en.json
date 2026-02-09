@@ -8,11 +8,11 @@
                     "name": "decimal"
                 },
                 "delimiter": {
-                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe",
+                    "description": "The delimiter between fields. If omitted, it is inferred from the filename extension: .csv uses comma (,), .tsv uses tab (\\t). Options: tab, semicolon, comma, or pipe",
                     "name": "delimiter"
                 },
                 "filename": {
-                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv' or 'myData.json')",
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'import.tsv' or 'import.csv'). Supported extensions: .csv, .tsv",
                     "name": "filename"
                 },
                 "timezone_identifier": {
@@ -30,17 +30,35 @@
             },
             "name": "Import statistics from file"
         },
+        "export_inventory": {
+            "name": "Export Statistics Inventory",
+            "description": "Exports metadata-only inventory of all long-term statistics (no time-series data). Useful for migration planning and comparing statistics between Home Assistant instances.",
+            "fields": {
+                "filename": {
+                    "name": "filename",
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'statistics_inventory.tsv' or 'statistics_inventory.csv'). Supported extensions: .csv, .tsv"
+                },
+                "delimiter": {
+                    "name": "delimiter",
+                    "description": "The delimiter between fields. If omitted, it is inferred from the filename extension: .csv uses comma (,), .tsv uses tab (\\t). Options: tab, semicolon, comma, or pipe"
+                },
+                "timezone_identifier": {
+                    "name": "timezone_identifier",
+                    "description": "Timezone identifier for formatting timestamps. If not specified, uses Home Assistant's configured timezone"
+                }
+            }
+        },
         "export_statistics": {
             "name": "Export Statistics to file",
             "description": "Exports long term statistic values (1h) to a tsv/csv or a json file",
             "fields": {
                 "filename": {
                     "name": "filename",
-                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv' or 'myData.json')"
+                    "description": "Filename relative to config directory on the home assistant server (e.g., 'exported.tsv', 'exported.csv', or 'exported.json'). Supported extensions: .csv, .tsv, .json"
                 },
                 "entities": {
                     "name": "entities",
-                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Supports wildcard patterns using '*' (glob matching), e.g. sensor.*_temperature or sensor.*temp*. Leave empty to export all statistics. Constraints: '*' alone is not allowed; broad patterns like sensor.* / sensor:* must not be mixed with other entries. Make sure to use a Yaml list with '- '"
+                    "description": "List of statistic IDs or entity IDs to export (supports both internal and external). Supports wildcard patterns using `*` (glob matching), e.g. `sensor.*_temperature` or `sensor.*temp*`. Leave empty to export all statistics. Constraints: `*` alone is not allowed; broad patterns like `sensor.*` / `sensor:*` must not be mixed with other entries. Make sure to use a Yaml list with `- `"
                 },
                 "start_time": {
                     "name": "start_time",
@@ -52,7 +70,7 @@
                 },
                 "split_by": {
                     "name": "split_by",
-                    "description": "Split output into multiple files by statistic type: 'none' (default, combined file), 'sensor' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _sensors and _counters before the extension."
+                    "description": "Split output into multiple files by statistic type: 'none' (default, combined file), 'measurement' (only mean/min/max), 'counter' (only sum/state/delta), or 'both' (write both files). Output files will use suffixes _measurements and _counters before the extension."
                 },
                 "timezone_identifier": {
                     "name": "timezone_identifier",
@@ -60,7 +78,7 @@
                 },
                 "delimiter": {
                     "name": "delimiter",
-                    "description": "The delimiter between fields. Default is tab (\\t). Options: tab, semicolon, comma, or pipe"
+                    "description": "The delimiter between fields. If omitted, it is inferred from the filename extension: .csv uses comma (,), .tsv uses tab (\\t). Options: tab, semicolon, comma, or pipe"
                 },
                 "decimal": {
                     "name": "decimal",

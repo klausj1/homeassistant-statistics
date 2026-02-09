@@ -12,9 +12,8 @@ import_from_file:
       collapsed: false
       fields:
         delimiter:
-          required: true
+          required: false
           example: \t
-          default: \t
           selector:
             select:
               custom_value: true
@@ -103,16 +102,15 @@ export_statistics:
               custom_value: true
               options:
                 - "none"
-                - "sensor"
+                - "measurement"
                 - "counter"
                 - "both"
     define_export_format:
       collapsed: true
       fields:
         delimiter:
-          required: true
-          default: \t
-          example: \t
+          required: false
+          example: "\t"
           selector:
             select:
               custom_value: true
@@ -155,3 +153,31 @@ export_statistics:
           selector:
             text:
 
+export_inventory:
+  fields:
+    filename:
+      required: true
+      example: "statistics_inventory.tsv"
+      selector:
+        text:
+
+    delimiter:
+      required: false
+      example: \t
+      selector:
+        select:
+          custom_value: true
+          options:
+            - '\t'
+            - ";"
+            - ","
+            - "|"
+
+    use_different_timezone_than_home_assistant:
+      collapsed: true
+      fields:
+        timezone_identifier:
+          required: false
+          example: "Europe/Vienna"
+          selector:
+            text:

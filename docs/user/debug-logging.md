@@ -14,8 +14,8 @@ logger:
     custom_components.import_statistics: debug
 ```
 
-3. Save the file
-4. Restart Home Assistant or reload the logger configuration:
+1. Save the file
+2. Restart Home Assistant or reload the logger configuration:
    - Go to **Developer Tools → YAML**
    - Click **Reload** next to "Logger"
 
@@ -42,7 +42,7 @@ After enabling debug logging and reproducing the issue, you need to collect the 
 
 Example debug log output for an export (contains INFO logs as well, not complete):
 
-```
+```text
 2026-01-24 18:31:37.399 INFO (MainThread) [custom_components.import_statistics.helpers] Service handle_export_statistics called
 2026-01-24 18:31:37.399 INFO (MainThread) [custom_components.import_statistics.helpers] Exporting entities: ALL
 2026-01-24 18:31:37.399 INFO (MainThread) [custom_components.import_statistics.helpers] Time range: AUTO to AUTO
@@ -52,7 +52,7 @@ Example debug log output for an export (contains INFO logs as well, not complete
 2026-01-24 18:31:37.408 INFO (MainThread) [custom_components.import_statistics.helpers] Found 25 statistics in database
 2026-01-24 18:31:37.446 DEBUG (MainThread) [custom_components.import_statistics.helpers] Global statistics time range determined: start=2025-06-29 05:00:00+00:00 end=2025-12-30 10:00:00+00:00
 2026-01-24 18:31:37.463 INFO (SyncWorker_1) [custom_components.import_statistics.helpers] Preparing export data
-2026-01-24 18:31:37.464 INFO (SyncWorker_1) [custom_components.import_statistics.helpers] Export contains both sensor (mean/min/max) and counter (sum/state) statistics. Sensor columns will be empty for counters and vice versa.
+2026-01-24 18:31:37.464 INFO (SyncWorker_1) [custom_components.import_statistics.helpers] Export contains both measurement (mean/min/max) and counter (sum/state) statistics. Measurement columns will be empty for counters and vice versa.
 2026-01-24 18:31:37.465 DEBUG (SyncWorker_1) [custom_components.import_statistics.helpers] Export data prepared with columns: ['statistic_id', 'unit', 'start', 'min', 'max', 'mean', 'sum', 'state', 'delta']
 ```
 
@@ -87,7 +87,7 @@ logger:
     custom_components.import_statistics: info  # or remove this line entirely
 ```
 
-3. Restart Home Assistant or reload the logger configuration
+1. Restart Home Assistant or reload the logger configuration
 
 ## Additional Resources
 

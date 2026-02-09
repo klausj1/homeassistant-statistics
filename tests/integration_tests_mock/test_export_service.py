@@ -23,7 +23,7 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
 )
 from custom_components.import_statistics.export_service import _get_statistic_ids, get_statistics_from_recorder
-from tests.conftest import mock_async_add_executor_job
+from tests.conftest import get_service_handler, mock_async_add_executor_job
 
 # Test constants
 EXPECTED_RESULT_TUPLE_LENGTH = 2
@@ -385,7 +385,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -443,7 +443,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -493,7 +493,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -547,7 +547,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             call = ServiceCall(
                 hass,
@@ -586,7 +586,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -647,7 +647,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             call = ServiceCall(
                 hass,
@@ -684,7 +684,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -738,7 +738,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -782,6 +782,139 @@ class TestHandleExportStatistics:
                 assert call_args[0][3] == ","
 
     @pytest.mark.asyncio
+    async def test_handle_export_statistics_infers_csv_delimiter_when_omitted(self) -> None:
+        """Test export infers comma delimiter for .csv when delimiter is omitted."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            await async_setup(hass, {})
+            service_handler = get_service_handler(hass, "export_statistics")
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.csv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export_service.write_export_file") as mock_write,
+            ):
+                mock_units = {"sensor.temperature": "°C"}
+
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
+                    return (mock_statistics, mock_units)
+
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
+
+                call_args = mock_write.call_args
+                assert call_args[0][3] == ","
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_infers_tsv_delimiter_when_omitted(self) -> None:
+        """Test export infers tab delimiter for .tsv when delimiter is omitted."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            await async_setup(hass, {})
+            service_handler = get_service_handler(hass, "export_statistics")
+
+            mock_statistics = {
+                "sensor.temperature": [
+                    {
+                        "start": datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("UTC")),
+                        "mean": 20.5,
+                        "min": 20.0,
+                        "max": 21.0,
+                    }
+                ]
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.tsv",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats,
+                patch("custom_components.import_statistics.export_service.write_export_file") as mock_write,
+            ):
+                mock_units = {"sensor.temperature": "°C"}
+
+                async def async_mock(*_args: Any, **_kwargs: Any) -> tuple[dict, dict]:
+                    return (mock_statistics, mock_units)
+
+                mock_get_stats.side_effect = async_mock
+                await service_handler(call)
+
+                call_args = mock_write.call_args
+                assert call_args[0][3] == "\t"
+
+    @pytest.mark.asyncio
+    async def test_handle_export_statistics_rejects_unsupported_extension(self) -> None:
+        """Test export rejects unsupported extensions like .txt."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.config.time_zone = "UTC"
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            await async_setup(hass, {})
+            service_handler = get_service_handler(hass, "export_statistics")
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export.txt",
+                    ATTR_ENTITIES: ["sensor.temperature"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 13:00:00",
+                },
+            )
+
+            with pytest.raises(HomeAssistantError, match="Unsupported filename extension"):
+                await service_handler(call)
+
+    @pytest.mark.asyncio
     async def test_handle_export_statistics_multiple_entities(self) -> None:
         """Test export with multiple entities."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -793,7 +926,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -854,7 +987,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -912,7 +1045,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -970,7 +1103,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -1028,7 +1161,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
@@ -1081,7 +1214,7 @@ class TestHandleExportStatistics:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            service_handler = hass.services.async_register.call_args_list[-1][0][2]
+            service_handler = get_service_handler(hass, "export_statistics")
 
             mock_statistics = {
                 "sensor.temperature": [
