@@ -17,7 +17,8 @@ from custom_components.import_statistics.helpers import _LOGGER, validate_delimi
 class Category(Enum):
     """Category classification for statistics."""
 
-    INTERNAL = "Internal"
+    ACTIVE = "Active"
+    ORPHAN = "Orphan"
     DELETED = "Deleted"
     EXTERNAL = "External"
 
@@ -57,14 +58,15 @@ INVENTORY_COLUMNS = [
 ]
 
 
-def classify_category(statistic_id: str, source: str, active_entity_ids: set[str]) -> Category:
+def classify_category(statistic_id: str, source: str, active_entity_ids: set[str], orphaned_entity_ids: set[str]) -> Category:
     """
-    Classify a statistic into Internal, Deleted, or External category.
+    Classify a statistic into Active, Orphan, Deleted, or External category.
 
     Args:
         statistic_id: The statistic ID to classify
         source: The source field from statistics_meta
         active_entity_ids: Set of entity IDs present in states_meta
+        orphaned_entity_ids: Set of entity IDs whose latest state is NULL
 
     Returns:
         Category enum value
@@ -74,9 +76,12 @@ def classify_category(statistic_id: str, source: str, active_entity_ids: set[str
     if source != "recorder" or ":" in statistic_id:
         return Category.EXTERNAL
 
-    # Internal vs Deleted: check if entity exists in states_meta
+    # Entity must be in states_meta to be Active or Orphan
     if statistic_id in active_entity_ids:
-        return Category.INTERNAL
+        # Orphan: entity exists in states_meta but last state is NULL
+        if statistic_id in orphaned_entity_ids:
+            return Category.ORPHAN
+        return Category.ACTIVE
 
     return Category.DELETED
 
@@ -157,7 +162,7 @@ def build_inventory_rows(
         aggregates = None if metadata_id is None else inventory_data.aggregates.get(metadata_id)
 
         # Classification
-        category = classify_category(meta.statistic_id, meta.source, inventory_data.active_entity_ids)
+        category = classify_category(meta.statistic_id, meta.source, inventory_data.active_entity_ids, inventory_data.orphaned_entity_ids)
         stat_type = classify_type(has_sum=meta.has_sum)
 
         # Timestamps and counts
@@ -196,13 +201,14 @@ def build_inventory_rows(
 class InventorySummary:
     """Summary statistics for the inventory."""
 
-    total_statistic_ids: int
+    total_statistics: int
     measurements_count: int
     counters_count: int
     total_samples: int
     global_start: dt.datetime | None
     global_end: dt.datetime | None
-    internal_count: int
+    active_count: int
+    orphan_count: int
     deleted_count: int
     external_count: int
 
@@ -222,20 +228,22 @@ def build_summary(rows: list[InventoryRow], inventory_data: InventoryData) -> In
     measurements_count = sum(1 for r in rows if r.stat_type == StatType.MEASUREMENT)
     counters_count = sum(1 for r in rows if r.stat_type == StatType.COUNTER)
     total_samples = sum(r.samples_count for r in rows)
-    internal_count = sum(1 for r in rows if r.category == Category.INTERNAL)
+    active_count = sum(1 for r in rows if r.category == Category.ACTIVE)
+    orphan_count = sum(1 for r in rows if r.category == Category.ORPHAN)
     deleted_count = sum(1 for r in rows if r.category == Category.DELETED)
     external_count = sum(1 for r in rows if r.category == Category.EXTERNAL)
 
     global_start, global_end = get_global_time_range(inventory_data)
 
     return InventorySummary(
-        total_statistic_ids=len(rows),
+        total_statistics=len(rows),
         measurements_count=measurements_count,
         counters_count=counters_count,
         total_samples=total_samples,
         global_start=global_start,
         global_end=global_end,
-        internal_count=internal_count,
+        active_count=active_count,
+        orphan_count=orphan_count,
         deleted_count=deleted_count,
         external_count=external_count,
     )
@@ -257,15 +265,16 @@ def format_summary_lines(summary: InventorySummary, tz: ZoneInfo) -> list[str]:
     global_end_str = format_datetime(summary.global_end, tz, "%Y-%m-%d %H:%M:%S") if summary.global_end else "N/A"
 
     return [
-        f"# Total statistic_ids: {summary.total_statistic_ids}",
+        f"# Total statistics: {summary.total_statistics}",
         f"# Measurements: {summary.measurements_count}",
         f"# Counters: {summary.counters_count}",
         f"# Total samples: {summary.total_samples}",
         f"# Global start: {global_start_str}",
         f"# Global end: {global_end_str}",
-        f"# Internal statistic_ids: {summary.internal_count}",
-        f"# Deleted statistic_ids: {summary.deleted_count}",
-        f"# External statistic_ids: {summary.external_count}",
+        f"# Active statistics: {summary.active_count}",
+        f"# Orphan statistics: {summary.orphan_count}",
+        f"# Deleted statistics: {summary.deleted_count}",
+        f"# External statistics: {summary.external_count}",
     ]
 
 

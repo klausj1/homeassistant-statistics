@@ -4,7 +4,7 @@ import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeassistant.components.recorder.db_schema import StatesMeta, Statistics, StatisticsMeta
+from homeassistant.components.recorder.db_schema import States, StatesMeta, Statistics, StatisticsMeta
 from homeassistant.components.recorder.statistics import list_statistic_ids
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.recorder import get_instance, session_scope
@@ -66,6 +66,47 @@ def _query_active_entity_ids(hass: HomeAssistant) -> set[str]:
         return set(rows)
 
 
+def _query_orphaned_entity_ids(hass: HomeAssistant) -> set[str]:
+    """
+    Query states table to find entity IDs whose most recent state is NULL.
+
+    An orphaned entity is one that Home Assistant no longer claims via an integration.
+    Shortly after restart, HA writes a NULL state for such entities.
+
+    Uses a subquery to find the maximum last_updated_ts per metadata_id, then joins
+    back to get the corresponding state value. This avoids a correlated subquery
+    and performs well even on large states tables.
+
+    Returns a set of entity_id strings whose latest state is NULL.
+    """
+    with session_scope(hass=hass, read_only=True) as session:
+        # Step 1: find the latest last_updated_ts per metadata_id
+        latest_ts = (
+            select(
+                States.metadata_id,
+                func.max(States.last_updated_ts).label("max_ts"),
+            )
+            .where(States.metadata_id.isnot(None))
+            .group_by(States.metadata_id)
+            .subquery()
+        )
+
+        # Step 2: join back to states to get the state value at that timestamp,
+        # then join states_meta to get the entity_id, filtering for NULL state
+        stmt = (
+            select(StatesMeta.entity_id)
+            .join(latest_ts, StatesMeta.metadata_id == latest_ts.c.metadata_id)
+            .join(
+                States,
+                (States.metadata_id == latest_ts.c.metadata_id) & (States.last_updated_ts == latest_ts.c.max_ts),
+            )
+            .where(States.state.is_(None))
+        )
+
+        rows = session.execute(stmt).scalars().all()
+        return set(rows)
+
+
 def _query_statistics_aggregates(recorder_instance: "Recorder") -> dict[int, StatisticAggregates]:
     """
     Query long-term statistics table for aggregated counts and timestamps.
@@ -111,6 +152,7 @@ class InventoryData:
 
     metadata_rows: list[StatisticMetadataRow]
     active_entity_ids: set[str]
+    orphaned_entity_ids: set[str]
     aggregates: dict[int, StatisticAggregates]
     id_mapping: dict[str, int]
 
@@ -119,10 +161,11 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     """
     Fetch all data needed for inventory export.
 
-    Performs three database queries:
+    Performs database queries:
     1. statistics_meta: all statistic IDs with metadata
     2. states_meta: all active entity IDs (for deleted detection)
-    3. statistics: aggregated counts and timestamps per metadata_id
+    3. states: orphaned entity IDs (last state is NULL)
+    4. statistics: aggregated counts and timestamps per metadata_id
 
     Args:
         hass: Home Assistant instance
@@ -141,6 +184,10 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     active_entity_ids = await recorder_instance.async_add_executor_job(_query_active_entity_ids, hass)
     _LOGGER.debug("Found %d active entity IDs", len(active_entity_ids))
 
+    _LOGGER.debug("Fetching orphaned entity IDs from states")
+    orphaned_entity_ids = await recorder_instance.async_add_executor_job(_query_orphaned_entity_ids, hass)
+    _LOGGER.debug("Found %d orphaned entity IDs", len(orphaned_entity_ids))
+
     _LOGGER.debug("Fetching metadata_id mapping")
     id_mapping = await recorder_instance.async_add_executor_job(_query_metadata_id_mapping, recorder_instance)
     _LOGGER.debug("Found %d metadata_id mappings", len(id_mapping))
@@ -152,6 +199,7 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     return InventoryData(
         metadata_rows=metadata_rows,
         active_entity_ids=active_entity_ids,
+        orphaned_entity_ids=orphaned_entity_ids,
         aggregates=aggregates,
         id_mapping=id_mapping,
     )

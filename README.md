@@ -406,15 +406,16 @@ The exported file contains a **summary block** at the top (lines starting with `
 #### Summary Block
 
 ```text
-# Total statistic_ids: 47
+# Total statistics: 47
 # Measurements: 28
 # Counters: 19
 # Total samples: 12542
 # Global start: 2025-06-29 07:00
 # Global end: 2026-02-03 10:00
-# Internal statistic_ids: 38
-# Deleted statistic_ids: 0
-# External statistic_ids: 9
+# Active statistics: 38
+# Orphan statistics: 0
+# Deleted statistics: 0
+# External statistics: 9
 ```
 
 #### Table Columns
@@ -424,7 +425,7 @@ The exported file contains a **summary block** at the top (lines starting with `
 | `statistic_id` | The statistic ID (e.g., `sensor.temperature`) |
 | `unit_of_measurement` | Unit (e.g., `°C`, `kWh`) |
 | `source` | Source of the statistic (e.g., `recorder`) |
-| `category` | Classification: `Internal`, `Deleted`, or `External` |
+| `category` | Classification: `Active`, `Orphan`, `Deleted`, or `External` |
 | `type` | `Measurement` (has mean/min/max) or `Counter` (has sum) |
 | `samples_count` | Number of long-term (hourly) samples |
 | `first_seen` | Timestamp of earliest sample |
@@ -433,7 +434,8 @@ The exported file contains a **summary block** at the top (lines starting with `
 
 #### Category Classification
 
-- **Internal**: Active entity present in Home Assistant
+- **Active**: Entity currently present and active in Home Assistant
+- **Orphan**: Entity exists in Home Assistant but is no longer claimed by an integration (last state is NULL)
 - **Deleted**: Entity was removed but statistics remain in database
 - **External**: External statistic (uses `:` separator, e.g., `energy:my_stat`)
 
