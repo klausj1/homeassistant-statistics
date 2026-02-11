@@ -87,6 +87,18 @@
             "problemMatcher": []
         },
         {
+            "label": "Fix HA Errors",
+            "type": "shell",
+            "command": "./scripts/fix_ha_errors",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Stop Home Assistant",
             "type": "shell",
             "command": "bash -lc 'pkill -f homeassistant || echo \"Home Assistant not found or already stopped\"'",

@@ -12,6 +12,7 @@ __pycache__
 coverage.xml
 .ruff_cache
 htmlcov/
+.VSCodeCounter
 
 # Home Assistant configuration
 config/*

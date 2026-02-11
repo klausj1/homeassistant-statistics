@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ "${EUID}" -eq 0 ]]; then
+  echo "Do not run this script as root. It will use sudo when needed." >&2
+  exit 1
+fi
+
+echo "This script installs OS-level dependencies inside the devcontainer to remove common Home Assistant startup errors."
+echo
+echo "It addresses:"
+echo "- haffmpeg: 'No such file or directory: ffmpeg' by installing the 'ffmpeg' package"
+echo "- aiodhcpwatcher: 'libpcap is not available' by installing the 'libpcap0.8' package"
+echo "- libturbojpeg: missing 'libturbojpeg.so' by installing the 'libturbojpeg0' package"
+echo
+echo "Note: go2rtc errors are not fixed by apt packages. go2rtc typically requires Docker access."
+echo "      Easiest fix for development is to exclude go2rtc from default_config in config/configuration.yaml."
+echo
+
+echo "Updating apt metadata..."
+sudo apt-get update
+
+echo "Installing packages..."
+sudo apt-get install -y \
+  libturbojpeg0 \
+  ffmpeg \
+  libpcap0.8
+
+echo
+echo "Installed versions:"
+if command -v ffmpeg >/dev/null 2>&1; then
+  echo "- ffmpeg: $(ffmpeg -version | head -n 1)"
+else
+  echo "- ffmpeg: not found on PATH (unexpected)"
+fi
+
+if ldconfig -p 2>/dev/null | grep -qi turbojpeg; then
+  echo "- libturbojpeg: present"
+else
+  echo "- libturbojpeg: not found in ldconfig output (may still be present)"
+fi
+
+if ldconfig -p 2>/dev/null | grep -qi libpcap; then
+  echo "- libpcap: present"
+else
+  echo "- libpcap: not found in ldconfig output (may still be present)"
+fi
+
+echo
+echo "go2rtc note:"
+CONFIG_FILE="$(dirname "$0")/../config/configuration.yaml"
+if [[ -f "${CONFIG_FILE}" ]]; then
+  if grep -qE '^[[:space:]]*-[[:space:]]*go2rtc[[:space:]]*$' "${CONFIG_FILE}"; then
+    echo "- Looks like go2rtc is excluded in ${CONFIG_FILE}."
+  else
+    echo "- If you see go2rtc setup errors, exclude it in ${CONFIG_FILE} like this:"
+    echo "  default_config:"
+    echo "    - exclude:"
+    echo "        - go2rtc"
+  fi
+else
+  echo "- ${CONFIG_FILE} not found; skipping config check."
+fi
+
+echo
+echo "Done. Restart Home Assistant (e.g. re-run ./scripts/develop) to confirm the errors are gone."
