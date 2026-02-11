@@ -18,57 +18,63 @@ class TestClassifyCategory:
 
     def test_external_by_source(self) -> None:
         """Test that non-recorder source is classified as External."""
-        result = classify_category("energy:my_stat", "energy", set(), set())
+        result = classify_category("energy:my_stat", "energy", set(), set(), set())
         assert result == Category.EXTERNAL
 
     def test_external_by_colon_separator(self) -> None:
         """Test that statistic_id with colon is classified as External."""
-        result = classify_category("sensor:external_stat", "recorder", set(), set())
+        result = classify_category("sensor:external_stat", "recorder", set(), set(), set())
         assert result == Category.EXTERNAL
 
     def test_active_when_in_states_meta(self) -> None:
         """Test that recorder stat present in states_meta is Active."""
         active_ids = {"sensor.temperature", "sensor.humidity"}
-        result = classify_category("sensor.temperature", "recorder", active_ids, set())
+        result = classify_category("sensor.temperature", "recorder", active_ids, set(), set())
         assert result == Category.ACTIVE
 
     def test_active_not_orphaned(self) -> None:
         """Test that active entity not in orphaned set is Active."""
         active_ids = {"sensor.temperature"}
         orphaned_ids = {"sensor.other"}
-        result = classify_category("sensor.temperature", "recorder", active_ids, orphaned_ids)
+        result = classify_category("sensor.temperature", "recorder", active_ids, orphaned_ids, set())
         assert result == Category.ACTIVE
 
     def test_orphan_when_last_state_is_null(self) -> None:
         """Test that active entity whose last state is NULL is classified as Orphan."""
         active_ids = {"sensor.temperature", "sensor.humidity"}
         orphaned_ids = {"sensor.temperature"}
-        result = classify_category("sensor.temperature", "recorder", active_ids, orphaned_ids)
+        result = classify_category("sensor.temperature", "recorder", active_ids, orphaned_ids, set())
         assert result == Category.ORPHAN
 
     def test_orphan_not_applied_to_external(self) -> None:
         """Test that external entities are never classified as Orphan even if in orphaned set."""
         active_ids = {"energy:my_stat"}
         orphaned_ids = {"energy:my_stat"}
-        result = classify_category("energy:my_stat", "energy", active_ids, orphaned_ids)
+        result = classify_category("energy:my_stat", "energy", active_ids, orphaned_ids, set())
         assert result == Category.EXTERNAL
 
     def test_deleted_when_not_in_states_meta(self) -> None:
         """Test that recorder stat not in states_meta is Deleted."""
         active_ids = {"sensor.humidity"}
-        result = classify_category("sensor.temperature", "recorder", active_ids, set())
+        result = classify_category("sensor.temperature", "recorder", active_ids, set(), set())
         assert result == Category.DELETED
 
     def test_deleted_with_empty_states_meta(self) -> None:
         """Test that recorder stat with empty states_meta is Deleted."""
-        result = classify_category("sensor.temperature", "recorder", set(), set())
+        result = classify_category("sensor.temperature", "recorder", set(), set(), set())
         assert result == Category.DELETED
 
     def test_deleted_not_orphan_when_not_in_active(self) -> None:
         """Test that entity in orphaned set but not in active set is Deleted (not Orphan)."""
         orphaned_ids = {"sensor.temperature"}
-        result = classify_category("sensor.temperature", "recorder", set(), orphaned_ids)
-        assert result == Category.DELETED
+        result = classify_category("sensor.temperature", "recorder", set(), orphaned_ids, set())
+        assert result == Category.ORPHAN
+
+    def test_active_when_in_entity_registry_only(self) -> None:
+        """Test that entity present in entity registry is Active even if missing from states_meta."""
+        entity_registry_ids = {"sensor.temperature"}
+        result = classify_category("sensor.temperature", "recorder", set(), set(), entity_registry_ids)
+        assert result == Category.ACTIVE
 
 
 class TestClassifyType:

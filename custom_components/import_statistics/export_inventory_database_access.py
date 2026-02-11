@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from homeassistant.components.recorder.db_schema import States, StatesMeta, Statistics, StatisticsMeta
 from homeassistant.components.recorder.statistics import list_statistic_ids
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.recorder import get_instance, session_scope
 from sqlalchemy import func, select
 
@@ -153,6 +154,7 @@ class InventoryData:
     metadata_rows: list[StatisticMetadataRow]
     active_entity_ids: set[str]
     orphaned_entity_ids: set[str]
+    entity_registry_ids: set[str]
     aggregates: dict[int, StatisticAggregates]
     id_mapping: dict[str, int]
 
@@ -188,6 +190,10 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     orphaned_entity_ids = await recorder_instance.async_add_executor_job(_query_orphaned_entity_ids, hass)
     _LOGGER.debug("Found %d orphaned entity IDs", len(orphaned_entity_ids))
 
+    entity_registry = er.async_get(hass)
+    entity_registry_ids = {entry.entity_id for entry in entity_registry.entities.values()}
+    _LOGGER.debug("Found %d entity IDs in entity registry", len(entity_registry_ids))
+
     _LOGGER.debug("Fetching metadata_id mapping")
     id_mapping = await recorder_instance.async_add_executor_job(_query_metadata_id_mapping, recorder_instance)
     _LOGGER.debug("Found %d metadata_id mappings", len(id_mapping))
@@ -200,6 +206,7 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
         metadata_rows=metadata_rows,
         active_entity_ids=active_entity_ids,
         orphaned_entity_ids=orphaned_entity_ids,
+        entity_registry_ids=entity_registry_ids,
         aggregates=aggregates,
         id_mapping=id_mapping,
     )

@@ -58,7 +58,13 @@ INVENTORY_COLUMNS = [
 ]
 
 
-def classify_category(statistic_id: str, source: str, active_entity_ids: set[str], orphaned_entity_ids: set[str]) -> Category:
+def classify_category(
+    statistic_id: str,
+    source: str,
+    active_entity_ids: set[str],
+    orphaned_entity_ids: set[str],
+    entity_registry_ids: set[str],
+) -> Category:
     """
     Classify a statistic into Active, Orphan, Deleted, or External category.
 
@@ -67,6 +73,7 @@ def classify_category(statistic_id: str, source: str, active_entity_ids: set[str
         source: The source field from statistics_meta
         active_entity_ids: Set of entity IDs present in states_meta
         orphaned_entity_ids: Set of entity IDs whose latest state is NULL
+        entity_registry_ids: Set of entity IDs present in the entity registry
 
     Returns:
         Category enum value
@@ -82,6 +89,17 @@ def classify_category(statistic_id: str, source: str, active_entity_ids: set[str
         if statistic_id in orphaned_entity_ids:
             return Category.ORPHAN
         return Category.ACTIVE
+
+    # If the entity is still registered in Home Assistant, it should not be reported as deleted.
+    # This covers cases where the entity currently has no states history (e.g. after purging)
+    # or the source integration is temporarily unavailable.
+    if statistic_id in entity_registry_ids:
+        return Category.ACTIVE
+
+    # If it's still in the entity registry, it shouldn't be considered deleted.
+    # This can happen if states history was purged/cleaned while statistics metadata remains.
+    if statistic_id in orphaned_entity_ids:
+        return Category.ORPHAN
 
     return Category.DELETED
 
@@ -162,7 +180,13 @@ def build_inventory_rows(
         aggregates = None if metadata_id is None else inventory_data.aggregates.get(metadata_id)
 
         # Classification
-        category = classify_category(meta.statistic_id, meta.source, inventory_data.active_entity_ids, inventory_data.orphaned_entity_ids)
+        category = classify_category(
+            meta.statistic_id,
+            meta.source,
+            inventory_data.active_entity_ids,
+            inventory_data.orphaned_entity_ids,
+            inventory_data.entity_registry_ids,
+        )
         stat_type = classify_type(has_sum=meta.has_sum)
 
         # Timestamps and counts

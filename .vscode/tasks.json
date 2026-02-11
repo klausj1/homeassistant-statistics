@@ -19,7 +19,7 @@
         {
             "label": "Run Tests",
             "type": "shell",
-            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${command:python.interpreterPath} -m pytest tests/'",
+            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${config:python.defaultInterpreterPath} -m pytest tests/'",
             "group": {
                 "kind": "test",
                 "isDefault": true
@@ -33,7 +33,7 @@
         {
             "label": "Run Ruff (Lint)",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m ruff check .",
+            "command": "${config:python.defaultInterpreterPath} -m ruff check .",
             "group": "test",
             "presentation": {
                 "reveal": "always",
@@ -44,7 +44,7 @@
         {
             "label": "Run Ruff (Format)",
             "type": "shell",
-            "command": "${command:python.interpreterPath} -m ruff format .",
+            "command": "${config:python.defaultInterpreterPath} -m ruff format .",
             "group": "test",
             "presentation": {
                 "reveal": "always",
@@ -55,7 +55,7 @@
         {
             "label": "Code Coverage",
             "type": "shell",
-            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${command:python.interpreterPath} -m pytest tests/ --cov=custom_components/import_statistics --cov-report term-missing --cov-report html'",
+            "command": "bash -lc 'set -a; [ -f .env ] && source .env; set +a; ${config:python.defaultInterpreterPath} -m pytest tests/ --cov=custom_components/import_statistics --cov-report term-missing --cov-report html'",
             "group": "test",
             "presentation": {
                 "reveal": "always",
@@ -97,6 +97,7 @@
                 "focus": true
             },
             "problemMatcher": []
+            
         },
         {
             "label": "Stop Home Assistant",
