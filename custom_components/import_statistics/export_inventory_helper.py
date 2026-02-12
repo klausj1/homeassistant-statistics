@@ -11,7 +11,7 @@ from custom_components.import_statistics.export_inventory_database_access import
     InventoryData,
     get_global_time_range,
 )
-from custom_components.import_statistics.helpers import _LOGGER, validate_delimiter, validate_filename
+from custom_components.import_statistics.helpers import _LOGGER, handle_error, validate_delimiter, validate_filename
 
 
 class Category(Enum):
@@ -308,35 +308,46 @@ def write_inventory_file(
     """
     _LOGGER.info("Writing inventory to %s with %d rows", filepath, len(rows))
 
-    with filepath.open("w", encoding="utf-8-sig", newline="") as f:
-        # Write summary lines
-        for line in format_summary_lines(summary, tz):
-            f.write(line + "\n")
+    try:
+        filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write blank line between summary and table
-        f.write("\n")
+        with filepath.open("w", encoding="utf-8-sig", newline="") as f:
+            # Write summary lines
+            for line in format_summary_lines(summary, tz):
+                f.write(line + "\n")
 
-        # Write CSV/TSV table
-        writer = csv.writer(f, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL)
+            # Write blank line between summary and table
+            f.write("\n")
 
-        # Header
-        writer.writerow(INVENTORY_COLUMNS)
+            # Write CSV/TSV table
+            writer = csv.writer(f, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL)
 
-        # Data rows
-        for row in rows:
-            writer.writerow(
-                [
-                    row.statistic_id,
-                    row.unit_of_measurement,
-                    row.source,
-                    row.category.value,
-                    row.stat_type.value,
-                    row.samples_count,
-                    format_datetime(row.first_seen, tz),
-                    format_datetime(row.last_seen, tz),
-                    row.days_span,
-                ]
-            )
+            # Header
+            writer.writerow(INVENTORY_COLUMNS)
+
+            # Data rows
+            for row in rows:
+                writer.writerow(
+                    [
+                        row.statistic_id,
+                        row.unit_of_measurement,
+                        row.source,
+                        row.category.value,
+                        row.stat_type.value,
+                        row.samples_count,
+                        format_datetime(row.first_seen, tz),
+                        format_datetime(row.last_seen, tz),
+                        row.days_span,
+                    ]
+                )
+    except PermissionError as e:
+        handle_error(
+            f"Cannot write inventory file to '{filepath}': {e}. "
+            "Please check that the Home Assistant user has write permission to the config directory, "
+            "and that the target file is not owned by another user or marked read-only."
+        )
+    except OSError as e:
+        handle_error(f"Cannot write inventory file to '{filepath}': {e}")
 
     _LOGGER.info("Inventory file written successfully")
 

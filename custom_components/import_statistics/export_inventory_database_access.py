@@ -136,9 +136,33 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
         deleted_entity_orphan_timestamps[entry.entity_id] = getattr(entry, "orphaned_timestamp", None)
     _LOGGER.debug("Found %d deleted entity IDs in entity registry", len(deleted_entity_orphan_timestamps))
 
+    metadata_statistic_ids = {row.statistic_id for row in metadata_rows}
+    deleted_ids = set(deleted_entity_orphan_timestamps)
+    deleted_in_metadata = metadata_statistic_ids & deleted_ids
+    if deleted_in_metadata:
+        sample = ", ".join(sorted(deleted_in_metadata)[:10])
+        _LOGGER.debug(
+            "Deleted entity IDs that also exist as statistics_meta statistic_id: %d (sample: %s)",
+            len(deleted_in_metadata),
+            sample,
+        )
+    else:
+        _LOGGER.debug("No deleted entity IDs found in statistics_meta statistic_id list")
+
     _LOGGER.debug("Fetching metadata_id mapping")
     id_mapping = await recorder_instance.async_add_executor_job(_query_metadata_id_mapping, recorder_instance)
     _LOGGER.debug("Found %d metadata_id mappings", len(id_mapping))
+
+    deleted_in_long_term = set(id_mapping) & deleted_ids
+    if deleted_in_long_term:
+        sample = ", ".join(sorted(deleted_in_long_term)[:10])
+        _LOGGER.debug(
+            "Deleted entity IDs that also have long-term statistics: %d (sample: %s)",
+            len(deleted_in_long_term),
+            sample,
+        )
+    else:
+        _LOGGER.debug("No deleted entity IDs found among statistic_ids that have long-term statistics")
 
     _LOGGER.debug("Fetching statistics aggregates")
     aggregates = await recorder_instance.async_add_executor_job(_query_statistics_aggregates, recorder_instance)
