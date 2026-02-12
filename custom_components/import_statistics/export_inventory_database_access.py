@@ -4,7 +4,7 @@ import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeassistant.components.recorder.db_schema import States, StatesMeta, Statistics, StatisticsMeta
+from homeassistant.components.recorder.db_schema import Statistics, StatisticsMeta
 from homeassistant.components.recorder.statistics import list_statistic_ids
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -55,59 +55,6 @@ def _query_statistics_meta(hass: HomeAssistant) -> list[StatisticMetadataRow]:
     ]
 
 
-def _query_active_entity_ids(hass: HomeAssistant) -> set[str]:
-    """
-    Query states_meta table to get all active entity IDs.
-
-    Returns a set of entity_id strings that exist in states_meta.
-    """
-    with session_scope(hass=hass, read_only=True) as session:
-        stmt = select(StatesMeta.entity_id).where(StatesMeta.entity_id.isnot(None))
-        rows = session.execute(stmt).scalars().all()
-        return set(rows)
-
-
-def _query_orphaned_entity_ids(hass: HomeAssistant) -> set[str]:
-    """
-    Query states table to find entity IDs whose most recent state is NULL.
-
-    An orphaned entity is one that Home Assistant no longer claims via an integration.
-    Shortly after restart, HA writes a NULL state for such entities.
-
-    Uses a subquery to find the maximum last_updated_ts per metadata_id, then joins
-    back to get the corresponding state value. This avoids a correlated subquery
-    and performs well even on large states tables.
-
-    Returns a set of entity_id strings whose latest state is NULL.
-    """
-    with session_scope(hass=hass, read_only=True) as session:
-        # Step 1: find the latest last_updated_ts per metadata_id
-        latest_ts = (
-            select(
-                States.metadata_id,
-                func.max(States.last_updated_ts).label("max_ts"),
-            )
-            .where(States.metadata_id.isnot(None))
-            .group_by(States.metadata_id)
-            .subquery()
-        )
-
-        # Step 2: join back to states to get the state value at that timestamp,
-        # then join states_meta to get the entity_id, filtering for NULL state
-        stmt = (
-            select(StatesMeta.entity_id)
-            .join(latest_ts, StatesMeta.metadata_id == latest_ts.c.metadata_id)
-            .join(
-                States,
-                (States.metadata_id == latest_ts.c.metadata_id) & (States.last_updated_ts == latest_ts.c.max_ts),
-            )
-            .where(States.state.is_(None))
-        )
-
-        rows = session.execute(stmt).scalars().all()
-        return set(rows)
-
-
 def _query_statistics_aggregates(recorder_instance: "Recorder") -> dict[int, StatisticAggregates]:
     """
     Query long-term statistics table for aggregated counts and timestamps.
@@ -152,9 +99,8 @@ class InventoryData:
     """Complete inventory data from database queries."""
 
     metadata_rows: list[StatisticMetadataRow]
-    active_entity_ids: set[str]
-    orphaned_entity_ids: set[str]
     entity_registry_ids: set[str]
+    deleted_entity_orphan_timestamps: dict[str, float | None]
     aggregates: dict[int, StatisticAggregates]
     id_mapping: dict[str, int]
 
@@ -163,11 +109,10 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     """
     Fetch all data needed for inventory export.
 
-    Performs database queries:
-    1. statistics_meta: all statistic IDs with metadata
-    2. states_meta: all active entity IDs (for deleted detection)
-    3. states: orphaned entity IDs (last state is NULL)
-    4. statistics: aggregated counts and timestamps per metadata_id
+    Performs data collection:
+    1. recorder statistics: all statistic IDs with metadata
+    2. entity registry: active and deleted entity IDs (incl. orphaned_timestamp)
+    3. recorder long-term statistics: aggregated counts and timestamps per metadata_id
 
     Args:
         hass: Home Assistant instance
@@ -182,17 +127,14 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     metadata_rows = await recorder_instance.async_add_executor_job(_query_statistics_meta, hass)
     _LOGGER.debug("Found %d statistics in metadata", len(metadata_rows))
 
-    _LOGGER.debug("Fetching active entity IDs from states_meta")
-    active_entity_ids = await recorder_instance.async_add_executor_job(_query_active_entity_ids, hass)
-    _LOGGER.debug("Found %d active entity IDs", len(active_entity_ids))
-
-    _LOGGER.debug("Fetching orphaned entity IDs from states")
-    orphaned_entity_ids = await recorder_instance.async_add_executor_job(_query_orphaned_entity_ids, hass)
-    _LOGGER.debug("Found %d orphaned entity IDs", len(orphaned_entity_ids))
-
     entity_registry = er.async_get(hass)
     entity_registry_ids = {entry.entity_id for entry in entity_registry.entities.values()}
     _LOGGER.debug("Found %d entity IDs in entity registry", len(entity_registry_ids))
+
+    deleted_entity_orphan_timestamps: dict[str, float | None] = {}
+    for entry in entity_registry.deleted_entities.values():
+        deleted_entity_orphan_timestamps[entry.entity_id] = getattr(entry, "orphaned_timestamp", None)
+    _LOGGER.debug("Found %d deleted entity IDs in entity registry", len(deleted_entity_orphan_timestamps))
 
     _LOGGER.debug("Fetching metadata_id mapping")
     id_mapping = await recorder_instance.async_add_executor_job(_query_metadata_id_mapping, recorder_instance)
@@ -204,9 +146,8 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
 
     return InventoryData(
         metadata_rows=metadata_rows,
-        active_entity_ids=active_entity_ids,
-        orphaned_entity_ids=orphaned_entity_ids,
         entity_registry_ids=entity_registry_ids,
+        deleted_entity_orphan_timestamps=deleted_entity_orphan_timestamps,
         aggregates=aggregates,
         id_mapping=id_mapping,
     )

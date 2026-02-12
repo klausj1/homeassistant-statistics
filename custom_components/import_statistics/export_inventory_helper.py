@@ -61,9 +61,8 @@ INVENTORY_COLUMNS = [
 def classify_category(
     statistic_id: str,
     source: str,
-    active_entity_ids: set[str],
-    orphaned_entity_ids: set[str],
     entity_registry_ids: set[str],
+    deleted_entity_orphan_timestamps: dict[str, float | None],
 ) -> Category:
     """
     Classify a statistic into Active, Orphan, Deleted, or External category.
@@ -71,9 +70,8 @@ def classify_category(
     Args:
         statistic_id: The statistic ID to classify
         source: The source field from statistics_meta
-        active_entity_ids: Set of entity IDs present in states_meta
-        orphaned_entity_ids: Set of entity IDs whose latest state is NULL
         entity_registry_ids: Set of entity IDs present in the entity registry
+        deleted_entity_orphan_timestamps: Mapping of deleted entity_id to orphaned_timestamp (if any)
 
     Returns:
         Category enum value
@@ -83,23 +81,12 @@ def classify_category(
     if source != "recorder" or ":" in statistic_id:
         return Category.EXTERNAL
 
-    # Entity must be in states_meta to be Active or Orphan
-    if statistic_id in active_entity_ids:
-        # Orphan: entity exists in states_meta but last state is NULL
-        if statistic_id in orphaned_entity_ids:
-            return Category.ORPHAN
-        return Category.ACTIVE
-
     # If the entity is still registered in Home Assistant, it should not be reported as deleted.
-    # This covers cases where the entity currently has no states history (e.g. after purging)
-    # or the source integration is temporarily unavailable.
     if statistic_id in entity_registry_ids:
         return Category.ACTIVE
 
-    # If it's still in the entity registry, it shouldn't be considered deleted.
-    # This can happen if states history was purged/cleaned while statistics metadata remains.
-    if statistic_id in orphaned_entity_ids:
-        return Category.ORPHAN
+    if statistic_id in deleted_entity_orphan_timestamps:
+        return Category.ORPHAN if deleted_entity_orphan_timestamps[statistic_id] is not None else Category.DELETED
 
     return Category.DELETED
 
@@ -183,9 +170,8 @@ def build_inventory_rows(
         category = classify_category(
             meta.statistic_id,
             meta.source,
-            inventory_data.active_entity_ids,
-            inventory_data.orphaned_entity_ids,
             inventory_data.entity_registry_ids,
+            inventory_data.deleted_entity_orphan_timestamps,
         )
         stat_type = classify_type(has_sum=meta.has_sum)
 

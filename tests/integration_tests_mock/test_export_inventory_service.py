@@ -40,18 +40,16 @@ def _create_service_call(filename: str, delimiter: str | None = "\t", timezone: 
 
 def _create_inventory_data(
     metadata_rows: list[StatisticMetadataRow] | None = None,
-    active_entity_ids: set[str] | None = None,
-    orphaned_entity_ids: set[str] | None = None,
     entity_registry_ids: set[str] | None = None,
+    deleted_entity_orphan_timestamps: dict[str, float | None] | None = None,
     stats_data: tuple[dict[int, StatisticAggregates], dict[str, int]] | None = None,
 ) -> InventoryData:
     """Create mock inventory data."""
     aggregates, id_mapping = stats_data if stats_data is not None else ({}, {})
     return InventoryData(
         metadata_rows=metadata_rows or [],
-        active_entity_ids=active_entity_ids or set(),
-        orphaned_entity_ids=orphaned_entity_ids or set(),
         entity_registry_ids=entity_registry_ids or set(),
+        deleted_entity_orphan_timestamps=deleted_entity_orphan_timestamps or {},
         aggregates=aggregates,
         id_mapping=id_mapping,
     )
@@ -70,10 +68,10 @@ class TestExportInventoryService:
             metadata_rows = [
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
             ]
-            active_entity_ids = {"sensor.temperature"}
+            entity_registry_ids = {"sensor.temperature"}
             aggregates = {1: StatisticAggregates(1, 100, 1704067200.0, 1704153600.0)}
             id_mapping = {"sensor.temperature": 1}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, stats_data=(aggregates, id_mapping))
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -112,13 +110,13 @@ class TestExportInventoryService:
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
                 StatisticMetadataRow("sensor.energy", "kWh", "recorder", has_sum=True),
             ]
-            active_entity_ids = {"sensor.temperature", "sensor.energy"}
+            entity_registry_ids = {"sensor.temperature", "sensor.energy"}
             aggregates = {
                 1: StatisticAggregates(1, 100, 1704067200.0, 1704153600.0),  # 2024-01-01 00:00 to 2024-01-02 00:00
                 2: StatisticAggregates(2, 200, 1704067200.0, 1704240000.0),  # 2024-01-01 00:00 to 2024-01-03 00:00
             }
             id_mapping = {"sensor.temperature": 1, "sensor.energy": 2}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, stats_data=(aggregates, id_mapping))
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -221,14 +219,20 @@ class TestExportInventoryService:
                 StatisticMetadataRow("sensor.deleted", "°C", "recorder", has_sum=False),  # Deleted
                 StatisticMetadataRow("energy:external", "kWh", "energy", has_sum=True),  # External
             ]
-            active_entity_ids = {"sensor.active"}  # Only sensor.active is in states_meta
+            entity_registry_ids = {"sensor.active"}
+            deleted_entity_orphan_timestamps = {"sensor.deleted": None}
             aggregates = {
                 1: StatisticAggregates(1, 10, 1704067200.0, 1704067200.0),
                 2: StatisticAggregates(2, 20, 1704067200.0, 1704067200.0),
                 3: StatisticAggregates(3, 30, 1704067200.0, 1704067200.0),
             }
             id_mapping = {"sensor.active": 1, "sensor.deleted": 2, "energy:external": 3}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, stats_data=(aggregates, id_mapping))
+            inventory_data = _create_inventory_data(
+                metadata_rows,
+                entity_registry_ids,
+                deleted_entity_orphan_timestamps,
+                stats_data=(aggregates, id_mapping),
+            )
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -263,13 +267,13 @@ class TestExportInventoryService:
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),  # Measurement
                 StatisticMetadataRow("sensor.energy", "kWh", "recorder", has_sum=True),  # Counter
             ]
-            active_entity_ids = {"sensor.temperature", "sensor.energy"}
+            entity_registry_ids = {"sensor.temperature", "sensor.energy"}
             aggregates = {
                 1: StatisticAggregates(1, 10, 1704067200.0, 1704067200.0),
                 2: StatisticAggregates(2, 20, 1704067200.0, 1704067200.0),
             }
             id_mapping = {"sensor.temperature": 1, "sensor.energy": 2}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, stats_data=(aggregates, id_mapping))
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -301,11 +305,11 @@ class TestExportInventoryService:
             metadata_rows = [
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
             ]
-            active_entity_ids = {"sensor.temperature"}
+            entity_registry_ids = {"sensor.temperature"}
             # 2024-01-15 12:00:00 UTC = 2024-01-15 13:00:00 Paris
             aggregates = {1: StatisticAggregates(1, 10, 1705320000.0, 1705320000.0)}
             id_mapping = {"sensor.temperature": 1}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, stats_data=(aggregates, id_mapping))
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -335,8 +339,8 @@ class TestExportInventoryService:
                 StatisticMetadataRow("sensor.deleted", "W", "recorder", has_sum=False),  # Deleted
                 StatisticMetadataRow("energy:external", "kWh", "energy", has_sum=True),  # External
             ]
-            active_entity_ids = {"sensor.active", "sensor.orphaned"}  # Both in states_meta
-            orphaned_entity_ids = {"sensor.orphaned"}  # Only sensor.orphaned has NULL last state
+            entity_registry_ids = {"sensor.active"}
+            deleted_entity_orphan_timestamps = {"sensor.orphaned": 1704067200.0, "sensor.deleted": None}
             aggregates = {
                 1: StatisticAggregates(1, 10, 1704067200.0, 1704067200.0),
                 2: StatisticAggregates(2, 20, 1704067200.0, 1704067200.0),
@@ -346,8 +350,8 @@ class TestExportInventoryService:
             id_mapping = {"sensor.active": 1, "sensor.orphaned": 2, "sensor.deleted": 3, "energy:external": 4}
             inventory_data = _create_inventory_data(
                 metadata_rows,
-                active_entity_ids,
-                orphaned_entity_ids,
+                entity_registry_ids,
+                deleted_entity_orphan_timestamps,
                 stats_data=(aggregates, id_mapping),
             )
 
