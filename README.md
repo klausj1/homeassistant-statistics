@@ -434,10 +434,14 @@ The exported file contains a **summary block** at the top (lines starting with `
 
 #### Category Classification
 
-- **Active**: Entity currently present and active in Home Assistant
-- **Orphan**: Entity exists in Home Assistant but is no longer claimed by an integration (last state is NULL)
-- **Deleted**: Entity was removed but statistics remain in database
-- **External**: External statistic (uses `:` separator, e.g., `energy:my_stat`)
+- **External**: Statistic is external (either `source != "recorder"` or `statistic_id` uses the `domain:name` format with `:`).
+- **Active**: `statistic_id` exists in the entity registry active entities (`core.entity_registry.entities`).
+- **Orphan**: `statistic_id` exists in the entity registry deleted entities (`core.entity_registry.deleted_entities`) and has a non-null `orphaned_timestamp`.
+- **Deleted**:
+  - `statistic_id` exists in `core.entity_registry.deleted_entities` and has a null/missing `orphaned_timestamp`, or
+  - `statistic_id` is not found in the entity registry at all (neither active nor deleted).
+
+Category classification is based on the Home Assistant entity registry and does not use `states_meta` presence/absence or "latest state is NULL" heuristics.
 
 ---
 
