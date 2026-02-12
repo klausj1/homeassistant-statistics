@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.2.1] - export_inventory improvements and classification fixes
+
+### Changes
+
+#### Export inventory improvements
+
+- **Refactor classification**: Use the entity registry (including deleted entries) for `Active`/`Orphan`/`Deleted` classification.
+- **Simplify orphan handling**: Treat all entities present in the entity registry deleted entries list as `Orphan`.
+- **Improve file write error handling**: Inventory file writing now handles permission/OS errors with clearer user-facing messages.
+- **Documentation**: Update export inventory category classification documentation.
+
+### Bug Fixes
+
+#### Export inventory improvements
+
+- **Fix orphan classification**: Fixed a bug where entities present in Home Assistant's entity registry `deleted_entities` could be incorrectly classified as `Deleted` when the registry entry had no `orphaned_timestamp`.
+
+---
+
 ## [4.2.0] - Orphan detection in export_inventory
 
 ### Changes
