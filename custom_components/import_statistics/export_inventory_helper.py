@@ -86,7 +86,7 @@ def classify_category(
         return Category.ACTIVE
 
     if statistic_id in deleted_entity_orphan_timestamps:
-        return Category.ORPHAN if deleted_entity_orphan_timestamps[statistic_id] is not None else Category.DELETED
+        return Category.ORPHAN
 
     return Category.DELETED
 

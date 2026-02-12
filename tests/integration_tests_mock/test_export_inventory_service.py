@@ -248,12 +248,12 @@ class TestExportInventoryService:
 
             # Check classifications
             assert "Active" in content
-            assert "Deleted" in content
+            assert "Orphan" in content
             assert "External" in content
 
             # Check summary counts
             assert "# Active statistics: 1" in content
-            assert "# Deleted statistics: 1" in content
+            assert "# Orphan statistics: 1" in content
             assert "# External statistics: 1" in content
 
     @pytest.mark.asyncio
@@ -367,19 +367,23 @@ class TestExportInventoryService:
             output_file = Path(tmpdir) / "inventory.tsv"
             content = output_file.read_text(encoding="utf-8-sig")
 
-            # Check all four classifications appear
+            # Check all three classifications appear in rows
             assert "Active" in content
             assert "Orphan" in content
-            assert "Deleted" in content
             assert "External" in content
 
             # Check summary counts
             assert "# Active statistics: 1" in content
-            assert "# Orphan statistics: 1" in content
-            assert "# Deleted statistics: 1" in content
+            assert "# Orphan statistics: 2" in content
+            assert "# Deleted statistics: 0" in content
             assert "# External statistics: 1" in content
 
             # Verify the orphaned entity row has Orphan category
             data_lines = [line for line in content.split("\n") if "sensor.orphaned" in line]
             assert len(data_lines) == 1
             assert "Orphan" in data_lines[0]
+
+            # Verify the deleted entity row is categorized as Orphan (deleted entity registry entry)
+            deleted_lines = [line for line in content.split("\n") if "sensor.deleted" in line]
+            assert len(deleted_lines) == 1
+            assert "\tOrphan\t" in deleted_lines[0]

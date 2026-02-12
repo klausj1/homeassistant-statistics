@@ -56,11 +56,11 @@ class TestClassifyCategory:
         result = classify_category("sensor.temperature", "recorder", set(), deleted_entity_orphan_timestamps)
         assert result == Category.ORPHAN
 
-    def test_deleted_when_deleted_entry_has_no_orphaned_timestamp(self) -> None:
-        """Test that a deleted registry entry without orphaned_timestamp is Deleted."""
+    def test_orphan_when_deleted_entry_has_no_orphaned_timestamp(self) -> None:
+        """Test that a deleted registry entry without orphaned_timestamp is Orphan."""
         deleted_entity_orphan_timestamps = {"sensor.temperature": None}
         result = classify_category("sensor.temperature", "recorder", set(), deleted_entity_orphan_timestamps)
-        assert result == Category.DELETED
+        assert result == Category.ORPHAN
 
 
 class TestClassifyType:
