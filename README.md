@@ -12,7 +12,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 ## Quick Links
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
-- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
+- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Inventory Categories](./docs/user/export_inventory_categories.md)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
 This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
@@ -450,6 +450,7 @@ Category classification is based on the Home Assistant entity registry and does 
   - `statistic_id` is not found in the entity registry at all (neither active nor deleted).
 - **External**: Statistic is external (either `source != "recorder"` or `statistic_id` uses the `domain:name` format with `:`).
 
+For more details, see [Export Inventory Categories](./docs/user/export_inventory_categories.md).
 
 ---
 
