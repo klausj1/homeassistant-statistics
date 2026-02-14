@@ -49,12 +49,12 @@ def get_source(statistic_id: str) -> str:
 
     """
     if valid_entity_id(statistic_id):
-        source = statistic_id.split(".")[0]
+        source = statistic_id.split(".", maxsplit=1)[0]
         if source == "recorder":
             handle_error(f"Invalid statistic_id {statistic_id}. DOMAIN 'recorder' is not allowed.")
         source = "recorder"
     elif valid_statistic_id(statistic_id):
-        source = statistic_id.split(":")[0]
+        source = statistic_id.split(":", maxsplit=1)[0]
         if len(source) == 0:
             handle_error(f"Implementation error, this must not happen. Invalid statistic_id. (must not start with ':'): {statistic_id}")
         if source == "recorder":

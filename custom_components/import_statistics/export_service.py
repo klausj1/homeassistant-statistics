@@ -420,7 +420,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT, DATETIME_DEFAULT_FORMAT)
 
     _LOGGER.info("Service handle_export_statistics called")
-    _LOGGER.info("Exporting entities: %s", entities_input if entities_input else "ALL")
+    _LOGGER.info("Exporting entities: %s", entities_input or "ALL")
     _LOGGER.info("Time range: %s to %s", start_time_str if start_time_str is not None else "AUTO", end_time_str if end_time_str is not None else "AUTO")
     _LOGGER.info("Output file: %s", filename)
 
