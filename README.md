@@ -12,7 +12,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 ## Quick Links
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
-- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import)
+- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Inventory Categories](./docs/user/export_inventory_categories.md)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
 This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
@@ -394,28 +394,37 @@ Export a metadata-only inventory of all long-term statistics. This is useful for
 ```yaml
 action: import_statistics.export_inventory
 data:
-  filename: statistics_inventory.tsv
-  delimiter: "\t"
-  # timezone_identifier: Europe/Paris  # Optional - defaults to HA timezone
+  filename: statistics_inventory.csv
 ```
 
 ### Inventory Output
 
-The exported file contains a **summary block** at the top (lines starting with `#`) followed by a table with one row per statistic:
-
-#### Summary Block
+- The exported file contains a summary block at the top (lines starting with `#`)
 
 ```text
-# Total statistic_ids: 47
-# Measurements: 28
-# Counters: 19
-# Total samples: 12542
-# Global start: 2025-06-29 07:00
-# Global end: 2026-02-03 10:00
-# Internal statistic_ids: 38
-# Deleted statistic_ids: 0
-# External statistic_ids: 9
+# Total statistics: 257
+# Measurements: 194
+# Counters: 63
+# Total samples: 5038317
+# Global start: 2022-01-09 16:00:00
+# Global end: 2026-02-12 13:00:00
+# Active statistics: 224
+# Orphan statistics: 7
+# Deleted statistics: 26
+# External statistics: 0
 ```
+
+- Followed by a table with one row per statistic:
+
+| statistic_id | unit_of_measurement | source | category | type | samples_count | first_seen | last_seen | days_span |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| sensor.button_master_power | % | recorder | Active | Measurement | 32949 | 2/12/2022 10:00 | 2/12/2026 13:00 | 1461.1 |
+| sensor.disk_free | GiB | recorder | Active | Measurement | 35876 | 1/9/2022 16:00 | 2/12/2026 13:00 | 1494.9 |
+| sensor.disk_use | GiB | recorder | Active | Measurement | 35876 | 1/9/2022 16:00 | 2/12/2026 13:00 | 1494.9 |
+| sensor.disk_use_percent | % | recorder | Active | Measurement | 35876 | 1/9/2022 16:00 | 2/12/2026 13:00 | 1494.9 |
+| sensor.e3_tcu10_x07_buffer_main_temperature | °C | recorder | Active | Measurement | 20326 | 9/29/2023 10:00 | 2/12/2026 13:00 | 867.2 |
+| sensor.e3_tcu10_x07_compressor_hours | h | recorder | Active | Counter | 17638 | 1/20/2024 21:00 | 2/12/2026 13:00 | 753.7 |
+| sensor.e3_tcu10_x07_compressor_starts |  | recorder | Active | Counter | 17638 | 1/20/2024 21:00 | 2/12/2026 13:00 | 753.7 |
 
 #### Table Columns
 
@@ -424,7 +433,7 @@ The exported file contains a **summary block** at the top (lines starting with `
 | `statistic_id` | The statistic ID (e.g., `sensor.temperature`) |
 | `unit_of_measurement` | Unit (e.g., `°C`, `kWh`) |
 | `source` | Source of the statistic (e.g., `recorder`) |
-| `category` | Classification: `Internal`, `Deleted`, or `External` |
+| `category` | Classification: `Active`, `Orphan`, `Deleted`, or `External` |
 | `type` | `Measurement` (has mean/min/max) or `Counter` (has sum) |
 | `samples_count` | Number of long-term (hourly) samples |
 | `first_seen` | Timestamp of earliest sample |
@@ -433,9 +442,15 @@ The exported file contains a **summary block** at the top (lines starting with `
 
 #### Category Classification
 
-- **Internal**: Active entity present in Home Assistant
-- **Deleted**: Entity was removed but statistics remain in database
-- **External**: External statistic (uses `:` separator, e.g., `energy:my_stat`)
+Category classification is based on the Home Assistant entity registry and does not use `states_meta`.
+- **Active**: `statistic_id` exists in the entity registry active entities (`core.entity_registry.entities`).
+- **Orphan**: `statistic_id` exists in the entity registry deleted entities (`core.entity_registry.deleted_entities`) and has a non-null `orphaned_timestamp`.
+- **Deleted**:
+  - `statistic_id` exists in `core.entity_registry.deleted_entities` and has a null/missing `orphaned_timestamp`, or
+  - `statistic_id` is not found in the entity registry at all (neither active nor deleted).
+- **External**: Statistic is external (either `source != "recorder"` or `statistic_id` uses the `domain:name` format with `:`).
+
+For more details, see [Export Inventory Categories](./docs/user/export_inventory_categories.md).
 
 ---
 

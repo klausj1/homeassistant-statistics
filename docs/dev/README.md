@@ -12,8 +12,8 @@ For experienced developers who want to get started immediately:
 
 1. Clone repository and open in VS Code
 2. Reopen in devcontainer (VS Code will prompt)
-3. Run `scripts/setup` to install dependencies
-4. Run `scripts/develop` to start Home Assistant
+3. Run `scripts/setup` to install dependencies or run task `Setup Dev Environment`
+4. Run `scripts/develop` to start Home Assistant or run task `Run Home Assistant (Dev)`
 5. Access HA at <http://localhost:8123>
 6. Create a token and store it in `.env` as `HA_TOKEN_DEV` (needed for running integration tests)
 7. Run tests using VSCode "Run Tests" task (auto-sources `.env`) or `pytest`
@@ -42,7 +42,21 @@ For detailed setup instructions, see [Development Environment Setup](#developmen
 > This is tested under Windows using VS Code. As the repo is container-based, it should work in other environments as well.
 > Python dependencies from both `requirements.txt` and `requirements.test.txt` are installed as part of the container setup automatically.
 
-#### Step 2: Start Home Assistant
+#### Step 2 : Setup the environment
+
+1. Run `scripts/setup` to install dependencies or run task `Setup Dev Environment`
+
+2. Run `scripts/fix_ha_errors` (optional) or run task Install `Fix HA Errors`. If you do not run this script you will get the following error messages (you can safely ignore them):
+
+   - haffmpeg: 'No such file or directory: ffmpeg' by installing the 'ffmpeg' package"
+
+   - aiodhcpwatcher: 'libpcap is not available' by installing the 'libpcap0.8' package"
+
+   - libturbojpeg: missing 'libturbojpeg.so' by installing the 'libturbojpeg0' package"
+
+
+
+#### Step 3: Start Home Assistant
 
 Start the development Home Assistant instance:
 
@@ -50,9 +64,11 @@ Start the development Home Assistant instance:
 scripts/develop
 ```
 
+or run the task (CTRL-SHIFT-P: Tasks: Run Task ) `Run Home Assistant (Dev)`
+
 Wait until Home Assistant finishes starting (you'll see `Home Assistant initialized` in the logs, but its not the last message), then access it at <http://localhost:8123>.
 
-#### Step 3: Configure Authentication Token (Required for Integration Tests)
+#### Step 4: Configure Authentication Token (Required for Integration Tests)
 
 Integration tests require a Home Assistant authentication token. You have two options:
 
@@ -98,6 +114,7 @@ All commands should be run from the workspace root directory inside the devconta
 ```bash
 scripts/setup              # Install/update Python dependencies; run on container setup automatically
 scripts/clean_config       # Clean config directory for fresh start (keeps configuration.yaml, *.csv, test_*, *.md)
+scripts/fix_ha_errors      # Optional: get rid of error messages at startup
 ```
 
 ### Running Home Assistant
@@ -107,6 +124,10 @@ scripts/develop           # Start HA with custom component loaded
                           # Sets PYTHONPATH to include custom_components
                           # Access at http://localhost:8123
 ```
+
+### Stopping Home assistant
+
+It is important to stop HA cleanly to avoid corruption in the database. The easiest way is to use CTRL-C in the terminal or run task `Stop Home Assistant`
 
 ### Code Quality
 
@@ -282,6 +303,11 @@ After changing `~/.wslconfig`, restart WSL (e.g., `wsl --shutdown`) and restart 
     - Enter: `192.168.1.30`
 
 3. If prompted, provide the ESPHome API encryption key or password from your ESPHome YAML (`api:` section).
+
+**Problem**: I see some error messages when Home Assistant startup
+
+- **Cause**: the container used has a minimum number of libraries installed. Home Assistant calls for libraries like jpeg even if you do not need then. This can be fix by either tweaking the configuration file or by adding these libraries to the container
+- **Solution**: ignore them unless you add some specific integration that requires them (like cameras) or run scripts/fix_ha_errors
 
 ### Test Issues
 

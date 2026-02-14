@@ -122,6 +122,12 @@ class TestIntegrationAll:
                     _LOGGER.debug("Got response: status=%s", response.status)
                     if response.status in (200, 401):  # 401 means HA is up but needs token
                         _LOGGER.debug("✓ HA is responsive! Status: %s", response.status)
+                        if self.__class__.ha_process is None:
+                            pytest.skip(
+                                "A Home Assistant instance is already running on http://localhost:8123. "
+                                "These integration tests require a clean, test-controlled instance. "
+                                "Stop Home Assistant and rerun the tests."
+                            )
                         if attempt > 1:
                             await asyncio.sleep(2)  # Give it an extra second to be fully ready
                             _LOGGER.debug("✓ Returning True after waiting 2 more seconds")

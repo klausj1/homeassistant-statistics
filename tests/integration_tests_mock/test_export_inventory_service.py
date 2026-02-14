@@ -40,16 +40,18 @@ def _create_service_call(filename: str, delimiter: str | None = "\t", timezone: 
 
 def _create_inventory_data(
     metadata_rows: list[StatisticMetadataRow] | None = None,
-    active_entity_ids: set[str] | None = None,
-    aggregates: dict[int, StatisticAggregates] | None = None,
-    id_mapping: dict[str, int] | None = None,
+    entity_registry_ids: set[str] | None = None,
+    deleted_entity_orphan_timestamps: dict[str, float | None] | None = None,
+    stats_data: tuple[dict[int, StatisticAggregates], dict[str, int]] | None = None,
 ) -> InventoryData:
     """Create mock inventory data."""
+    aggregates, id_mapping = stats_data if stats_data is not None else ({}, {})
     return InventoryData(
         metadata_rows=metadata_rows or [],
-        active_entity_ids=active_entity_ids or set(),
-        aggregates=aggregates or {},
-        id_mapping=id_mapping or {},
+        entity_registry_ids=entity_registry_ids or set(),
+        deleted_entity_orphan_timestamps=deleted_entity_orphan_timestamps or {},
+        aggregates=aggregates,
+        id_mapping=id_mapping,
     )
 
 
@@ -66,10 +68,10 @@ class TestExportInventoryService:
             metadata_rows = [
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
             ]
-            active_entity_ids = {"sensor.temperature"}
+            entity_registry_ids = {"sensor.temperature"}
             aggregates = {1: StatisticAggregates(1, 100, 1704067200.0, 1704153600.0)}
             id_mapping = {"sensor.temperature": 1}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, aggregates, id_mapping)
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -108,13 +110,13 @@ class TestExportInventoryService:
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
                 StatisticMetadataRow("sensor.energy", "kWh", "recorder", has_sum=True),
             ]
-            active_entity_ids = {"sensor.temperature", "sensor.energy"}
+            entity_registry_ids = {"sensor.temperature", "sensor.energy"}
             aggregates = {
                 1: StatisticAggregates(1, 100, 1704067200.0, 1704153600.0),  # 2024-01-01 00:00 to 2024-01-02 00:00
                 2: StatisticAggregates(2, 200, 1704067200.0, 1704240000.0),  # 2024-01-01 00:00 to 2024-01-03 00:00
             }
             id_mapping = {"sensor.temperature": 1, "sensor.energy": 2}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, aggregates, id_mapping)
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -134,7 +136,7 @@ class TestExportInventoryService:
             lines = content.strip().split("\n")
 
             # Check summary lines
-            assert lines[0].startswith("# Total statistic_ids: 2")
+            assert lines[0].startswith("# Total statistics: 2")
             assert any("# Measurements: 1" in line for line in lines)
             assert any("# Counters: 1" in line for line in lines)
             assert any("# Total samples: 300" in line for line in lines)
@@ -206,25 +208,31 @@ class TestExportInventoryService:
                 await handle_export_inventory_impl(hass, call)
 
     @pytest.mark.asyncio
-    async def test_export_inventory_classification_internal_deleted_external(self) -> None:
-        """Test correct classification of Internal, Deleted, and External statistics."""
+    async def test_export_inventory_classification_active_deleted_external(self) -> None:
+        """Test correct classification of Active, Deleted, and External statistics."""
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = _create_mock_hass(tmpdir)
             call = _create_service_call("inventory.tsv")
 
             metadata_rows = [
-                StatisticMetadataRow("sensor.active", "°C", "recorder", has_sum=False),  # Internal
+                StatisticMetadataRow("sensor.active", "°C", "recorder", has_sum=False),  # Active
                 StatisticMetadataRow("sensor.deleted", "°C", "recorder", has_sum=False),  # Deleted
                 StatisticMetadataRow("energy:external", "kWh", "energy", has_sum=True),  # External
             ]
-            active_entity_ids = {"sensor.active"}  # Only sensor.active is in states_meta
+            entity_registry_ids = {"sensor.active"}
+            deleted_entity_orphan_timestamps = {"sensor.deleted": None}
             aggregates = {
                 1: StatisticAggregates(1, 10, 1704067200.0, 1704067200.0),
                 2: StatisticAggregates(2, 20, 1704067200.0, 1704067200.0),
                 3: StatisticAggregates(3, 30, 1704067200.0, 1704067200.0),
             }
             id_mapping = {"sensor.active": 1, "sensor.deleted": 2, "energy:external": 3}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, aggregates, id_mapping)
+            inventory_data = _create_inventory_data(
+                metadata_rows,
+                entity_registry_ids,
+                deleted_entity_orphan_timestamps,
+                stats_data=(aggregates, id_mapping),
+            )
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -239,14 +247,14 @@ class TestExportInventoryService:
             content = output_file.read_text(encoding="utf-8-sig")
 
             # Check classifications
-            assert "Internal" in content
-            assert "Deleted" in content
+            assert "Active" in content
+            assert "Orphan" in content
             assert "External" in content
 
             # Check summary counts
-            assert "# Internal statistic_ids: 1" in content
-            assert "# Deleted statistic_ids: 1" in content
-            assert "# External statistic_ids: 1" in content
+            assert "# Active statistics: 1" in content
+            assert "# Orphan statistics: 1" in content
+            assert "# External statistics: 1" in content
 
     @pytest.mark.asyncio
     async def test_export_inventory_type_classification(self) -> None:
@@ -259,13 +267,13 @@ class TestExportInventoryService:
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),  # Measurement
                 StatisticMetadataRow("sensor.energy", "kWh", "recorder", has_sum=True),  # Counter
             ]
-            active_entity_ids = {"sensor.temperature", "sensor.energy"}
+            entity_registry_ids = {"sensor.temperature", "sensor.energy"}
             aggregates = {
                 1: StatisticAggregates(1, 10, 1704067200.0, 1704067200.0),
                 2: StatisticAggregates(2, 20, 1704067200.0, 1704067200.0),
             }
             id_mapping = {"sensor.temperature": 1, "sensor.energy": 2}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, aggregates, id_mapping)
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -297,11 +305,11 @@ class TestExportInventoryService:
             metadata_rows = [
                 StatisticMetadataRow("sensor.temperature", "°C", "recorder", has_sum=False),
             ]
-            active_entity_ids = {"sensor.temperature"}
+            entity_registry_ids = {"sensor.temperature"}
             # 2024-01-15 12:00:00 UTC = 2024-01-15 13:00:00 Paris
             aggregates = {1: StatisticAggregates(1, 10, 1705320000.0, 1705320000.0)}
             id_mapping = {"sensor.temperature": 1}
-            inventory_data = _create_inventory_data(metadata_rows, active_entity_ids, aggregates, id_mapping)
+            inventory_data = _create_inventory_data(metadata_rows, entity_registry_ids, stats_data=(aggregates, id_mapping))
 
             mock_recorder = MagicMock()
             mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -317,3 +325,65 @@ class TestExportInventoryService:
 
             # Timestamps should be in Paris timezone (UTC+1 in January)
             assert "2024-01-15 13:00" in content
+
+    @pytest.mark.asyncio
+    async def test_export_inventory_orphan_classification(self) -> None:
+        """Test correct classification of Orphan statistics (last state is NULL)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = _create_mock_hass(tmpdir)
+            call = _create_service_call("inventory.tsv")
+
+            metadata_rows = [
+                StatisticMetadataRow("sensor.active", "°C", "recorder", has_sum=False),  # Active
+                StatisticMetadataRow("sensor.orphaned", "kWh", "recorder", has_sum=True),  # Orphan
+                StatisticMetadataRow("sensor.deleted", "W", "recorder", has_sum=False),  # Deleted
+                StatisticMetadataRow("energy:external", "kWh", "energy", has_sum=True),  # External
+            ]
+            entity_registry_ids = {"sensor.active"}
+            deleted_entity_orphan_timestamps = {"sensor.orphaned": 1704067200.0, "sensor.deleted": None}
+            aggregates = {
+                1: StatisticAggregates(1, 10, 1704067200.0, 1704067200.0),
+                2: StatisticAggregates(2, 20, 1704067200.0, 1704067200.0),
+                3: StatisticAggregates(3, 30, 1704067200.0, 1704067200.0),
+                4: StatisticAggregates(4, 40, 1704067200.0, 1704067200.0),
+            }
+            id_mapping = {"sensor.active": 1, "sensor.orphaned": 2, "sensor.deleted": 3, "energy:external": 4}
+            inventory_data = _create_inventory_data(
+                metadata_rows,
+                entity_registry_ids,
+                deleted_entity_orphan_timestamps,
+                stats_data=(aggregates, id_mapping),
+            )
+
+            mock_recorder = MagicMock()
+            mock_recorder.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
+
+            with (
+                patch("custom_components.import_statistics.export_inventory_service.get_instance", return_value=mock_recorder),
+                patch("custom_components.import_statistics.export_inventory_service.fetch_inventory_data", return_value=inventory_data),
+            ):
+                await handle_export_inventory_impl(hass, call)
+
+            output_file = Path(tmpdir) / "inventory.tsv"
+            content = output_file.read_text(encoding="utf-8-sig")
+
+            # Check all three classifications appear in rows
+            assert "Active" in content
+            assert "Orphan" in content
+            assert "External" in content
+
+            # Check summary counts
+            assert "# Active statistics: 1" in content
+            assert "# Orphan statistics: 2" in content
+            assert "# Deleted statistics: 0" in content
+            assert "# External statistics: 1" in content
+
+            # Verify the orphaned entity row has Orphan category
+            data_lines = [line for line in content.split("\n") if "sensor.orphaned" in line]
+            assert len(data_lines) == 1
+            assert "Orphan" in data_lines[0]
+
+            # Verify the deleted entity row is categorized as Orphan (deleted entity registry entry)
+            deleted_lines = [line for line in content.split("\n") if "sensor.deleted" in line]
+            assert len(deleted_lines) == 1
+            assert "\tOrphan\t" in deleted_lines[0]
