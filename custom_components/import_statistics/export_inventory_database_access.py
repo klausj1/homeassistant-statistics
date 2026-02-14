@@ -4,9 +4,10 @@ import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeassistant.components.recorder.db_schema import StatesMeta, Statistics, StatisticsMeta
+from homeassistant.components.recorder.db_schema import Statistics, StatisticsMeta
 from homeassistant.components.recorder.statistics import list_statistic_ids
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.recorder import get_instance, session_scope
 from sqlalchemy import func, select
 
@@ -54,18 +55,6 @@ def _query_statistics_meta(hass: HomeAssistant) -> list[StatisticMetadataRow]:
     ]
 
 
-def _query_active_entity_ids(hass: HomeAssistant) -> set[str]:
-    """
-    Query states_meta table to get all active entity IDs.
-
-    Returns a set of entity_id strings that exist in states_meta.
-    """
-    with session_scope(hass=hass, read_only=True) as session:
-        stmt = select(StatesMeta.entity_id).where(StatesMeta.entity_id.isnot(None))
-        rows = session.execute(stmt).scalars().all()
-        return set(rows)
-
-
 def _query_statistics_aggregates(recorder_instance: "Recorder") -> dict[int, StatisticAggregates]:
     """
     Query long-term statistics table for aggregated counts and timestamps.
@@ -110,7 +99,8 @@ class InventoryData:
     """Complete inventory data from database queries."""
 
     metadata_rows: list[StatisticMetadataRow]
-    active_entity_ids: set[str]
+    entity_registry_ids: set[str]
+    deleted_entity_orphan_timestamps: dict[str, float | None]
     aggregates: dict[int, StatisticAggregates]
     id_mapping: dict[str, int]
 
@@ -119,10 +109,10 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     """
     Fetch all data needed for inventory export.
 
-    Performs three database queries:
-    1. statistics_meta: all statistic IDs with metadata
-    2. states_meta: all active entity IDs (for deleted detection)
-    3. statistics: aggregated counts and timestamps per metadata_id
+    Performs data collection:
+    1. recorder statistics: all statistic IDs with metadata
+    2. entity registry: active and deleted entity IDs (incl. orphaned_timestamp)
+    3. recorder long-term statistics: aggregated counts and timestamps per metadata_id
 
     Args:
         hass: Home Assistant instance
@@ -137,13 +127,42 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
     metadata_rows = await recorder_instance.async_add_executor_job(_query_statistics_meta, hass)
     _LOGGER.debug("Found %d statistics in metadata", len(metadata_rows))
 
-    _LOGGER.debug("Fetching active entity IDs from states_meta")
-    active_entity_ids = await recorder_instance.async_add_executor_job(_query_active_entity_ids, hass)
-    _LOGGER.debug("Found %d active entity IDs", len(active_entity_ids))
+    entity_registry = er.async_get(hass)
+    entity_registry_ids = {entry.entity_id for entry in entity_registry.entities.values()}
+    _LOGGER.debug("Found %d entity IDs in entity registry", len(entity_registry_ids))
+
+    deleted_entity_orphan_timestamps: dict[str, float | None] = {}
+    for entry in entity_registry.deleted_entities.values():
+        deleted_entity_orphan_timestamps[entry.entity_id] = getattr(entry, "orphaned_timestamp", None)
+    _LOGGER.debug("Found %d deleted entity IDs in entity registry", len(deleted_entity_orphan_timestamps))
+
+    metadata_statistic_ids = {row.statistic_id for row in metadata_rows}
+    deleted_ids = set(deleted_entity_orphan_timestamps)
+    deleted_in_metadata = metadata_statistic_ids & deleted_ids
+    if deleted_in_metadata:
+        sample = ", ".join(sorted(deleted_in_metadata)[:10])
+        _LOGGER.debug(
+            "Deleted entity IDs that also exist as statistics_meta statistic_id: %d (sample: %s)",
+            len(deleted_in_metadata),
+            sample,
+        )
+    else:
+        _LOGGER.debug("No deleted entity IDs found in statistics_meta statistic_id list")
 
     _LOGGER.debug("Fetching metadata_id mapping")
     id_mapping = await recorder_instance.async_add_executor_job(_query_metadata_id_mapping, recorder_instance)
     _LOGGER.debug("Found %d metadata_id mappings", len(id_mapping))
+
+    deleted_in_long_term = set(id_mapping) & deleted_ids
+    if deleted_in_long_term:
+        sample = ", ".join(sorted(deleted_in_long_term)[:10])
+        _LOGGER.debug(
+            "Deleted entity IDs that also have long-term statistics: %d (sample: %s)",
+            len(deleted_in_long_term),
+            sample,
+        )
+    else:
+        _LOGGER.debug("No deleted entity IDs found among statistic_ids that have long-term statistics")
 
     _LOGGER.debug("Fetching statistics aggregates")
     aggregates = await recorder_instance.async_add_executor_job(_query_statistics_aggregates, recorder_instance)
@@ -151,7 +170,8 @@ async def fetch_inventory_data(hass: HomeAssistant) -> InventoryData:
 
     return InventoryData(
         metadata_rows=metadata_rows,
-        active_entity_ids=active_entity_ids,
+        entity_registry_ids=entity_registry_ids,
+        deleted_entity_orphan_timestamps=deleted_entity_orphan_timestamps,
         aggregates=aggregates,
         id_mapping=id_mapping,
     )

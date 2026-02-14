@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.2.1] - export_inventory improvements and classification fixes
+
+### Changes
+
+#### Export inventory improvements
+
+- **Refactor classification**: Use the entity registry (including deleted entries) for `Active`/`Orphan`/`Deleted` classification.
+- **Simplify orphan handling**: Treat all entities present in the entity registry deleted entries list as `Orphan`.
+- **Improve file write error handling**: Inventory file writing now handles permission/OS errors with clearer user-facing messages.
+- **Documentation**: Update export inventory category classification documentation.
+
+### Bug Fixes
+
+#### Export inventory improvements
+
+- **Fix orphan classification**: Fixed a bug where entities present in Home Assistant's entity registry `deleted_entities` could be incorrectly classified as `Deleted` when the registry entry had no `orphaned_timestamp`.
+
+---
+
+## [4.2.0] - Orphan detection in export_inventory
+
+### Changes
+
+#### Export inventory improvements
+
+- **Orphan detection**: The inventory now detects orphaned entities — entities that still exist in Home Assistant's `states_meta` table but whose last recorded state is NULL, indicating they are no longer claimed by any integration. These are classified as `Orphan` in the output, making it easy to identify statistics that may need cleanup.
+- **Category terminology**: Inventory categories renamed from `Internal` to `Active` for clarity. The four categories are now: `Active`, `Orphan`, `Deleted`, `External`.
+- **Summary terminology**: Summary header lines now use `statistics` instead of `statistic_ids` (e.g., `# Total statistics:` instead of `# Total statistic_ids:`)
+
+---
+
 ## [4.1.0] - New export_inventory service, automatic separator selection, clearer terminology
 
 ### Changes

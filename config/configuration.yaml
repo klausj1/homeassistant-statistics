@@ -1,5 +1,7 @@
 # https://www.home-assistant.io/integrations/default_config/
 default_config:
+  - exclude:
+      - go2rtc
 
 import_statistics:
 
