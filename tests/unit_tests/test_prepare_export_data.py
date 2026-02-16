@@ -767,8 +767,8 @@ class TestPrepareExportJson:
 
         # Verify delta column exists and is sparse (only populated for counters, second record onwards)
         assert "delta" in columns
-        # First counter row should have empty delta (first record of that statistic_id)
-        assert rows[0][8] == ""
+        # First counter row should have delta 0 (first record of that statistic_id)
+        assert rows[0][8] == "0"
         # Second counter row should have delta value
         assert rows[1][8] != ""
         # First sensor row should have empty delta

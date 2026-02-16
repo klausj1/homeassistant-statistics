@@ -169,7 +169,7 @@ class TestExportTimestampSorting:
         # Should be sorted chronologically
         assert len(result) == 3
         assert result[0]["start"] == "05.01.2024 10:00"
-        assert result[0]["delta"] == ""  # First record has no delta
+        assert result[0]["delta"] == "0"  # First record has delta 0
 
         assert result[1]["start"] == "10.01.2024 10:00"
         assert result[1]["delta"] == "100"  # 200 - 100 = 100
@@ -205,7 +205,7 @@ class TestExportTimestampSorting:
         # With correct chronological sorting:
         assert result[0]["start"] == "05.01.2024 10:00"
         assert result[0]["sum"] == "100"
-        assert result[0]["delta"] == ""  # First record
+        assert result[0]["delta"] == "0"  # First record
 
         assert result[1]["start"] == "15.01.2024 10:00"
         assert result[1]["sum"] == "300"

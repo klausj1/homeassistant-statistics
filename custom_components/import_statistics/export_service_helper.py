@@ -423,8 +423,11 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
             else:
                 new_row["delta"] = ""
         else:
-            # First record for this statistic_id has empty delta
-            new_row["delta"] = ""
+            # First record for this statistic_id: output 0 for counters so re-importing as delta works.
+            if row_dict.get("sum"):
+                new_row["delta"] = helpers.format_decimal(0.0, use_comma=decimal_comma)
+            else:
+                new_row["delta"] = ""
 
         # Update previous sum for next iteration
         if row_dict.get("sum"):
