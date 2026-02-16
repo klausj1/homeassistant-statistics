@@ -78,7 +78,7 @@ def split_statistics_by_type(statistics_dict: dict, *, units_dict: dict | None =
     return measurement_statistics_dict, counter_statistics_dict, measurement_units_dict, counter_units_dict
 
 
-def prepare_export_data(
+def prepare_export_data(  # noqa: PLR0913, PLR0912
     statistics_dict: dict,
     timezone_identifier: str,
     datetime_format: str,
@@ -437,12 +437,11 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
                     new_row["delta"] = ""
             else:
                 new_row["delta"] = ""
-        else:
+        elif row_dict.get("sum"):
             # First record for this statistic_id: output 0 for counters so re-importing as delta works.
-            if row_dict.get("sum"):
-                new_row["delta"] = helpers.format_decimal(0.0, use_comma=decimal_comma)
-            else:
-                new_row["delta"] = ""
+            new_row["delta"] = helpers.format_decimal(0.0, use_comma=decimal_comma)
+        else:
+            new_row["delta"] = ""
 
         # Update previous sum for next iteration
         if row_dict.get("sum"):
