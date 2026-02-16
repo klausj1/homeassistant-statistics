@@ -278,6 +278,84 @@ class TestPrepareExportData:
         assert "max" not in columns
         assert len(rows) == EXPECTED_ROWS_1
 
+    def test_prepare_export_data_counter_statistics_sum_only(self) -> None:
+        """Test counter_fields='sum' exports only sum/state columns for counters."""
+        statistics_dict = {
+            "sensor.energy": [
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26,
+                    "sum": 10.5,
+                    "state": 100.0,
+                },
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,
+                    "sum": EXPECTED_SUM_11_2,
+                    "state": 110.0,
+                },
+            ]
+        }
+
+        columns, rows = prepare_export_data(
+            statistics_dict,
+            "UTC",
+            "%d.%m.%Y %H:%M",
+            decimal_separator=".",
+            counter_fields="sum",
+        )
+
+        assert "sum" in columns
+        assert "state" in columns
+        assert "delta" not in columns
+        assert len(rows) == EXPECTED_ROWS_2
+
+    def test_prepare_export_data_counter_statistics_delta_only(self) -> None:
+        """Test counter_fields='delta' exports only delta column for counters."""
+        statistics_dict = {
+            "sensor.energy": [
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26,
+                    "sum": 10.5,
+                    "state": 100.0,
+                },
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26_13_00,
+                    "sum": EXPECTED_SUM_11_2,
+                    "state": 110.0,
+                },
+            ]
+        }
+
+        columns, rows = prepare_export_data(
+            statistics_dict,
+            "UTC",
+            "%d.%m.%Y %H:%M",
+            decimal_separator=".",
+            counter_fields="delta",
+        )
+
+        assert "delta" in columns
+        assert "sum" not in columns
+        assert "state" not in columns
+        assert len(rows) == EXPECTED_ROWS_2
+        delta_index = columns.index("delta")
+        assert rows[0][delta_index] == "0"
+        assert rows[1][delta_index] == "0.7"
+
+    def test_prepare_export_data_invalid_counter_fields(self) -> None:
+        """Test invalid counter_fields value raises HomeAssistantError."""
+        statistics_dict = {
+            "sensor.energy": [
+                {
+                    "start": UNIX_TIMESTAMP_2024_01_26,
+                    "sum": EXPECTED_SUM_100_5,
+                    "state": EXPECTED_STATE_100_5,
+                }
+            ]
+        }
+
+        with pytest.raises(HomeAssistantError, match="counter_fields must be one of"):
+            prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".", counter_fields="invalid")
+
     def test_prepare_export_data_mixed_types(self) -> None:
         """Test export preparation with mixed sensor and counter statistics."""
         statistics_dict = {

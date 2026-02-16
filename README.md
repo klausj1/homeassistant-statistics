@@ -267,6 +267,12 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
     - `counter`: write only counter statistics (sum/state/delta)
     - `both`: write both files
   - Output files use suffixes `_measurements` and `_counters` before the extension.
+- **`counter_fields` (optional, default: `both`)**
+  - Controls which counter columns are written in **CSV/TSV** exports:
+    - `both`: include `state`, `sum`, and `delta`
+    - `sum`: include `state` and `sum`
+    - `delta`: include `delta` only
+  - **Limitation**: this option is ignored for JSON export.
 
 > **Note:** If you omit `start_time`/`end_time`, the action will auto-detect the time range from the recorder.
 > This requires long-term (hourly) statistics to exist. On new Home Assistant instances you may only have short-term statistics at first;

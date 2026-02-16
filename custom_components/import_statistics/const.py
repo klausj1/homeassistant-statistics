@@ -13,6 +13,7 @@ ATTR_END_TIME = "end_time"
 ATTR_ENTITIES = "entities"
 ATTR_DELTA = "delta"
 ATTR_SPLIT_BY = "split_by"
+ATTR_COUNTER_FIELDS = "counter_fields"
 
 TESTFILEPATHS = "tests/testfiles/"
 

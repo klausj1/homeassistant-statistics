@@ -85,6 +85,7 @@ def prepare_export_data(
     *,
     decimal_separator: str,
     units_dict: dict | None = None,
+    counter_fields: str = "both",
 ) -> tuple:
     """
     Prepare statistics data for export (TSV/CSV format).
@@ -96,6 +97,7 @@ def prepare_export_data(
          decimal_comma: Use comma (True) or dot (False) for decimals (deprecated, use decimal_separator)
          decimal_separator: Decimal separator character ("." or ",")
          units_dict: Mapping of statistic_id to unit_of_measurement
+         counter_fields: Counter output mode for CSV/TSV exports: "both" (state/sum/delta), "sum" (state/sum), or "delta" (delta only)
 
     Returns:
          tuple: (columns list, data rows list)
@@ -110,6 +112,13 @@ def prepare_export_data(
     # Default to empty dict if not provided (for backwards compatibility)
     if units_dict is None:
         units_dict = {}
+
+    valid_counter_fields = {"both", "sum", "delta"}
+    if counter_fields not in valid_counter_fields:
+        helpers.handle_error(f"counter_fields must be one of {sorted(valid_counter_fields)}, got {counter_fields!r}")
+
+    include_sum_state = counter_fields in {"both", "sum"}
+    include_delta = counter_fields in {"both", "delta"}
 
     # Analyze what types of statistics we have (measurements vs counters)
     has_measurements = False  # mean/min/max
@@ -156,10 +165,16 @@ def prepare_export_data(
             row_dict["_sort_timestamp"] = stat_record["start"]
             rows.append(row_dict)
 
-    # Calculate deltas for counter exports
-    if has_counters and rows:
+    # Calculate deltas for counter exports when requested
+    if has_counters and rows and include_delta:
         rows = get_delta_from_stats(rows, decimal_comma=use_comma)
         has_deltas = True
+
+    # For delta-only exports, remove sum/state from output rows
+    if has_counters and not include_sum_state:
+        for row_dict in rows:
+            row_dict.pop("sum", None)
+            row_dict.pop("state", None)
 
     # Validate if measurements and counters are mixed
     if has_measurements and has_counters:
@@ -172,7 +187,7 @@ def prepare_export_data(
     column_order = ["statistic_id", "unit", "start"]
     if has_measurements:
         column_order.extend(["min", "max", "mean"])
-    if has_counters:
+    if has_counters and include_sum_state:
         column_order.extend(["sum", "state"])
     if has_deltas:
         column_order.append("delta")
@@ -379,8 +394,8 @@ def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> li
     """
     Calculate delta values from a list of records sorted by statistic_id and start.
 
-    For each statistic_id, calculates delta as the difference between consecutive sum/state values.
-    The first record of each statistic_id has an empty delta (no previous value).
+    For each statistic_id, calculates delta as the difference between consecutive sum values.
+    The first counter record of each statistic_id gets delta 0 (no previous value).
 
     Args:
          rows: List of row dicts with statistic_id, _sort_timestamp (numeric), start (formatted string), sum, and/or state fields

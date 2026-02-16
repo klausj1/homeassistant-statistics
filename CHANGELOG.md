@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.3.0] - export_statistics counter field selection
+
+### Changes
+
+#### Export statistics improvements
+
+- **New optional `counter_fields` parameter** in `export_statistics`.
+  - Values:
+    - `both` (default): export `state`, `sum`, and `delta`
+    - `sum`: export `state` and `sum`
+    - `delta`: export `delta` only
+  - Scope: currently applies to **CSV/TSV** export only; JSON export remains unchanged.
+
+### Bug Fixes
+
+#### Counter delta export
+
+- **First counter delta is now `0`** instead of empty in CSV/TSV exports.
+  - This avoids import validation failures when re-importing exported counter data.
+
+---
+
 ## [4.2.1] - export_inventory improvements and classification fixes
 
 ### Changes

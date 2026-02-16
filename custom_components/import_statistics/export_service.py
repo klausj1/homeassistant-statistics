@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.const import (
+    ATTR_COUNTER_FIELDS,
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
     ATTR_DELIMITER,
@@ -231,13 +232,14 @@ async def get_statistics_from_recorder(
     return statistics_dict, units_dict
 
 
-def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | None, str | None, str | None, str]:
+def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | None, str | None, str | None, str, str]:
     """Validate and extract service call parameters."""
     filename_raw = call.data.get(ATTR_FILENAME)
     entities_input_raw = call.data.get(ATTR_ENTITIES)
     start_time_str_raw = call.data.get(ATTR_START_TIME)
     end_time_str_raw = call.data.get(ATTR_END_TIME)
     split_by_raw = call.data.get(ATTR_SPLIT_BY, "none")
+    counter_fields_raw = call.data.get(ATTR_COUNTER_FIELDS, "both")
 
     # Validate required parameters
     if not filename_raw or not isinstance(filename_raw, str):
@@ -250,6 +252,8 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
         helpers.handle_error("end_time must be a string")
     if split_by_raw is not None and not isinstance(split_by_raw, str):
         helpers.handle_error("split_by must be a string")
+    if counter_fields_raw is not None and not isinstance(counter_fields_raw, str):
+        helpers.handle_error("counter_fields must be a string")
 
     # Type narrowing
     filename: str = cast("str", filename_raw)
@@ -257,6 +261,7 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     start_time_str: str | None = None if start_time_str_raw is None else cast("str", start_time_str_raw)
     end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
     split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)
+    counter_fields: str = "both" if counter_fields_raw is None else cast("str", counter_fields_raw)
 
     # Backwards compatible rename: 'sensor' -> 'measurement'
     if split_by == "sensor":
@@ -266,7 +271,11 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     if split_by not in valid_split_values:
         helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
 
-    return filename, entities_input, start_time_str, end_time_str, split_by
+    valid_counter_field_values = {"both", "sum", "delta"}
+    if counter_fields not in valid_counter_field_values:
+        helpers.handle_error(f"counter_fields must be one of {sorted(valid_counter_field_values)}, got {counter_fields!r}")
+
+    return filename, entities_input, start_time_str, end_time_str, split_by, counter_fields
 
 
 def _filename_with_suffix(input_filename: str, suffix: str) -> str:
@@ -288,6 +297,7 @@ async def _export_split_file(  # noqa: PLR0913
     *,
     delimiter: str,
     decimal_separator: str,
+    counter_fields: str,
 ) -> None:
     """Export a single split file (measurement or counter)."""
     if not stats_dict:
@@ -301,7 +311,14 @@ async def _export_split_file(  # noqa: PLR0913
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
     else:
         columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(stats_dict, timezone_identifier, datetime_format, decimal_separator=decimal_separator, units_dict=units_dict)
+            lambda: prepare_export_data(
+                stats_dict,
+                timezone_identifier,
+                datetime_format,
+                decimal_separator=decimal_separator,
+                units_dict=units_dict,
+                counter_fields=counter_fields,
+            )
         )
         await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
 
@@ -316,6 +333,7 @@ async def _export_split_statistics(  # noqa: PLR0913
     datetime_format: str,
     decimal_separator: str,
     delimiter: str,
+    counter_fields: str,
 ) -> None:
     """Export statistics split by type."""
     measurement_stats, counter_stats, measurement_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
@@ -334,6 +352,7 @@ async def _export_split_statistics(  # noqa: PLR0913
             datetime_format,
             decimal_separator=decimal_separator,
             delimiter=delimiter,
+            counter_fields=counter_fields,
         )
 
     if write_counters:
@@ -347,6 +366,7 @@ async def _export_split_statistics(  # noqa: PLR0913
             datetime_format,
             decimal_separator=decimal_separator,
             delimiter=delimiter,
+            counter_fields=counter_fields,
         )
 
 
@@ -359,6 +379,7 @@ async def _export_single_file(  # noqa: PLR0913
     datetime_format: str,
     decimal_separator: str,
     delimiter: str,
+    counter_fields: str,
 ) -> None:
     """Export all statistics to a single file."""
     file_path = helpers.validate_filename(filename, hass.config.config_dir)
@@ -367,7 +388,14 @@ async def _export_single_file(  # noqa: PLR0913
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
     else:
         columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(statistics_dict, timezone_identifier, datetime_format, decimal_separator=decimal_separator, units_dict=units_dict)
+            lambda: prepare_export_data(
+                statistics_dict,
+                timezone_identifier,
+                datetime_format,
+                decimal_separator=decimal_separator,
+                units_dict=units_dict,
+                counter_fields=counter_fields,
+            )
         )
         await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
 
@@ -375,11 +403,14 @@ async def _export_single_file(  # noqa: PLR0913
 async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
     """Handle export_statistics service implementation."""
     # Validate and extract parameters
-    filename, entities_input, start_time_str, end_time_str, split_by = _validate_service_parameters(call)
+    filename, entities_input, start_time_str, end_time_str, split_by, counter_fields = _validate_service_parameters(call)
 
     file_suffix = Path(filename).suffix.lower()
     if file_suffix not in {".csv", ".tsv", ".json"}:
         helpers.handle_error(f"Unsupported filename extension for {Path(filename).name!r}. Supported extensions: .csv, .tsv, .json")
+
+    if file_suffix == ".json" and counter_fields != "both":
+        _LOGGER.info("Parameter %s only applies to CSV/TSV export. JSON export ignores %s=%s.", ATTR_COUNTER_FIELDS, ATTR_COUNTER_FIELDS, counter_fields)
 
     # Extract other parameters (with defaults)
     # Use HA timezone as default instead of hardcoded "Europe/Vienna"
@@ -439,10 +470,19 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
             datetime_format,
             decimal_separator=decimal_separator,
             delimiter=delimiter,
+            counter_fields=counter_fields,
         )
     else:
         await _export_single_file(
-            hass, filename, statistics_dict, units_dict, timezone_identifier, datetime_format, decimal_separator=decimal_separator, delimiter=delimiter
+            hass,
+            filename,
+            statistics_dict,
+            units_dict,
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            delimiter=delimiter,
+            counter_fields=counter_fields,
         )
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
