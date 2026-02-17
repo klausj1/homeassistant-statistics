@@ -113,10 +113,6 @@ def prepare_export_data(  # noqa: PLR0913, PLR0912
     if units_dict is None:
         units_dict = {}
 
-    valid_counter_fields = {"both", "sum", "delta"}
-    if counter_fields not in valid_counter_fields:
-        helpers.handle_error(f"counter_fields must be one of {sorted(valid_counter_fields)}, got {counter_fields!r}")
-
     include_sum_state = counter_fields in {"both", "sum"}
     include_delta = counter_fields in {"both", "delta"}
 

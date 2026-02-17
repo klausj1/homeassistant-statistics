@@ -341,21 +341,6 @@ class TestPrepareExportData:
         assert rows[0][delta_index] == "0"
         assert rows[1][delta_index] == "0.7"
 
-    def test_prepare_export_data_invalid_counter_fields(self) -> None:
-        """Test invalid counter_fields value raises HomeAssistantError."""
-        statistics_dict = {
-            "sensor.energy": [
-                {
-                    "start": UNIX_TIMESTAMP_2024_01_26,
-                    "sum": EXPECTED_SUM_100_5,
-                    "state": EXPECTED_STATE_100_5,
-                }
-            ]
-        }
-
-        with pytest.raises(HomeAssistantError, match="counter_fields must be one of"):
-            prepare_export_data(statistics_dict, "UTC", "%d.%m.%Y %H:%M", decimal_separator=".", counter_fields="invalid")
-
     def test_prepare_export_data_mixed_types(self) -> None:
         """Test export preparation with mixed sensor and counter statistics."""
         statistics_dict = {
