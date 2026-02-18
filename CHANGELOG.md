@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [4.3.0] - export_statistics counter field selection
+## [4.3.0] - export_statistics counter field selection & split inventory output files
 
 ### Changes
 
@@ -14,6 +14,11 @@ All notable changes to this project will be documented in this file.
     - `sum`: export `state` and `sum`
     - `delta`: export `delta` only
   - Scope: currently applies to **CSV/TSV** export only; JSON export remains unchanged.
+
+- **Split inventory output files**: `export_inventory` now writes:
+  - a pure table file to the user-provided `.csv`/`.tsv` filename,
+  - and a separate summary file with the same base name and `.txt` extension.
+  - Summary lines in the `.txt` file no longer use `#` prefixes.
 
 ### Bug Fixes
 

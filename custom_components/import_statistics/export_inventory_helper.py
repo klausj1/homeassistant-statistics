@@ -261,30 +261,30 @@ def build_summary(rows: list[InventoryRow], inventory_data: InventoryData) -> In
 
 def format_summary_lines(summary: InventorySummary, tz: ZoneInfo) -> list[str]:
     """
-    Format summary as comment lines for the output file.
+    Format summary lines for the summary text output file.
 
     Args:
         summary: Summary statistics
         tz: Timezone for formatting timestamps
 
     Returns:
-        List of lines starting with '# '
+        List of human-readable summary lines
 
     """
     global_start_str = format_datetime(summary.global_start, tz, "%Y-%m-%d %H:%M:%S") if summary.global_start else "N/A"
     global_end_str = format_datetime(summary.global_end, tz, "%Y-%m-%d %H:%M:%S") if summary.global_end else "N/A"
 
     return [
-        f"# Total statistics: {summary.total_statistics}",
-        f"# Measurements: {summary.measurements_count}",
-        f"# Counters: {summary.counters_count}",
-        f"# Total samples: {summary.total_samples}",
-        f"# Global start: {global_start_str}",
-        f"# Global end: {global_end_str}",
-        f"# Active statistics: {summary.active_count}",
-        f"# Orphan statistics: {summary.orphan_count}",
-        f"# Deleted statistics: {summary.deleted_count}",
-        f"# External statistics: {summary.external_count}",
+        f"Total statistics: {summary.total_statistics}",
+        f"Measurements: {summary.measurements_count}",
+        f"Counters: {summary.counters_count}",
+        f"Total samples: {summary.total_samples}",
+        f"Global start: {global_start_str}",
+        f"Global end: {global_end_str}",
+        f"Active statistics: {summary.active_count}",
+        f"Orphan statistics: {summary.orphan_count}",
+        f"Deleted statistics: {summary.deleted_count}",
+        f"External statistics: {summary.external_count}",
     ]
 
 
@@ -296,30 +296,27 @@ def write_inventory_file(
     tz: ZoneInfo,
 ) -> None:
     """
-    Write inventory to file with summary header and data rows.
+    Write inventory outputs to two files.
+
+    - CSV/TSV file contains only the table (header + one row per statistic)
+    - TXT file contains only the summary lines
 
     Args:
-        filepath: Output file path
+        filepath: Output CSV/TSV file path
         rows: Inventory rows to write
         summary: Summary statistics
         delimiter: Field delimiter
         tz: Timezone for formatting timestamps
 
     """
-    _LOGGER.info("Writing inventory to %s with %d rows", filepath, len(rows))
+    summary_filepath = filepath.with_suffix(".txt")
+    _LOGGER.info("Writing inventory table to %s and summary to %s (%d rows)", filepath, summary_filepath, len(rows))
 
     try:
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
         with filepath.open("w", encoding="utf-8-sig", newline="") as f:
-            # Write summary lines
-            for line in format_summary_lines(summary, tz):
-                f.write(line + "\n")
-
-            # Write blank line between summary and table
-            f.write("\n")
-
-            # Write CSV/TSV table
+            # Write CSV/TSV table only
             writer = csv.writer(f, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL)
 
             # Header
@@ -340,16 +337,20 @@ def write_inventory_file(
                         row.days_span,
                     ]
                 )
+
+        with summary_filepath.open("w", encoding="utf-8") as f:
+            for line in format_summary_lines(summary, tz):
+                f.write(line + "\n")
     except PermissionError as e:
         handle_error(
-            f"Cannot write inventory file to '{filepath}': {e}. "
+            f"Cannot write inventory output files for '{filepath}': {e}. "
             "Please check that the Home Assistant user has write permission to the config directory, "
             "and that the target file is not owned by another user or marked read-only."
         )
     except OSError as e:
-        handle_error(f"Cannot write inventory file to '{filepath}': {e}")
+        handle_error(f"Cannot write inventory output files for '{filepath}': {e}")
 
-    _LOGGER.info("Inventory file written successfully")
+    _LOGGER.info("Inventory output files written successfully")
 
 
 def validate_inventory_params(filename: str, delimiter: str, config_dir: str) -> tuple[Path, str]:
