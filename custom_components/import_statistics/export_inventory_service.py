@@ -94,9 +94,11 @@ async def handle_export_inventory_impl(hass: HomeAssistant, call: ServiceCall) -
         validated_delimiter,
         tz,
     )
+    summary_filepath = filepath.with_suffix(".txt")
 
     _LOGGER.info(
-        "Inventory export complete: %d statistics written to %s",
+        "Inventory export complete: %d statistics written to %s (summary: %s)",
         len(rows),
         filepath,
+        summary_filepath,
     )

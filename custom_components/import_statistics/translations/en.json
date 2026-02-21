@@ -84,6 +84,10 @@
                     "name": "decimal",
                     "description": "The decimal separator character: dot ('.') or comma (','). Default is dot ('.')."
                 },
+                "counter_fields": {
+                    "name": "counter_fields",
+                    "description": "Counter output mode for CSV/TSV exports only: 'both' (default, include state/sum/delta), 'sum' (include state/sum), or 'delta' (include delta only). This option is ignored for JSON export."
+                },
                 "datetime_format": {
                     "name": "datetime_format",
                     "description": "The format of the datetime strings in the exported file. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"

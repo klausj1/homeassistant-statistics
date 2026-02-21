@@ -83,7 +83,9 @@ class TestExportInventoryService:
                 await handle_export_inventory_impl(hass, call)
 
             output_file = Path(tmpdir) / "inventory.csv"
+            summary_file = Path(tmpdir) / "inventory.txt"
             assert output_file.exists()
+            assert summary_file.exists()
             content = output_file.read_text(encoding="utf-8-sig")
             header_line = next(line for line in content.split("\n") if line.startswith("statistic_id"))
             assert "," in header_line
@@ -129,17 +131,16 @@ class TestExportInventoryService:
 
             # Verify file was created
             output_file = Path(tmpdir) / "inventory.tsv"
+            summary_file = Path(tmpdir) / "inventory.txt"
             assert output_file.exists()
+            assert summary_file.exists()
 
-            # Verify content (utf-8-sig to handle BOM)
+            # Verify table content (utf-8-sig to handle BOM)
             content = output_file.read_text(encoding="utf-8-sig")
             lines = content.strip().split("\n")
 
-            # Check summary lines
-            assert lines[0].startswith("# Total statistics: 2")
-            assert any("# Measurements: 1" in line for line in lines)
-            assert any("# Counters: 1" in line for line in lines)
-            assert any("# Total samples: 300" in line for line in lines)
+            # Check table header is first line (no summary block in table file)
+            assert lines[0].startswith("statistic_id")
 
             # Check header
             header_line = next(line for line in lines if line.startswith("statistic_id"))
@@ -150,6 +151,14 @@ class TestExportInventoryService:
             # Check data rows
             assert any("sensor.temperature" in line for line in lines)
             assert any("sensor.energy" in line for line in lines)
+
+            # Check summary is written to separate txt file without '#'
+            summary_content = summary_file.read_text(encoding="utf-8")
+            assert "Total statistics: 2" in summary_content
+            assert "Measurements: 1" in summary_content
+            assert "Counters: 1" in summary_content
+            assert "Total samples: 300" in summary_content
+            assert "#" not in summary_content
 
     @pytest.mark.asyncio
     async def test_export_inventory_no_long_term_statistics(self) -> None:
@@ -244,7 +253,9 @@ class TestExportInventoryService:
                 await handle_export_inventory_impl(hass, call)
 
             output_file = Path(tmpdir) / "inventory.tsv"
+            summary_file = Path(tmpdir) / "inventory.txt"
             content = output_file.read_text(encoding="utf-8-sig")
+            summary_content = summary_file.read_text(encoding="utf-8")
 
             # Check classifications
             assert "Active" in content
@@ -252,9 +263,9 @@ class TestExportInventoryService:
             assert "External" in content
 
             # Check summary counts
-            assert "# Active statistics: 1" in content
-            assert "# Orphan statistics: 1" in content
-            assert "# External statistics: 1" in content
+            assert "Active statistics: 1" in summary_content
+            assert "Orphan statistics: 1" in summary_content
+            assert "External statistics: 1" in summary_content
 
     @pytest.mark.asyncio
     async def test_export_inventory_type_classification(self) -> None:
@@ -285,15 +296,17 @@ class TestExportInventoryService:
                 await handle_export_inventory_impl(hass, call)
 
             output_file = Path(tmpdir) / "inventory.tsv"
+            summary_file = Path(tmpdir) / "inventory.txt"
             content = output_file.read_text(encoding="utf-8-sig")
+            summary_content = summary_file.read_text(encoding="utf-8")
 
             # Check type classifications
             assert "Measurement" in content
             assert "Counter" in content
 
             # Check summary counts
-            assert "# Measurements: 1" in content
-            assert "# Counters: 1" in content
+            assert "Measurements: 1" in summary_content
+            assert "Counters: 1" in summary_content
 
     @pytest.mark.asyncio
     async def test_export_inventory_custom_timezone(self) -> None:
@@ -365,7 +378,9 @@ class TestExportInventoryService:
                 await handle_export_inventory_impl(hass, call)
 
             output_file = Path(tmpdir) / "inventory.tsv"
+            summary_file = Path(tmpdir) / "inventory.txt"
             content = output_file.read_text(encoding="utf-8-sig")
+            summary_content = summary_file.read_text(encoding="utf-8")
 
             # Check all three classifications appear in rows
             assert "Active" in content
@@ -373,10 +388,10 @@ class TestExportInventoryService:
             assert "External" in content
 
             # Check summary counts
-            assert "# Active statistics: 1" in content
-            assert "# Orphan statistics: 2" in content
-            assert "# Deleted statistics: 0" in content
-            assert "# External statistics: 1" in content
+            assert "Active statistics: 1" in summary_content
+            assert "Orphan statistics: 2" in summary_content
+            assert "Deleted statistics: 0" in summary_content
+            assert "External statistics: 1" in summary_content
 
             # Verify the orphaned entity row has Orphan category
             data_lines = [line for line in content.split("\n") if "sensor.orphaned" in line]

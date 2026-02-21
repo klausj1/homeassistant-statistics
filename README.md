@@ -267,6 +267,12 @@ Export your statistics to a file e.g. for backup, analysis, preparing a counter 
     - `counter`: write only counter statistics (sum/state/delta)
     - `both`: write both files
   - Output files use suffixes `_measurements` and `_counters` before the extension.
+- **`counter_fields` (optional, default: `both`)**
+  - Controls which counter columns are written in **CSV/TSV** exports:
+    - `both`: include `state`, `sum`, and `delta`
+    - `sum`: include `state` and `sum`
+    - `delta`: include `delta` only
+  - **Limitation**: this option is ignored for JSON export.
 
 > **Note:** If you omit `start_time`/`end_time`, the action will auto-detect the time range from the recorder.
 > This requires long-term (hourly) statistics to exist. On new Home Assistant instances you may only have short-term statistics at first;
@@ -399,22 +405,30 @@ data:
 
 ### Inventory Output
 
-- The exported file contains a summary block at the top (lines starting with `#`)
+- Export creates **two files** using the same base name:
+  - `<filename>.csv` or `<filename>.tsv`: table only (one row per statistic, no summary block)
+  - `<filename>.txt`: summary only
+
+- Example: if `filename: inventory.csv`, outputs are:
+  - `inventory.csv` (table)
+  - `inventory.txt` (summary)
+
+- Summary file content:
 
 ```text
-# Total statistics: 257
-# Measurements: 194
-# Counters: 63
-# Total samples: 5038317
-# Global start: 2022-01-09 16:00:00
-# Global end: 2026-02-12 13:00:00
-# Active statistics: 224
-# Orphan statistics: 7
-# Deleted statistics: 26
-# External statistics: 0
+Total statistics: 257
+Measurements: 194
+Counters: 63
+Total samples: 5038317
+Global start: 2022-01-09 16:00:00
+Global end: 2026-02-12 13:00:00
+Active statistics: 224
+Orphan statistics: 7
+Deleted statistics: 26
+External statistics: 0
 ```
 
-- Followed by a table with one row per statistic:
+- Table file content (one row per statistic):
 
 | statistic_id | unit_of_measurement | source | category | type | samples_count | first_seen | last_seen | days_span |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -443,6 +457,7 @@ data:
 #### Category Classification
 
 Category classification is based on the Home Assistant entity registry and does not use `states_meta`.
+
 - **Active**: `statistic_id` exists in the entity registry active entities (`core.entity_registry.entities`).
 - **Orphan**: `statistic_id` exists in the entity registry deleted entities (`core.entity_registry.deleted_entities`) and has a non-null `orphaned_timestamp`.
 - **Deleted**:
