@@ -10,6 +10,7 @@ from homeassistant.core import ServiceCall
 
 from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import (
+    ATTR_COUNTER_FIELDS,
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
     ATTR_DELIMITER,
@@ -368,6 +369,104 @@ class TestExportIntegration:
             generated = self.normalize_file_content(str(export_file))
             reference = self.normalize_file_content("tests/testfiles/export_counter_data.csv")
             assert generated == reference, f"Generated file should match reference.\nGenerated:\n{generated}\n\nReference:\n{reference}"
+
+    @pytest.mark.asyncio
+    async def test_export_counter_statistics_csv_counter_fields_sum(self) -> None:
+        """Test counter_fields='sum' exports state/sum columns only for counters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            await async_setup(hass, {})
+            service_handler = get_service_handler(hass, "export_statistics")
+
+            mock_statistics = {
+                "counter.energy_consumed": [
+                    {"start": 1706270400.0, "sum": 10.5, "state": 100.0},
+                    {"start": 1706274000.0, "sum": 11.2, "state": 110.0},
+                ]
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export_counter_sum_only.csv",
+                    ATTR_ENTITIES: ["counter.energy_consumed"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 14:00:00",
+                    ATTR_DELIMITER: ",",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_COUNTER_FIELDS: "sum",
+                },
+            )
+
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
+                mock_units = {"counter.energy_consumed": "kWh"}
+                mock_get_stats.return_value = (mock_statistics, mock_units)
+                await service_handler(call)
+
+            export_file = Path(tmpdir) / "export_counter_sum_only.csv"
+            assert export_file.exists(), "Export file should be created"
+
+            lines = export_file.read_text(encoding="utf-8-sig").strip().split("\n")
+            assert lines[0] == "statistic_id,unit,start,sum,state"
+            assert "delta" not in lines[0]
+
+    @pytest.mark.asyncio
+    async def test_export_counter_statistics_csv_counter_fields_delta(self) -> None:
+        """Test counter_fields='delta' exports delta column only for counters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+
+            hass.async_add_executor_job = mock_async_add_executor_job
+
+            await async_setup(hass, {})
+            service_handler = get_service_handler(hass, "export_statistics")
+
+            mock_statistics = {
+                "counter.energy_consumed": [
+                    {"start": 1706270400.0, "sum": 10.5, "state": 100.0},
+                    {"start": 1706274000.0, "sum": 11.2, "state": 110.0},
+                ]
+            }
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "export_statistics",
+                {
+                    ATTR_FILENAME: "export_counter_delta_only.csv",
+                    ATTR_ENTITIES: ["counter.energy_consumed"],
+                    ATTR_START_TIME: "2024-01-26 12:00:00",
+                    ATTR_END_TIME: "2024-01-26 14:00:00",
+                    ATTR_DELIMITER: ",",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_COUNTER_FIELDS: "delta",
+                },
+            )
+
+            with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
+                mock_units = {"counter.energy_consumed": "kWh"}
+                mock_get_stats.return_value = (mock_statistics, mock_units)
+                await service_handler(call)
+
+            export_file = Path(tmpdir) / "export_counter_delta_only.csv"
+            assert export_file.exists(), "Export file should be created"
+
+            lines = export_file.read_text(encoding="utf-8-sig").strip().split("\n")
+            assert lines[0] == "statistic_id,unit,start,delta"
+            assert "sum" not in lines[0]
+            assert "state" not in lines[0]
+
+            # first counter row must export delta 0
+            assert lines[1].endswith(",0")
 
     @pytest.mark.asyncio
     async def test_export_mixed_statistics_semicolon_delimiter(self) -> None:

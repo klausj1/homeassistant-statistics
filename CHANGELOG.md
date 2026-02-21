@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.3.0] - export_statistics counter field selection & split inventory output files
+
+### Changes
+
+#### Export statistics improvements
+
+- **New optional `counter_fields` parameter** in `export_statistics`.
+  - Values:
+    - `both` (default): export `state`, `sum`, and `delta`
+    - `sum`: export `state` and `sum`
+    - `delta`: export `delta` only
+  - Scope: currently applies to **CSV/TSV** export only; JSON export remains unchanged.
+
+- **Split inventory output files**: `export_inventory` now writes:
+  - a pure table file to the user-provided `.csv`/`.tsv` filename,
+  - and a separate summary file with the same base name and `.txt` extension.
+  - Summary lines in the `.txt` file no longer use `#` prefixes.
+
+### Bug Fixes
+
+#### Counter delta export
+
+- **First counter delta is now `0`** instead of empty in CSV/TSV exports.
+  - This avoids import validation failures when re-importing exported counter data.
+
+---
+
 ## [4.2.1] - export_inventory improvements and classification fixes
 
 ### Changes
