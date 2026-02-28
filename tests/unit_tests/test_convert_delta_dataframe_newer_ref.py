@@ -4,7 +4,7 @@ import datetime as dt
 
 import pandas as pd
 
-from custom_components.import_statistics.helpers import DeltaReferenceType, UnitFrom
+from custom_components.import_statistics.helpers import DeltaReferenceType
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 
 
@@ -33,7 +33,7 @@ def test_convert_delta_dataframe_1_older_reference() -> None:
         }
     }
 
-    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE, references)
+    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", references)
 
     assert "sensor.test" in result
     metadata, stats = result["sensor.test"]
@@ -69,7 +69,7 @@ def test_convert_delta_dataframe_newer_reference() -> None:
         }
     }
 
-    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE, references)
+    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", references)
 
     assert "sensor.test" in result
     metadata, stats = result["sensor.test"]
@@ -117,7 +117,7 @@ def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
         },
     }
 
-    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE, references)
+    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", references)
 
     assert len(result) == 2
 

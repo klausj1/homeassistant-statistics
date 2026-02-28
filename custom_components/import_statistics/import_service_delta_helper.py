@@ -11,7 +11,7 @@ import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, format_decimal
 
 
 def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float | None, state_oldest: float | None) -> list[dict]:
@@ -183,7 +183,6 @@ def handle_dataframe_delta(
     df: pd.DataFrame,
     timezone_identifier: str,
     datetime_format: str,
-    unit_from_where: UnitFrom,
     references: dict,
 ) -> dict:
     """
@@ -197,7 +196,6 @@ def handle_dataframe_delta(
         df: DataFrame with delta column
         timezone_identifier: User's timezone
         datetime_format: Datetime format string
-        unit_from_where: UnitFrom.ENTITY or UnitFrom.TABLE
         references: Dict mapping statistic_id to reference data:
                    {
                        statistic_id: {
@@ -257,7 +255,7 @@ def handle_dataframe_delta(
 
         # Get source and unit
         source = helpers.get_source(statistic_id)
-        unit = helpers.add_unit_to_dataframe(source, unit_from_where, group.iloc[0].get("unit", ""), statistic_id)
+        unit = helpers.get_unit_from_row(group.iloc[0].get("unit", ""), statistic_id)
 
         # Route to appropriate conversion method based on reference type
         if ref_type == DeltaReferenceType.OLDER_REFERENCE:

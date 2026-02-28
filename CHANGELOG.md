@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.0.0] - Mandatory unit column and unit validation
+
+### ⚠️ BREAKING CHANGES
+
+#### Import statistics now requires unit column
+
+- **Unit column is now mandatory**: All import files (CSV/TSV/JSON) **must** include a `unit` column with the unit of measurement for each statistic.
+- **Unit validation**: For existing statistics, the unit in the input file must match the unit already stored in Home Assistant's `statistic_meta` table. Imports with mismatched units will fail with a clear error message.
+- **Removed `unit_from_entity` parameter**: The `unit_from_entity` service parameter has been removed. Units are now always read from the input file.
+
+### Changes
+
+#### Import validation improvements
+
+- **Enhanced data integrity**: Unit validation ensures consistency between import files and existing statistics
+
+---
+
 ## [4.3.0] - export_statistics counter field selection & split inventory output files
 
 ### Changes

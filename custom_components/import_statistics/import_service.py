@@ -5,7 +5,7 @@ import zoneinfo
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics
+from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics, get_metadata
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.recorder import get_instance
 
@@ -15,7 +15,7 @@ from custom_components.import_statistics.delta_database_access import (
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
 )
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, handle_error, is_not_in_future
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, handle_error, is_not_in_future
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
     handle_dataframe_no_delta,
@@ -215,7 +215,6 @@ class PreparedImportData:
     df: Any
     timezone_id: str
     datetime_format: str
-    unit_from_entity: UnitFrom
     is_delta: bool
 
 
@@ -234,14 +233,12 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None
     if data.is_delta:
         _LOGGER.info("Delta mode detected, fetching references from database")
         references = await prepare_delta_handling(hass, data.df, data.timezone_id, data.datetime_format)
-        stats = await hass.async_add_executor_job(
-            lambda: handle_dataframe_delta(data.df, data.timezone_id, data.datetime_format, data.unit_from_entity, references)
-        )
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, data.timezone_id, data.datetime_format, references))
     else:
         _LOGGER.info("Non-delta mode, processing directly")
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df, data.timezone_id, data.datetime_format, data.unit_from_entity))
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df, data.timezone_id, data.datetime_format))
 
-    await import_stats(hass, stats, data.unit_from_entity)
+    await import_stats(hass, stats)
 
 
 async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -255,11 +252,9 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import")
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(
-        lambda: prepare_data_to_import(file_path, call, ha_timezone)
-    )
+    df, timezone_id, datetime_format, is_delta = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, unit_from_entity, is_delta))
+    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta))
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -270,19 +265,15 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import")
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
+    df, timezone_id, datetime_format, is_delta = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, unit_from_entity, is_delta))
+    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta))
 
 
-async def import_stats(hass: HomeAssistant, stats: dict, unit_from_entity: UnitFrom) -> None:
+async def import_stats(hass: HomeAssistant, stats: dict) -> None:
     """Import statistics into Home Assistant and wait for recorder to commit."""
-    _LOGGER.info("Checking if all entities exist")
-    check_all_entities_exists(hass, stats)
-
-    if unit_from_entity:
-        _LOGGER.info("Adding units from entities")
-        add_unit_for_all_entities(hass, stats)
+    _LOGGER.info("Validating entities and units")
+    await validate_entities_and_units(hass, stats)
 
     _LOGGER.info("Calling hass import methods")
     for stat in stats.values():
@@ -306,29 +297,55 @@ async def import_stats(hass: HomeAssistant, stats: dict, unit_from_entity: UnitF
     _LOGGER.info("Finished importing data - all statistics committed to database")
 
 
-def check_all_entities_exists(hass: HomeAssistant, stats: dict) -> None:
+async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
     """
-    Check all entities in stats if they exist.
+    Validate that entities exist and units match statistic_meta.
 
     Args:
     ----
-        hass: home assistant
-        stats: dictionary with all statistic data
-
-    Returns:
-    -------
-        n/a
+        hass: Home Assistant instance
+        stats: Dictionary with all statistic data
 
     Raises:
     ------
-        n/a
+        HomeAssistantError: If entity doesn't exist or unit doesn't match
 
     """
+    # Collect all statistic_ids to query metadata
+    statistic_ids = set()
     for stat in stats.values():
         metadata = stat[0]
+        statistic_id = metadata["statistic_id"]
+        statistic_ids.add(statistic_id)
 
+        # Check entity exists for recorder statistics
         if metadata["source"] == "recorder":
-            check_entity_exists(hass, metadata["statistic_id"])
+            entity_exists = hass.states.get(statistic_id) is not None
+            if not entity_exists:
+                handle_error(f"Entity does not exist: '{statistic_id}'")
+
+    # Get existing metadata from database
+    recorder_instance = get_instance(hass)
+    if recorder_instance is None:
+        handle_error("Recorder component is not running")
+
+    existing_metadata = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=statistic_ids))
+
+    # Validate units match for existing statistics
+    for stat in stats.values():
+        metadata = stat[0]
+        statistic_id = metadata["statistic_id"]
+        input_unit = metadata.get("unit_of_measurement", "")
+
+        # Check if this statistic already exists in the database
+        if statistic_id in existing_metadata:
+            _metadata_id, existing_meta = existing_metadata[statistic_id]
+            db_unit = existing_meta.get("unit_of_measurement", "")
+
+            # Validate unit matches
+            if input_unit != db_unit:
+                handle_error(f"Unit mismatch for '{statistic_id}': input file has '{input_unit}' but statistic_meta has '{db_unit}'. Units must match exactly.")
+            _LOGGER.debug("Unit validation passed for %s: %s", statistic_id, input_unit)
 
 
 def check_entity_exists(hass: HomeAssistant, entity_id: Any) -> bool:
@@ -356,65 +373,3 @@ def check_entity_exists(hass: HomeAssistant, entity_id: Any) -> bool:
         return False
 
     return True
-
-
-def add_unit_for_all_entities(hass: HomeAssistant, stats: dict) -> None:
-    """
-    Add units for all rows to be imported.
-
-    Args:
-    ----
-        hass: home assistant
-        stats: dictionary with all statistic data
-
-    Returns:
-    -------
-        n/a
-
-    Raises:
-    ------
-        n/a
-
-    """
-    for stat in stats.values():
-        metadata = stat[0]
-
-        if metadata["source"] == "recorder":
-            add_unit_for_entity(hass, metadata)
-
-
-def add_unit_for_entity(hass: HomeAssistant, metadata: dict) -> None:
-    """
-    Add units for one rows to be imported.
-
-    Args:
-    ----
-        hass: home assistant
-        entity_id: id to check for existence
-        metadata: metadata of row to be imported
-
-    Returns:
-    -------
-        n/a
-
-    Raises:
-    ------
-        HomeAssistantError: If entity does not exist
-
-    """
-    entity_id = metadata["statistic_id"]
-    entity = hass.states.get(entity_id)
-
-    if entity is None:
-        handle_error(f"Entity does not exist: '{entity_id}'")
-    elif metadata.get("unit_of_measurement", "") == "":
-        uom = None
-        if hasattr(entity, "attributes") and isinstance(entity.attributes, dict):
-            uom = entity.attributes.get("unit_of_measurement")
-        if uom:
-            metadata["unit_of_measurement"] = uom
-            _LOGGER.debug(
-                "Adding unit '%s' for entity_id: %s",
-                metadata["unit_of_measurement"],
-                entity_id,
-            )

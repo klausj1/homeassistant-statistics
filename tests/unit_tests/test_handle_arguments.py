@@ -11,10 +11,8 @@ from custom_components.import_statistics.const import (
     ATTR_DECIMAL,
     ATTR_DELIMITER,
     ATTR_TIMEZONE_IDENTIFIER,
-    ATTR_UNIT_FROM_ENTITY,
     DATETIME_DEFAULT_FORMAT,
 )
-from custom_components.import_statistics.helpers import UnitFrom
 from custom_components.import_statistics.import_service_helper import handle_arguments
 
 
@@ -29,13 +27,12 @@ def test_handle_arguments_all_valid() -> None:
     call = ServiceCall("hass", "domain_name", "service_name", data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.tsv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.tsv")
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == ","
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_all_valid_other_parameters() -> None:
@@ -45,19 +42,17 @@ def test_handle_arguments_all_valid_other_parameters() -> None:
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
         ATTR_DELIMITER: ";",
         ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M:%S",
-        ATTR_UNIT_FROM_ENTITY: True,
     }
 
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.tsv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.tsv")
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
     assert delimiter == ";"
     assert datetime_format == "%Y-%m-%d %H:%M:%S"
-    assert unit_from_entity is UnitFrom.ENTITY
 
 
 def test_handle_arguments_invalid_timezone() -> None:
@@ -91,13 +86,12 @@ def test_handle_arguments_file_not_found() -> None:
 
     # This test should not raise an error for file existence
     # File existence checking is done in prepare_data_to_import, not handle_arguments
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.tsv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.tsv")
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == ","
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_attr_from_entity_false() -> None:
@@ -107,19 +101,17 @@ def test_handle_arguments_attr_from_entity_false() -> None:
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
         ATTR_DELIMITER: ";",
         ATTR_DATETIME_FORMAT: "%Y-%m-%d %H:%M:%S",
-        ATTR_UNIT_FROM_ENTITY: False,
     }
 
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.tsv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.tsv")
 
     assert decimal == "."
     assert timezone_identifier == "Europe/London"
     assert delimiter == ";"
     assert datetime_format == "%Y-%m-%d %H:%M:%S"
-    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_delimiter_tab_literal() -> None:
@@ -133,13 +125,12 @@ def test_handle_arguments_delimiter_tab_literal() -> None:
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.tsv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.tsv")
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == "\t"  # Should be converted to actual tab character
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_delimiter_invalid_two_chars() -> None:
@@ -188,13 +179,12 @@ def test_handle_arguments_delimiter_none_defaults_to_tab_without_filename() -> N
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename=None)
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename=None)
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == "\t"  # Should default to tab
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_delimiter_inferred_from_csv_filename() -> None:
@@ -207,13 +197,12 @@ def test_handle_arguments_delimiter_inferred_from_csv_filename() -> None:
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.csv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.csv")
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == ","
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
 
 
 def test_handle_arguments_delimiter_inferred_from_tsv_filename() -> None:
@@ -226,10 +215,9 @@ def test_handle_arguments_delimiter_inferred_from_tsv_filename() -> None:
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename="data.tsv")
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename="data.tsv")
 
     assert decimal == ","
     assert timezone_identifier == "Europe/London"
     assert delimiter == "\t"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE

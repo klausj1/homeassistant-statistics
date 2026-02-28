@@ -22,10 +22,6 @@
                 "datetime_format": {
                     "name": "datetime_format",
                     "description": "The format of the datetime strings in the imported file. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
-                },
-                "unit_from_entity": {
-                    "name": "unit_from_entity",
-                    "description": "True: Take unit from existing entity (only valid for internal statistics, e.g. sensor.sun_solar_azimuth); False: Take unit from own column in imported data"
                 }
             },
             "name": "Import statistics from file"

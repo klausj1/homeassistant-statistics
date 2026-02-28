@@ -13,10 +13,8 @@ from custom_components.import_statistics.const import (
     ATTR_DECIMAL,
     ATTR_DELIMITER,
     ATTR_TIMEZONE_IDENTIFIER,
-    ATTR_UNIT_FROM_ENTITY,
     DATETIME_DEFAULT_FORMAT,
 )
-from custom_components.import_statistics.helpers import UnitFrom
 from custom_components.import_statistics.import_service_helper import prepare_data_to_import
 
 
@@ -28,20 +26,18 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
         ATTR_DECIMAL: ",",
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
         ATTR_DELIMITER: "\t",
-        ATTR_UNIT_FROM_ENTITY: False,
     }
 
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
     # Call the function
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+    df, timezone_id, datetime_format, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
 
     # Check the return types and values
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
     assert is_delta is False
     assert len(df) > 0
     assert "statistic_id" in df.columns
@@ -57,20 +53,18 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
         ATTR_DECIMAL: ".",
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
         ATTR_DELIMITER: "\t",
-        ATTR_UNIT_FROM_ENTITY: False,
     }
 
     call = ServiceCall("domain_name", "service_name", data, data)
     ha_timezone = "UTC"
 
     # Call the function
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+    df, timezone_id, datetime_format, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
 
     # Check the return types and values
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.TABLE
     assert is_delta is False
     assert len(df) > 0
 
@@ -110,40 +104,9 @@ def test_prepare_data_to_import_invalid_data() -> None:
 
     with pytest.raises(
         HomeAssistantError,
-        match=re.escape(
-            "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false) (check delimiter)"
-        ),
+        match=re.escape("The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"),
     ):
         prepare_data_to_import(file_path, call, ha_timezone)
-
-
-def test_prepare_data_to_import_valid_file_dot_unit_from_entity() -> None:
-    """Test prepare_data_to_import function where unit comes from entity."""
-    file_path = "tests/testfiles/correctcolumns_no_unit.csv"
-
-    data = {
-        ATTR_DECIMAL: ",",
-        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "\t",
-        ATTR_UNIT_FROM_ENTITY: True,
-    }
-
-    call = ServiceCall("domain_name", "service_name", data, data)
-    ha_timezone = "UTC"
-
-    # Call the function
-    df, timezone_id, datetime_format, unit_from_entity, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
-
-    # Check the return types and values
-    assert isinstance(df, pd.DataFrame)
-    assert timezone_id == "Europe/London"
-    assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert unit_from_entity is UnitFrom.ENTITY
-    assert is_delta is False
-    assert len(df) > 0
-    assert "statistic_id" in df.columns
-    assert "start" in df.columns
-    assert "unit" not in df.columns  # No unit column when unit_from_entity=True
 
 
 def test_prepare_data_to_import_with_unknown_columns() -> None:
@@ -165,7 +128,6 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
             ATTR_DECIMAL: ",",
             ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
             ATTR_DELIMITER: "\t",
-            ATTR_UNIT_FROM_ENTITY: False,
         }
 
         call = ServiceCall("domain_name", "service_name", data, data)
@@ -179,28 +141,6 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
             prepare_data_to_import(file_path, call, ha_timezone)
 
 
-def test_prepare_data_to_import_unit_from_entity_with_unit_column() -> None:
-    """Test prepare_data_to_import function with unit_from_entity=True and a unit column."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
-
-    data = {
-        ATTR_DECIMAL: ",",
-        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_DELIMITER: "\t",
-        ATTR_UNIT_FROM_ENTITY: True,  # Unit should come from entity, not from file
-    }
-
-    call = ServiceCall("domain_name", "service_name", data, data)
-    ha_timezone = "UTC"
-
-    # Call the function - should raise an error because unit column is not allowed when unit_from_entity=True
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file."),
-    ):
-        prepare_data_to_import(file_path, call, ha_timezone)
-
-
 def test_prepare_data_to_import_rejects_unsupported_extension() -> None:
     """Test prepare_data_to_import rejects unsupported extensions like .txt."""
     file_path = "tests/testfiles/correctcolumnsdot.csv"
@@ -208,7 +148,6 @@ def test_prepare_data_to_import_rejects_unsupported_extension() -> None:
     data = {
         ATTR_DECIMAL: ",",
         ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
-        ATTR_UNIT_FROM_ENTITY: False,
     }
 
     call = ServiceCall("domain_name", "service_name", data, data)
@@ -237,13 +176,12 @@ def test_prepare_data_to_import_infers_delimiter_from_csv_extension() -> None:
         data = {
             ATTR_DECIMAL: "dot ('.')",
             ATTR_TIMEZONE_IDENTIFIER: "UTC",
-            ATTR_UNIT_FROM_ENTITY: False,
         }
 
         call = ServiceCall("domain_name", "service_name", data, data)
         ha_timezone = "UTC"
 
-        df, _timezone_id, _datetime_format, _unit_from_entity, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+        df, _timezone_id, _datetime_format, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
         assert "statistic_id" in df.columns
         assert len(df) == 1
 
@@ -264,12 +202,11 @@ def test_prepare_data_to_import_infers_delimiter_from_tsv_extension() -> None:
         data = {
             ATTR_DECIMAL: "dot ('.')",
             ATTR_TIMEZONE_IDENTIFIER: "UTC",
-            ATTR_UNIT_FROM_ENTITY: False,
         }
 
         call = ServiceCall("domain_name", "service_name", data, data)
         ha_timezone = "UTC"
 
-        df, _timezone_id, _datetime_format, _unit_from_entity, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+        df, _timezone_id, _datetime_format, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
         assert "statistic_id" in df.columns
         assert len(df) == 1

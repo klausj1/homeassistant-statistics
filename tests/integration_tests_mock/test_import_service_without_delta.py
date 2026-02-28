@@ -18,9 +18,8 @@ from custom_components.import_statistics.const import (
     ATTR_DELIMITER,
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
-    ATTR_UNIT_FROM_ENTITY,
 )
-from custom_components.import_statistics.helpers import UnitFrom, are_columns_valid
+from custom_components.import_statistics.helpers import are_columns_valid
 from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
 
 
@@ -411,19 +410,12 @@ class TestStandardImportIntegration:
 
     @pytest.mark.asyncio
     async def test_import_without_unit_column(self) -> None:
-        """Test importing data without unit column when unit_from_entity is True."""
+        """Test that importing data without unit column raises error."""
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
             hass.async_add_executor_job = mock_async_add_executor_job
-            hass.states = MagicMock()
-
-            # Mock entity with unit_of_measurement attribute
-            mock_entity = MagicMock()
-            mock_entity.attributes = {"unit_of_measurement": "°C"}
-            hass.states.get = MagicMock(return_value=mock_entity)
-            hass.states.set = MagicMock()
 
             await async_setup(hass, {})
             import_handler = hass.services.async_register.call_args_list[0][0][2]
@@ -445,25 +437,12 @@ class TestStandardImportIntegration:
                     ATTR_TIMEZONE_IDENTIFIER: "UTC",
                     ATTR_DELIMITER: "\t",
                     ATTR_DECIMAL: "dot ('.')",
-                    ATTR_UNIT_FROM_ENTITY: True,
                 },
             )
 
-            with (
-                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
-                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-            ):
+            # Expect error because unit column is missing
+            with pytest.raises(HomeAssistantError, match="The file must contain the columns 'statistic_id', 'start' and 'unit'"):
                 await import_handler(call)
-
-                # Verify async_import_statistics was called
-                assert mock_import.called, "async_import_statistics should have been called"
-
-                # Extract the call arguments
-                call_args = mock_import.call_args
-                metadata = call_args[0][1]
-
-                # Verify unit was extracted from entity
-                assert metadata["unit_of_measurement"] == "°C"
 
     @pytest.mark.asyncio
     async def test_import_json_format_sum(self) -> None:
@@ -721,7 +700,7 @@ class TestStandardImportIntegration:
 
         # Should raise error when both sum and mean are present
         with pytest.raises(HomeAssistantError):
-            are_columns_valid(df, UnitFrom.TABLE)
+            are_columns_valid(df)
 
     @pytest.mark.asyncio
     async def test_import_missing_required_columns(self) -> None:
@@ -737,7 +716,7 @@ class TestStandardImportIntegration:
 
         # Should raise error when required columns are missing
         with pytest.raises(HomeAssistantError):
-            are_columns_valid(df, UnitFrom.TABLE)
+            are_columns_valid(df)
 
     @pytest.mark.asyncio
     async def test_import_entity_not_exists(self) -> None:
@@ -897,3 +876,126 @@ class TestStandardImportIntegration:
                 assert len(stats_ext2) == 2
                 assert pytest.approx(stats_ext2[0]["sum"]) == pytest.approx(50.0)
                 assert pytest.approx(stats_ext2[1]["sum"]) == pytest.approx(52.1)
+
+    @pytest.mark.asyncio
+    async def test_import_unit_mismatch(self) -> None:
+        """Test that importing with mismatched unit raises error."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+
+            # Mock entity exists
+            mock_entity = MagicMock()
+            mock_entity.attributes = {"unit_of_measurement": "°C"}
+            hass.states.get = MagicMock(return_value=mock_entity)
+
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
+
+            # Create test file with unit °F (different from database unit °C)
+            test_file = Path(tmpdir) / "temp.csv"
+            test_file.write_text(
+                "statistic_id\tstart\tmean\tmin\tmax\tunit\n"
+                "sensor.temperature\t01.01.2022 00:00\t68.0\t65.0\t70.0\t°F\n"
+                "sensor.temperature\t01.01.2022 01:00\t69.0\t66.0\t71.0\t°F\n"
+            )
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "temp.csv",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DELIMITER: "\t",
+                    ATTR_DECIMAL: "dot ('.')",
+                },
+            )
+
+            # Mock recorder to return existing metadata with different unit
+            # get_metadata returns dict[statistic_id, tuple[metadata_id, metadata_dict]]
+            mock_recorder = create_mock_recorder_instance()
+            mock_metadata = {
+                "sensor.temperature": (
+                    1,  # metadata_id
+                    {
+                        "statistic_id": "sensor.temperature",
+                        "unit_of_measurement": "°C",  # Database has °C
+                        "has_mean": True,
+                        "has_sum": False,
+                    },
+                )
+            }
+
+            with (
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
+                patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
+                pytest.raises(HomeAssistantError, match=r"Unit mismatch.*sensor\.temperature.*°F.*°C"),
+            ):
+                # Expect error due to unit mismatch
+                await import_handler(call)
+
+    @pytest.mark.asyncio
+    async def test_import_new_statistic_with_unit(self) -> None:
+        """Test that importing a new statistic (no existing metadata) uses unit from input file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+
+            # Mock entity exists
+            mock_entity = MagicMock()
+            hass.states.get = MagicMock(return_value=mock_entity)
+
+            await async_setup(hass, {})
+            import_handler = hass.services.async_register.call_args_list[0][0][2]
+
+            # Create test file for new statistic
+            test_file = Path(tmpdir) / "new_stat.csv"
+            test_file.write_text(
+                "statistic_id\tstart\tmean\tmin\tmax\tunit\n"
+                "sensor.new_sensor\t01.01.2022 00:00\t25.5\t23.0\t28.0\t°C\n"
+                "sensor.new_sensor\t01.01.2022 01:00\t26.0\t24.0\t29.0\t°C\n"
+            )
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "new_stat.csv",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DELIMITER: "\t",
+                    ATTR_DECIMAL: "dot ('.')",
+                },
+            )
+
+            # Mock recorder to return NO existing metadata (new statistic)
+            mock_recorder = create_mock_recorder_instance()
+            mock_metadata = {}  # Empty dict = no existing statistics
+
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
+                patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
+            ):
+                # Should succeed - no validation error for new statistics
+                await import_handler(call)
+
+                # Verify async_import_statistics was called
+                assert mock_import.called, "async_import_statistics should have been called"
+
+                # Extract the call arguments
+                call_args = mock_import.call_args
+                metadata = call_args[0][1]
+
+                # Verify unit from input file was used
+                assert metadata["unit_of_measurement"] == "°C"
+                assert metadata["statistic_id"] == "sensor.new_sensor"
+                assert metadata["has_sum"] is False  # Sensor data (mean/min/max)
+                assert metadata["source"] == "recorder"

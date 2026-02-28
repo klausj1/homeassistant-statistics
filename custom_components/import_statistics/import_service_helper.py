@@ -20,20 +20,18 @@ from custom_components.import_statistics.const import (
     ATTR_DECIMAL,
     ATTR_DELIMITER,
     ATTR_TIMEZONE_IDENTIFIER,
-    ATTR_UNIT_FROM_ENTITY,
     DATETIME_DEFAULT_FORMAT,
 )
-from custom_components.import_statistics.helpers import _LOGGER, UnitFrom
+from custom_components.import_statistics.helpers import _LOGGER
 
 
-def _validate_and_detect_delta(df: "pd.DataFrame", unit_from_entity: UnitFrom) -> bool:
+def _validate_and_detect_delta(df: "pd.DataFrame") -> bool:
     """
     Validate DataFrame columns and detect delta mode.
 
     Args:
     ----
         df: DataFrame to validate
-        unit_from_entity: Source of unit values (TABLE or ENTITY)
 
     Returns:
     -------
@@ -46,7 +44,7 @@ def _validate_and_detect_delta(df: "pd.DataFrame", unit_from_entity: UnitFrom) -
     """
     _LOGGER.debug("Columns: %s", df.columns)
 
-    if not helpers.are_columns_valid(df, unit_from_entity):
+    if not helpers.are_columns_valid(df):
         helpers.handle_error(
             "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
         )
@@ -66,7 +64,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
 
     Returns:
     -------
-        Tuple of (df, timezone_identifier, datetime_format, unit_from_entity, is_delta)
+        Tuple of (df, timezone_identifier, datetime_format, is_delta)
 
     Raises:
     ------
@@ -78,7 +76,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
     if file_suffix not in {".csv", ".tsv"}:
         helpers.handle_error(f"Unsupported filename extension for {Path(file_path).name!r}. Supported extensions: .csv, .tsv")
 
-    decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename=Path(file_path).name)
+    decimal, timezone_identifier, delimiter, datetime_format = handle_arguments(call, ha_timezone, filename=Path(file_path).name)
 
     _LOGGER.info("Importing statistics from file: %s", file_path)
     if not Path(file_path).exists():
@@ -89,9 +87,9 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
 
     my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python", encoding="utf-8")
 
-    is_delta = _validate_and_detect_delta(my_df, unit_from_entity)
+    is_delta = _validate_and_detect_delta(my_df)
 
-    return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
+    return my_df, timezone_identifier, datetime_format, is_delta
 
 
 def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
@@ -105,14 +103,14 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
 
     Returns:
     -------
-        Tuple of (df, timezone_identifier, datetime_format, unit_from_entity, is_delta)
+        Tuple of (df, timezone_identifier, datetime_format, is_delta)
 
     Raises:
     ------
         HomeAssistantError: If there is a validation error.
 
     """
-    _, timezone_identifier, _, datetime_format, unit_from_entity = handle_arguments(call, ha_timezone, filename=None)
+    _, timezone_identifier, _, datetime_format = handle_arguments(call, ha_timezone, filename=None)
 
     valid_columns = ["state", "sum", "min", "max", "mean"]
     columns = ["statistic_id", "unit", "start"]
@@ -139,9 +137,9 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
 
     my_df = pd.DataFrame(data, columns=columns)
 
-    is_delta = _validate_and_detect_delta(my_df, unit_from_entity)
+    is_delta = _validate_and_detect_delta(my_df)
 
-    return my_df, timezone_identifier, datetime_format, unit_from_entity, is_delta
+    return my_df, timezone_identifier, datetime_format, is_delta
 
 
 def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | None = None) -> tuple:
@@ -180,8 +178,6 @@ def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | Non
 
     datetime_format = call.data.get(ATTR_DATETIME_FORMAT) if ATTR_DATETIME_FORMAT in call.data else DATETIME_DEFAULT_FORMAT
 
-    unit_from_entity = UnitFrom.ENTITY if call.data.get(ATTR_UNIT_FROM_ENTITY) is True else UnitFrom.TABLE
-
     # Use HA's configured timezone as default, allow override
     timezone_identifier = call.data.get(ATTR_TIMEZONE_IDENTIFIER, ha_timezone)
 
@@ -207,16 +203,14 @@ def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | Non
     _LOGGER.debug("Delimiter: %s", delimiter)
     _LOGGER.debug("Decimal separator: %s", decimal)
     _LOGGER.debug("Datetime format: %s", datetime_format)
-    _LOGGER.debug("Unit from entity: %s", unit_from_entity)
 
-    return decimal, timezone_identifier, delimiter, datetime_format, unit_from_entity
+    return decimal, timezone_identifier, delimiter, datetime_format
 
 
 def handle_dataframe_no_delta(
     df: pd.DataFrame,
     timezone_identifier: str,
     datetime_format: str,
-    unit_from_where: UnitFrom,
 ) -> dict:
     """
     Process non-delta statistics from DataFrame.
@@ -226,7 +220,6 @@ def handle_dataframe_no_delta(
         df: DataFrame with statistic_id, start, and value columns
         timezone_identifier: IANA timezone string
         datetime_format: Format string for parsing timestamps
-        unit_from_where: Source of unit values (TABLE or ENTITY)
 
     Returns:
     -------
@@ -275,7 +268,7 @@ def handle_dataframe_no_delta(
                 "statistic_id": statistic_id,
                 "name": None,
                 "unit_class": None,
-                "unit_of_measurement": helpers.add_unit_to_dataframe(source, unit_from_where, row.get("unit", ""), statistic_id),
+                "unit_of_measurement": helpers.get_unit_from_row(row.get("unit", ""), statistic_id),
             }
             stats[statistic_id] = (metadata, [])
 

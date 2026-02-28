@@ -17,13 +17,6 @@ from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 _LOGGER = logging.getLogger(__name__)
 
 
-class UnitFrom(Enum):
-    """Where is the unit taken from."""
-
-    TABLE = 1
-    ENTITY = 2
-
-
 class DeltaReferenceType(Enum):
     """Type of reference used for delta conversion."""
 
@@ -279,14 +272,13 @@ def min_max_mean_are_valid(min_value: float, max_value: float, mean_value: float
     raise HomeAssistantError(msg)
 
 
-def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
+def are_columns_valid(df: pd.DataFrame) -> bool:
     """
     Check if the given DataFrame columns meet the required criteria.
 
     Args:
     ----
         df: dataFrame.
-        unit_from_where: ENTITY if the unit is taken from the entity, TABLE if taken from input file.
 
     Returns:
     -------
@@ -295,16 +287,16 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     """
     columns = df.columns
 
-    # Check required columns: statistic_id, start, and unit (unless from entity)
+    # Check required columns: statistic_id, start, and unit (always required)
     # Determine if this is delta or non-delta data first
     has_delta = "delta" in columns
 
-    if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_where == UnitFrom.ENTITY)):
+    if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         found_columns_num = len(columns)
         # embrace each column name with quotes for clarity
         found_columns_quoted = [f"'{col}'" for col in columns]
         found_columns_str = ", ".join(sorted(found_columns_quoted))
-        error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false)"
+        error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit'"
         error_str += f" (check delimiter). Number of found columns: {found_columns_num}. Found columns: {found_columns_str}"
         handle_error(error_str)
 
@@ -320,19 +312,12 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     elif has_mean_min_max and has_sum_state:
         handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'")
 
-    # Define allowed columns based on data type and unit source
-    allowed_columns = {"statistic_id", "start", "delta"} if has_delta else {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
-
-    if unit_from_where == UnitFrom.TABLE:
-        allowed_columns.add("unit")
+    # Define allowed columns based on data type - unit is always allowed
+    allowed_columns = {"statistic_id", "start", "unit", "delta"} if has_delta else {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state"}
 
     # Check for unknown columns
     unknown_columns = set(columns) - allowed_columns
     if unknown_columns:
-        # Special case: unit column is present but unit is supposed to come from entity
-        if unknown_columns == {"unit"} and unit_from_where == UnitFrom.ENTITY:
-            handle_error("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file.")
-
         unknown_cols_str = ", ".join(sorted(unknown_columns))
         allowed_cols_str = ", ".join(sorted(allowed_columns))
         handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
@@ -357,39 +342,26 @@ def handle_error(error_string: str) -> None:
     raise HomeAssistantError(error_string)
 
 
-def add_unit_to_dataframe(source: str, unit_from_where: UnitFrom, unit_from_row: str, statistic_id: str) -> str:
+def get_unit_from_row(unit_from_row: str, statistic_id: str) -> str:
     """
-    Add unit to dataframe, or leave it empty for now if unit_from_entity is true.
+    Get unit from the input row and validate it exists.
 
     Args:
     ----
-        source: "recorder" for internal statistics
-        unit_from_where: ENTITY if the unit is taken from the entity, TABLE if taken from input file.
         unit_from_row: The unit from the imported file
         statistic_id: The statistic id from the imported file
 
     Returns:
     -------
-        str: unit, or empty if unit_from_entity is true
+        str: unit from the row
 
     Raises:
     ------
-        HomeAssistantError: The raised exception containing the error message.
+        HomeAssistantError: If unit is missing or empty
 
     """
-    if source == "recorder":
-        if unit_from_where == UnitFrom.ENTITY:
-            return ""
-        if unit_from_row != "":
-            return unit_from_row
-        handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
-        return ""
-    if unit_from_where == UnitFrom.ENTITY:
-        handle_error(f"Unit_from_entity set to TRUE is not allowed for external statistics (statistic_id with a ':'). Statistic ID: {statistic_id}.")
-        return ""
     if unit_from_row == "":
-        handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
-        return ""
+        handle_error(f"Unit does not exist in input file. Statistic ID: {statistic_id}.")
     return unit_from_row
 
 

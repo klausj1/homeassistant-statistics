@@ -7,7 +7,6 @@ datetime formats could cause string-based sorting to fail.
 
 import pandas as pd
 
-from custom_components.import_statistics.helpers import UnitFrom
 from custom_components.import_statistics.import_service_helper import handle_dataframe_no_delta
 
 
@@ -45,7 +44,7 @@ class TestImportNonDeltaTimestampOrdering:
         )
 
         # This should work correctly - it should identify 01.01.2024 as newest
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M")
 
         # Should have processed both records
         assert "sensor.test" in result
@@ -94,7 +93,7 @@ class TestImportNonDeltaTimestampOrdering:
         )
 
         # Should process all records correctly
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M")
 
         assert "sensor.a" in result
         assert "sensor.b" in result
@@ -128,7 +127,7 @@ class TestImportTimestampEdgeCases:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M")
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -161,7 +160,7 @@ class TestImportTimestampEdgeCases:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M")
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -198,7 +197,7 @@ class TestImportTimestampEdgeCases:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M")
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -231,7 +230,7 @@ class TestAlternativeDateFormats:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%m/%d/%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%m/%d/%Y %H:%M")
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -260,7 +259,7 @@ class TestAlternativeDateFormats:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d-%b-%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df, "UTC", "%d-%b-%Y %H:%M")
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]

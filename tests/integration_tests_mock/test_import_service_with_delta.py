@@ -18,7 +18,7 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from custom_components.import_statistics.helpers import DeltaReferenceType, UnitFrom, are_columns_valid
+from custom_components.import_statistics.helpers import DeltaReferenceType, are_columns_valid
 from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_older_reference, handle_dataframe_delta
 from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
 
@@ -345,7 +345,6 @@ class TestDeltaImportIntegration:
                 df,
                 "UTC",
                 "%d.%m.%Y %H:%M",
-                UnitFrom.TABLE,
                 references,
             )
 
@@ -459,7 +458,6 @@ class TestDeltaImportIntegration:
                 df,
                 "UTC",
                 "%d.%m.%Y %H:%M",
-                UnitFrom.TABLE,
                 references,
             )
 
@@ -478,7 +476,7 @@ class TestDeltaImportIntegration:
         )
 
         with pytest.raises(HomeAssistantError):
-            are_columns_valid(df_with_sum, UnitFrom.TABLE)
+            are_columns_valid(df_with_sum)
 
         # Test delta + mean
         df_with_mean = pd.DataFrame(
@@ -492,4 +490,4 @@ class TestDeltaImportIntegration:
         )
 
         with pytest.raises(HomeAssistantError):
-            are_columns_valid(df_with_mean, UnitFrom.TABLE)
+            are_columns_valid(df_with_mean)
