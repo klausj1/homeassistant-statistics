@@ -18,8 +18,8 @@ from custom_components.import_statistics.const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-@pytest.mark.usefixtures("allow_socket_for_integration")
 @pytest.mark.integration
+@pytest.mark.usefixtures("allow_socket_for_integration")
 class TestIntegrationAll:
     """
     Integration tests for all import types with running Home Assistant instance.

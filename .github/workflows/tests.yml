@@ -26,4 +26,4 @@ jobs:
           python3 -m pip install -r requirements.test.txt
 
       - name: "Run tests"
-        run: pytest -v
+        run: pytest -v -m "not integration"
