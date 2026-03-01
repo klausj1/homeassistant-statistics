@@ -301,8 +301,6 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
     """
     columns = df.columns
 
-    stats = {}
-
     # Validate that newest timestamp is not too recent
     # With datetime objects, simply get max (no parsing needed!)
     newest_dt = df["start"].max()
@@ -316,29 +314,75 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
     has_mean = "mean" in columns
     has_sum = "sum" in columns
 
-    for _index, row in df.iterrows():
-        statistic_id = row["statistic_id"]
-        if statistic_id not in stats:  # New statistic id found
-            source = helpers.get_source(statistic_id)
-            metadata = {
-                "mean_type": StatisticMeanType.ARITHMETIC if has_mean else StatisticMeanType.NONE,
-                "has_sum": has_sum,
-                "source": source,
-                "statistic_id": statistic_id,
-                "name": None,
-                "unit_class": None,
-                "unit_of_measurement": helpers.get_unit_from_row(row.get("unit", ""), statistic_id),
-            }
-            stats[statistic_id] = (metadata, [])
+    # Vectorized validation: validate all timestamps at once
+    helpers.validate_timestamps_vectorized(df)
+
+    # Vectorized validation: validate all float columns at once
+    if has_mean:
+        helpers.validate_floats_vectorized(df, ["min", "max", "mean"])
+        helpers.validate_min_max_mean_vectorized(df)
+    elif has_sum:
+        float_cols = ["sum"]
+        if "state" in columns:
+            float_cols.append("state")
+        helpers.validate_floats_vectorized(df, float_cols)
+    else:
+        # This should never happen due to column validation, but defensive check
+        helpers.handle_error("Implementation error: neither mean nor sum columns found")
+
+    # Pre-allocate stats dictionary with metadata for all unique statistic_ids
+    stats = {}
+    unique_ids = df["statistic_id"].unique()
+
+    for statistic_id in unique_ids:
+        # Get unit from first occurrence of this statistic_id
+        unit = df.loc[df["statistic_id"] == statistic_id, "unit"].iloc[0]
+        source = helpers.get_source(statistic_id)
+
+        metadata = {
+            "mean_type": StatisticMeanType.ARITHMETIC if has_mean else StatisticMeanType.NONE,
+            "has_sum": has_sum,
+            "source": source,
+            "statistic_id": statistic_id,
+            "name": None,
+            "unit_class": None,
+            "unit_of_measurement": helpers.get_unit_from_row(unit, statistic_id),
+        }
+        stats[statistic_id] = (metadata, [])
+
+    # Process data using groupby for better performance
+    grouped = df.groupby("statistic_id", sort=False)
+
+    for statistic_id, group_df in grouped:
+        statistics_list = []
 
         if has_mean:
-            new_stat = helpers.get_mean_stat_from_datetime(row)
+            # Build statistics list from group using itertuples (faster than iterrows)
+            for row in group_df.itertuples(index=False, name=None):
+                # row format: (statistic_id, unit, start, min, max, mean, ...)
+                # Map to column names - strict=True ensures columns and row have same length
+                row_dict = dict(zip(group_df.columns, row, strict=True))
+                statistics_list.append(
+                    {
+                        "start": row_dict["start"],
+                        "min": row_dict["min"],
+                        "max": row_dict["max"],
+                        "mean": row_dict["mean"],
+                    }
+                )
         elif has_sum:
-            new_stat = helpers.get_sum_stat_from_datetime(row)
-        else:
-            # This should never happen due to column validation, but defensive check
-            helpers.handle_error("Implementation error: neither mean nor sum columns found")
+            # Build statistics list for sum/state
+            has_state = "state" in columns
+            for row in group_df.itertuples(index=False, name=None):
+                row_dict = dict(zip(group_df.columns, row, strict=True))
+                stat_dict = {
+                    "start": row_dict["start"],
+                    "sum": row_dict["sum"],
+                }
+                if has_state:
+                    stat_dict["state"] = row_dict["state"]
+                statistics_list.append(stat_dict)
 
-        stats[statistic_id][1].append(new_stat)
+        stats[statistic_id][1].extend(statistics_list)
 
     return stats

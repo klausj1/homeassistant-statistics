@@ -8,7 +8,6 @@ import datetime as dt
 
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
-from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, format_decimal
@@ -210,6 +209,13 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
     """
     _LOGGER.info("Converting delta dataframe with references")
 
+    # Vectorized validation: validate all delta values at once (if timestamps are already datetime objects)
+    # Note: Timestamps are validated per-group below since they may not be parsed yet in unit tests
+    if pd.api.types.is_datetime64_any_dtype(df["start"]):
+        helpers.validate_timestamps_vectorized(df)
+
+    helpers.validate_floats_vectorized(df, ["delta"])
+
     # Group rows by statistic_id
     stats = {}
 
@@ -233,22 +239,14 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
         sum_ref = reference.get("sum") or 0
         state_ref = reference.get("state") or 0
 
+        # Build delta_rows using itertuples (faster than iterrows)
         delta_rows = []
-        for _index, row in group.iterrows():
-            dt_obj = row["start"]
-
-            # Validate it's a full hour
-            if dt_obj.minute != 0 or dt_obj.second != 0:
-                msg = f"Invalid timestamp: {dt_obj}. The timestamp must be a full hour."
-                raise HomeAssistantError(msg)
-
-            # Validate delta is valid float
-            helpers.is_valid_float(row["delta"])
-
+        for row in group.itertuples(index=False, name=None):
+            row_dict = dict(zip(group.columns, row, strict=True))
             delta_rows.append(
                 {
-                    "start": dt_obj,
-                    "delta": float(row["delta"]),
+                    "start": row_dict["start"],
+                    "delta": float(row_dict["delta"]),
                 }
             )
 

@@ -1,7 +1,6 @@
 """Test handle_dataframe_delta function."""
 
 import datetime as dt
-import re
 import zoneinfo
 
 import pandas as pd
@@ -175,5 +174,5 @@ def test_convert_delta_dataframe_with_references_invalid_rows_throws_error() -> 
         }
     }
 
-    with pytest.raises(HomeAssistantError, match=re.escape("Invalid timestamp: 2022-01-01 00:30:00+01:00. The timestamp must be a full hour.")):
+    with pytest.raises(HomeAssistantError, match=r"Invalid timestamp at row 2: 2022-01-01 00:30:00\+01:00\. The timestamp must be a full hour\."):
         handle_dataframe_delta(df, references)
