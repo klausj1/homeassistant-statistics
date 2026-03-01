@@ -402,11 +402,12 @@ def validate_timestamps_vectorized(df: pd.DataFrame) -> None:
 
     """
     # Check if any timestamp has non-zero minutes or seconds
-    invalid_times = (df["start"].dt.minute != 0) | (df["start"].dt.second != 0)  # type: ignore[attr-defined]
+    start_series: pd.Series[pd.Timestamp] = df["start"]  # type: ignore[assignment]
+    invalid_times = (start_series.dt.minute != 0) | (start_series.dt.second != 0)
 
     if invalid_times.any():
         # Get first invalid timestamp for error message
-        first_invalid_idx = int(invalid_times.idxmax())  # type: ignore[arg-type]
+        first_invalid_idx: int = invalid_times.idxmax()  # type: ignore[assignment]
         first_invalid = df.loc[first_invalid_idx, "start"]
         # Convert to human-readable row number (1-based + 1 for header = +2)
         human_row = first_invalid_idx + 2
@@ -449,7 +450,7 @@ def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
                     float(val)
                 except (ValueError, TypeError):
                     # Convert to human-readable row number (1-based + 1 for header = +2)
-                    human_row = int(idx) + 2  # type: ignore[arg-type]
+                    human_row: int = idx + 2  # type: ignore[assignment]
                     msg = f"Invalid float value in column '{col}' at row {human_row}: {val}. Check the decimal separator."
                     raise HomeAssistantError(msg) from exc
 
@@ -472,7 +473,7 @@ def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
 
     if invalid_mmm.any():
         # Get first invalid row for error message
-        first_invalid_idx = int(invalid_mmm.idxmax())  # type: ignore[arg-type]
+        first_invalid_idx: int = invalid_mmm.idxmax()  # type: ignore[assignment]
         row = df.loc[first_invalid_idx]
         # Convert to human-readable row number (1-based + 1 for header = +2)
         human_row = first_invalid_idx + 2

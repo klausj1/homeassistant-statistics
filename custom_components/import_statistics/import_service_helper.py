@@ -74,7 +74,8 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
     try:
         # nonexistent='raise': Raise error for non-existent times (spring forward DST gap)
         # ambiguous='NaT': For ambiguous times (fall back DST overlap), mark as NaT then we'll use the later occurrence
-        df["start"] = df["start"].dt.tz_localize(timezone, nonexistent="raise", ambiguous="NaT")
+        start_series: pd.Series[pd.Timestamp] = df["start"]  # type: ignore[assignment]
+        df["start"] = start_series.dt.tz_localize(timezone, nonexistent="raise", ambiguous="NaT")
 
         # For any NaT values (ambiguous times), re-localize using True (later occurrence)
         if df["start"].isna().any():
@@ -84,7 +85,8 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
                     # CSV/TSV path: Use pre-saved naive timestamps
                     # Create a boolean array: True = use later occurrence (DST ended, standard time)
                     ambiguous_array = pd.Series([True] * ambiguous_mask.sum(), index=df[ambiguous_mask].index)
-                    ambiguous_times = naive_copy.loc[ambiguous_mask].dt.tz_localize(timezone, ambiguous=ambiguous_array)
+                    naive_series: pd.Series[pd.Timestamp] = naive_copy.loc[ambiguous_mask]  # type: ignore[assignment]
+                    ambiguous_times = naive_series.dt.tz_localize(timezone, ambiguous=ambiguous_array)  # type: ignore[arg-type]
                     df.loc[ambiguous_mask, "start"] = ambiguous_times
                 else:
                     # JSON path: This should not happen in practice because JSON data comes pre-parsed
@@ -364,7 +366,8 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
 
     for statistic_id in unique_ids:
         # Get unit from first occurrence of this statistic_id
-        unit = df.loc[df["statistic_id"] == statistic_id, "unit"].iloc[0]
+        unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
+        unit: str = unit_series.iloc[0]  # type: ignore[assignment]
         source = helpers.get_source(statistic_id)
 
         metadata = {
