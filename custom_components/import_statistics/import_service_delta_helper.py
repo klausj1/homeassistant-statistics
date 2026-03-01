@@ -10,7 +10,7 @@ import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, format_decimal
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType
 
 
 def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float | None, state_oldest: float | None) -> list[dict]:
@@ -295,68 +295,3 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
 
     _LOGGER.info("Delta dataframe conversion complete: %d statistics", len(stats))
     return stats
-
-
-def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> list[dict]:
-    """
-    Calculate delta values from a list of records sorted by statistic_id and start.
-
-    For each statistic_id, calculates delta as the difference between consecutive sum/state values.
-    The first record of each statistic_id has an empty delta (no previous value).
-
-    Args:
-          rows: List of row dicts with statistic_id, start, sum, and/or state fields
-          decimal_comma: Use comma (True) or dot (False) as decimal separator for output
-
-    Returns:
-          list[dict]: Rows with delta column added (formatted as string)
-
-    """
-    if not rows:
-        return []
-
-    # Sort rows by statistic_id first, then by start timestamp (sorted as string works if format is consistent)
-    # Start is in datetime format like "26.01.2024 12:00" - sort as string works if format is consistent
-    sorted_rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
-
-    result = []
-    previous_sum_by_id = {}
-
-    for row_dict in sorted_rows:
-        statistic_id = row_dict["statistic_id"]
-        new_row = dict(row_dict)
-
-        # Get previous sum for this statistic_id
-        prev_sum = previous_sum_by_id.get(statistic_id)
-
-        # Calculate delta if we have sum/state values and a previous value
-        if prev_sum is not None and "sum" in row_dict:
-            # sum is already a string (formatted), need to extract numeric value
-            sum_str = row_dict["sum"]
-            if sum_str:  # Only if sum is not empty
-                try:
-                    # Convert back to float for calculation
-                    decimal_sep = "," if decimal_comma else "."
-                    sum_value = float(sum_str.replace(decimal_sep, "."))
-                    delta_value = sum_value - prev_sum
-                    new_row["delta"] = format_decimal(delta_value, use_comma=decimal_comma)
-                except (ValueError, AttributeError):
-                    new_row["delta"] = ""
-            else:
-                new_row["delta"] = ""
-        else:
-            # First record for this statistic_id has empty delta
-            new_row["delta"] = ""
-
-        # Update previous sum for next iteration
-        if row_dict.get("sum"):
-            try:
-                decimal_sep = "," if decimal_comma else "."
-                previous_sum_by_id[statistic_id] = float(row_dict["sum"].replace(decimal_sep, "."))
-            except (ValueError, AttributeError):
-                pass
-
-        result.append(new_row)
-
-    # Sort result by statistic_id and start to ensure consistent output order
-    return sorted(result, key=lambda r: (r["statistic_id"], r["start"]))
