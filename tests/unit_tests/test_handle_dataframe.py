@@ -32,6 +32,9 @@ def test_handle_dataframe_mean() -> None:
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
     # Define the expected output
     expected_stats = {
         "stat1.mean": (
@@ -62,7 +65,7 @@ def test_handle_dataframe_mean() -> None:
     }
 
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Check the output
     assert stats == expected_stats
@@ -86,6 +89,9 @@ def test_handle_dataframe_mean_other_datetime_format() -> None:
 
     datetime_format = "%d-%m-%Y %H:%M"
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
     # Define the expected output
     expected_stats = {
         "stat1.mean": (
@@ -116,7 +122,7 @@ def test_handle_dataframe_mean_other_datetime_format() -> None:
     }
 
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", datetime_format)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Check the output
     assert stats == expected_stats
@@ -134,6 +140,9 @@ def test_handle_dataframe_sum_state() -> None:
         [["stat2.sum", "01.01.2022 00:00", "unit2", 100, 200]],
         columns=["statistic_id", "start", "unit", "sum", "state"],
     )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
 
     # Define the expected output
     expected_stats = {
@@ -158,7 +167,7 @@ def test_handle_dataframe_sum_state() -> None:
     }
 
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Check the output
     assert stats == expected_stats
@@ -179,6 +188,9 @@ def test_handle_dataframe_sum_state_other_format() -> None:
 
     datetime_format = "%d-%m-%Y %H:%M"
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
     # Define the expected output
     expected_stats = {
         "stat2.sum": (
@@ -202,7 +214,7 @@ def test_handle_dataframe_sum_state_other_format() -> None:
     }
 
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", datetime_format)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Check the output
     assert stats == expected_stats
@@ -220,6 +232,9 @@ def test_handle_dataframe_sum() -> None:
         [["stat2.sum", "01.01.2022 00:00", "unit2", 100]],
         columns=["statistic_id", "start", "unit", "sum"],
     )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
 
     # Define the expected output
     expected_stats = {
@@ -243,7 +258,7 @@ def test_handle_dataframe_sum() -> None:
     }
 
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Check the output
     assert stats == expected_stats
@@ -270,6 +285,9 @@ def test_handle_dataframe_multiple_mean() -> None:
         ],
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("Europe/Berlin"))
 
     # Define the expected output
     expected_stats = {
@@ -363,7 +381,7 @@ def test_handle_dataframe_multiple_mean() -> None:
     }
 
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Check the output
     assert stats == expected_stats

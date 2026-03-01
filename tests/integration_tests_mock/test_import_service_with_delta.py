@@ -343,8 +343,6 @@ class TestDeltaImportIntegration:
         with pytest.raises(HomeAssistantError):
             handle_dataframe_delta(
                 df,
-                "UTC",
-                "%d.%m.%Y %H:%M",
                 references,
             )
 
@@ -456,8 +454,6 @@ class TestDeltaImportIntegration:
         with pytest.raises(HomeAssistantError):
             handle_dataframe_delta(
                 df,
-                "UTC",
-                "%d.%m.%Y %H:%M",
                 references,
             )
 

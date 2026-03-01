@@ -3,9 +3,7 @@
 ## Unsorted backlog
 
 - Check copilot review comments, see mail from 2026-01-10
-- In some places, timestamps need to be sorted. But after pandas, timestamps are strings. So, we parse back the timestamps ... See commits on 2026-01-11 after 08:00
-  - Not nice, but its not important for the performance. Committing the values to the DB takes the most time
-- Remove startup of HA in integration test, throw error instead
+- Compare prepare_data_to_import and prepare_json_data_to_import, duplicate code, inconsistent?
 - Setup a job to run the test in the pipeline as well, for pull requests
 - Allow import of counter and measurement in one file
 - test_export_service.py: Separate to unit-tests and integration-tests

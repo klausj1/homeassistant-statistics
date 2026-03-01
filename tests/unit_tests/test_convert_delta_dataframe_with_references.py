@@ -27,6 +27,9 @@ def test_convert_delta_dataframe_with_references_single_statistic() -> None:
         }
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(tz)
+
     references = {
         "sensor.temperature": {
             "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
@@ -34,7 +37,7 @@ def test_convert_delta_dataframe_with_references_single_statistic() -> None:
         }
     }
 
-    result = handle_dataframe_delta(df, tz_id, datetime_format, references)
+    result = handle_dataframe_delta(df, references)
 
     assert len(result) == 1
     assert "sensor.temperature" in result
@@ -61,6 +64,9 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
         }
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(tz)
+
     references = {
         "sensor.energy": {
             "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
@@ -72,7 +78,7 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
         },
     }
 
-    result = handle_dataframe_delta(df, tz_id, datetime_format, references)
+    result = handle_dataframe_delta(df, references)
 
     assert len(result) == 2
     assert "sensor.energy" in result
@@ -92,6 +98,7 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
 def test_convert_delta_dataframe_with_references_missing_reference() -> None:
     """Test handle_dataframe_delta raises error for missing reference."""
     tz_id = "Europe/Vienna"
+    tz = zoneinfo.ZoneInfo(tz_id)
     datetime_format = "%d.%m.%Y %H:%M"
 
     df = pd.DataFrame(
@@ -103,10 +110,13 @@ def test_convert_delta_dataframe_with_references_missing_reference() -> None:
         }
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(tz)
+
     references = {"sensor.temperature": None}
 
     with pytest.raises(HomeAssistantError, match="Failed to find database reference"):
-        handle_dataframe_delta(df, tz_id, datetime_format, references)
+        handle_dataframe_delta(df, references)
 
     """Test handle_dataframe_delta with external (colon-format) statistic."""
     tz_id = "Europe/Vienna"
@@ -122,6 +132,9 @@ def test_convert_delta_dataframe_with_references_missing_reference() -> None:
         }
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(tz)
+
     references = {
         "custom:energy": {
             "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
@@ -129,7 +142,7 @@ def test_convert_delta_dataframe_with_references_missing_reference() -> None:
         }
     }
 
-    result = handle_dataframe_delta(df, tz_id, datetime_format, references)
+    result = handle_dataframe_delta(df, references)
 
     assert len(result) == 1
     metadata, _stats = result["custom:energy"]
@@ -152,6 +165,9 @@ def test_convert_delta_dataframe_with_references_invalid_rows_throws_error() -> 
         }
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(tz)
+
     references = {
         "sensor.temperature": {
             "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
@@ -159,5 +175,5 @@ def test_convert_delta_dataframe_with_references_invalid_rows_throws_error() -> 
         }
     }
 
-    with pytest.raises(HomeAssistantError, match=re.escape("Invalid timestamp: 01.01.2022 00:30. The timestamp must be a full hour.")):
-        handle_dataframe_delta(df, tz_id, datetime_format, references)
+    with pytest.raises(HomeAssistantError, match=re.escape("Invalid timestamp: 2022-01-01 00:30:00+01:00. The timestamp must be a full hour.")):
+        handle_dataframe_delta(df, references)

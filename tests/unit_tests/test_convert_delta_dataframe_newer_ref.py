@@ -1,6 +1,7 @@
 """Tests for handle_dataframe_delta with OLDER and NEWER reference support."""
 
 import datetime as dt
+import zoneinfo
 
 import pandas as pd
 
@@ -12,6 +13,7 @@ def test_convert_delta_dataframe_1_older_reference() -> None:
     """Test that OLDER_REFERENCE is used when reference is before import data."""
     # Reference at 09:00 (before import data starting at 10:00)
     ref_start = dt.datetime(2025, 1, 1, 9, 0, tzinfo=dt.UTC)
+    datetime_format = "%d.%m.%Y %H:%M"
 
     df = pd.DataFrame(
         {
@@ -21,6 +23,9 @@ def test_convert_delta_dataframe_1_older_reference() -> None:
             "unit": ["kWh", "kWh"],
         }
     )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(zoneinfo.ZoneInfo("UTC"))
 
     references = {
         "sensor.test": {
@@ -33,7 +38,7 @@ def test_convert_delta_dataframe_1_older_reference() -> None:
         }
     }
 
-    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", references)
+    result = handle_dataframe_delta(df, references)
 
     assert "sensor.test" in result
     metadata, stats = result["sensor.test"]
@@ -48,6 +53,7 @@ def test_convert_delta_dataframe_newer_reference() -> None:
     """Test that NEWER_REFERENCE is used when reference is after import data."""
     # Reference at 11:00 (at newest import data time)
     ref_start = dt.datetime(2025, 1, 1, 11, 0, tzinfo=dt.UTC)
+    datetime_format = "%d.%m.%Y %H:%M"
 
     df = pd.DataFrame(
         {
@@ -57,6 +63,9 @@ def test_convert_delta_dataframe_newer_reference() -> None:
             "unit": ["kWh", "kWh"],
         }
     )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(zoneinfo.ZoneInfo("UTC"))
 
     references = {
         "sensor.test": {
@@ -69,7 +78,7 @@ def test_convert_delta_dataframe_newer_reference() -> None:
         }
     }
 
-    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", references)
+    result = handle_dataframe_delta(df, references)
 
     assert "sensor.test" in result
     metadata, stats = result["sensor.test"]
@@ -88,6 +97,7 @@ def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
     """Test mixed OLDER_REFERENCE and NEWER_REFERENCE for different statistics."""
     ref_start_1 = dt.datetime(2025, 1, 1, 9, 0, tzinfo=dt.UTC)  # Before
     ref_start_2 = dt.datetime(2025, 1, 1, 11, 0, tzinfo=dt.UTC)  # At newest import time
+    datetime_format = "%d.%m.%Y %H:%M"
 
     df = pd.DataFrame(
         {
@@ -97,6 +107,9 @@ def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
             "unit": ["kWh", "kWh", "kWh", "kWh"],
         }
     )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(zoneinfo.ZoneInfo("UTC"))
 
     references = {
         "sensor.test1": {
@@ -117,7 +130,7 @@ def test_convert_delta_dataframe_multiple_statistics_mixed_cases() -> None:
         },
     }
 
-    result = handle_dataframe_delta(df, "UTC", "%d.%m.%Y %H:%M", references)
+    result = handle_dataframe_delta(df, references)
 
     assert len(result) == 2
 

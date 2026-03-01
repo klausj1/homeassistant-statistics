@@ -58,15 +58,15 @@ def get_source(statistic_id: str) -> str:
     return source
 
 
-def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
+def get_mean_stat_from_datetime(row: pd.Series) -> dict:
     """
-    Process a row and extract mean statistics based on the specified columns and timezone.
+    Process a row with pre-parsed datetime and extract mean statistics.
+
+    Optimized version that works with datetime objects instead of parsing strings.
 
     Args:
     ----
-        row (pandas.Series): The input row containing the statistics data.
-        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
+        row (pandas.Series): The input row with 'start' as datetime object (with timezone).
 
     Returns:
     -------
@@ -77,29 +77,35 @@ def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: 
         HomeAssistantError: If validation fails (invalid timestamp, float values, or min/max/mean constraint).
 
     """
-    is_full_hour(row["start"], datetime_format)
+    dt_obj = row["start"]  # Already a datetime with timezone
+
+    # Validate it's a full hour
+    if dt_obj.minute != 0 or dt_obj.second != 0:
+        msg = f"Invalid timestamp: {dt_obj}. The timestamp must be a full hour."
+        raise HomeAssistantError(msg)
+
     is_valid_float(row["min"])
     is_valid_float(row["max"])
     is_valid_float(row["mean"])
     min_max_mean_are_valid(row["min"], row["max"], row["mean"])
 
     return {
-        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+        "start": dt_obj,
         "min": row["min"],
         "max": row["max"],
         "mean": row["mean"],
     }
 
 
-def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
+def get_sum_stat_from_datetime(row: pd.Series) -> dict:
     """
-    Process a row and extract sum statistics based on the specified columns and timezone.
+    Process a row with pre-parsed datetime and extract sum statistics.
+
+    Optimized version that works with datetime objects instead of parsing strings.
 
     Args:
     ----
-        row (pandas.Series): The input row containing the statistics data.
-        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
+        row (pandas.Series): The input row with 'start' as datetime object (with timezone).
 
     Returns:
     -------
@@ -110,48 +116,26 @@ def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: s
         HomeAssistantError: If validation fails (invalid timestamp or float values).
 
     """
-    is_full_hour(row["start"], datetime_format)
+    dt_obj = row["start"]  # Already a datetime with timezone
+
+    # Validate it's a full hour
+    if dt_obj.minute != 0 or dt_obj.second != 0:
+        msg = f"Invalid timestamp: {dt_obj}. The timestamp must be a full hour."
+        raise HomeAssistantError(msg)
+
     is_valid_float(row["sum"])
 
     if "state" in row.index:
         is_valid_float(row["state"])
         return {
-            "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+            "start": dt_obj,
             "sum": row["sum"],
             "state": row["state"],
         }
 
     return {
-        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
+        "start": dt_obj,
         "sum": row["sum"],
-    }
-
-
-def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
-    """
-    Extract delta statistic from a row.
-
-    Args:
-    ----
-        row (pd.Series): The input row containing the statistics data.
-        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
-
-    Returns:
-    -------
-        dict: A dictionary containing 'start' (datetime with timezone) and 'delta' (float).
-
-    Raises:
-    ------
-        HomeAssistantError: If validation fails (invalid timestamp or delta value).
-
-    """
-    is_full_hour(row["start"], datetime_format)
-    is_valid_float(row["delta"])
-
-    return {
-        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-        "delta": float(row["delta"]),
     }
 
 

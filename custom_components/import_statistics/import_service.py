@@ -1,10 +1,10 @@
 """Import statistics functionality."""
 
 import datetime as dt
-import zoneinfo
 from dataclasses import dataclass
 from typing import Any
 
+import pandas as pd
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics, get_metadata
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.recorder import get_instance
@@ -107,8 +107,6 @@ async def _process_delta_references_for_statistic(
 async def prepare_delta_handling(
     hass: HomeAssistant,
     df: Any,
-    timezone_identifier: str,
-    datetime_format: str,
 ) -> dict[str, dict]:
     """
     Fetch and validate delta references for delta import.
@@ -144,28 +142,17 @@ async def prepare_delta_handling(
     _LOGGER.info("Preparing delta handling: fetching and validating database references")
 
     # Step 1: Extract oldest/newest timestamps from df per statistic_id
-    timezone = zoneinfo.ZoneInfo(timezone_identifier)
     import_ranges = {}
 
     for statistic_id in df["statistic_id"].unique():
         group = df[df["statistic_id"] == statistic_id]
 
-        # Parse all timestamps first to find true oldest/newest chronologically
-        # Using string min/max would give alphabetical order, not chronological
-        timestamps_dt = []
-        for timestamp_str in group["start"]:
-            try:
-                dt_obj = dt.datetime.strptime(timestamp_str, datetime_format).replace(tzinfo=timezone)
-                timestamps_dt.append(dt_obj)
-            except (ValueError, TypeError) as e:
-                handle_error(f"Invalid timestamp format for delta processing: {timestamp_str}: {e}")
+        # Use vectorized min/max on datetime column (no parsing needed!)
+        oldest_dt = group["start"].min()
+        newest_dt = group["start"].max()
 
-        if not timestamps_dt:
+        if pd.isna(oldest_dt) or pd.isna(newest_dt):
             handle_error(f"No valid timestamps found for statistic_id {statistic_id}")
-
-        # Find oldest and newest by chronological order
-        oldest_dt = min(timestamps_dt)
-        newest_dt = max(timestamps_dt)
 
         # Validate that newest timestamp is not too recent
         is_not_in_future(newest_dt)
@@ -232,11 +219,11 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None
     """
     if data.is_delta:
         _LOGGER.info("Delta mode detected, fetching references from database")
-        references = await prepare_delta_handling(hass, data.df, data.timezone_id, data.datetime_format)
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, data.timezone_id, data.datetime_format, references))
+        references = await prepare_delta_handling(hass, data.df)
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, references))
     else:
         _LOGGER.info("Non-delta mode, processing directly")
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df, data.timezone_id, data.datetime_format))
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df))
 
     await import_stats(hass, stats)
 
@@ -251,7 +238,7 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
     # Extract HA timezone once
     ha_timezone = hass.config.time_zone
 
-    _LOGGER.info("Preparing data for import")
+    _LOGGER.info("Preparing data for import ...")
     df, timezone_id, datetime_format, is_delta = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
 
     await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta))

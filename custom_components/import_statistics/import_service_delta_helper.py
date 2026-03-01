@@ -5,10 +5,10 @@ No hass object needed.
 """
 
 import datetime as dt
-import zoneinfo
 
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, format_decimal
@@ -179,12 +179,7 @@ def convert_deltas_with_newer_reference(
     return converted_rows
 
 
-def handle_dataframe_delta(
-    df: pd.DataFrame,
-    timezone_identifier: str,
-    datetime_format: str,
-    references: dict,
-) -> dict:
+def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
     """
     Process delta statistics from DataFrame using pre-fetched references.
 
@@ -217,7 +212,6 @@ def handle_dataframe_delta(
 
     # Group rows by statistic_id
     stats = {}
-    timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
     for statistic_id in df["statistic_id"].unique():
         group = df[df["statistic_id"] == statistic_id]
@@ -239,11 +233,24 @@ def handle_dataframe_delta(
         sum_ref = reference.get("sum") or 0
         state_ref = reference.get("state") or 0
 
-        # Extract delta rows using get_delta_stat
         delta_rows = []
         for _index, row in group.iterrows():
-            delta_stat = helpers.get_delta_stat(row, timezone, datetime_format)
-            delta_rows.append(delta_stat)
+            dt_obj = row["start"]
+
+            # Validate it's a full hour
+            if dt_obj.minute != 0 or dt_obj.second != 0:
+                msg = f"Invalid timestamp: {dt_obj}. The timestamp must be a full hour."
+                raise HomeAssistantError(msg)
+
+            # Validate delta is valid float
+            helpers.is_valid_float(row["delta"])
+
+            delta_rows.append(
+                {
+                    "start": dt_obj,
+                    "delta": float(row["delta"]),
+                }
+            )
 
         if not delta_rows:
             _LOGGER.warning("No valid delta rows found for statistic_id: %s", statistic_id)

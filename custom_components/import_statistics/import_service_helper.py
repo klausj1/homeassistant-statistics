@@ -4,10 +4,8 @@ Helper functions for import service - data preparation from files/JSON.
 No hass object needed.
 """
 
-import datetime as dt
 import zoneinfo
 from pathlib import Path
-from typing import cast
 
 import pandas as pd
 import pytz
@@ -85,7 +83,56 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
     # Validate file encoding before attempting to read
     helpers.validate_file_encoding(file_path)
 
-    my_df = pd.read_csv(file_path, sep=delimiter, decimal=decimal, engine="python", encoding="utf-8")
+    # Parse datetimes during CSV load for performance (avoids parsing 3x later)
+    my_df = pd.read_csv(
+        file_path,
+        sep=delimiter,
+        decimal=decimal,
+        engine="python",
+        encoding="utf-8",
+        parse_dates=["start"],  # Parse 'start' column as datetime
+        date_format=datetime_format,  # Use user-specified format
+    )
+
+    # Apply timezone to the parsed datetime column
+    timezone = zoneinfo.ZoneInfo(timezone_identifier)
+    try:
+        # Check if parsing succeeded (pandas returns datetime objects)
+        if not pd.api.types.is_datetime64_any_dtype(my_df["start"]):
+            # Parsing failed - timestamps don't match the format
+            sample_value = my_df["start"].iloc[0] if len(my_df) > 0 else "unknown"
+            helpers.handle_error(
+                f"Invalid timestamp format: {sample_value}. Expected format: {datetime_format}. Please ensure all timestamps match the specified format."
+            )
+
+        # Keep a copy of the naive datetime column for handling ambiguous times
+        start_naive = my_df["start"].copy()
+
+        # nonexistent='raise': Raise error for non-existent times (spring forward DST gap)
+        # ambiguous='NaT': For ambiguous times (fall back DST overlap), mark as NaT then we'll use the later occurrence
+        my_df["start"] = my_df["start"].dt.tz_localize(timezone, nonexistent="raise", ambiguous="NaT")
+
+        # For any NaT values (ambiguous times), re-localize using True (later occurrence)
+        if my_df["start"].isna().any():
+            # Get the mask for ambiguous times
+            ambiguous_mask = my_df["start"].isna()
+            if ambiguous_mask.any():
+                # Create a boolean array: True = use later occurrence (DST ended, standard time)
+                # This works even when data spans multiple DST transitions
+                ambiguous_array = pd.Series([True] * ambiguous_mask.sum(), index=my_df[ambiguous_mask].index)
+                # Re-localize just the ambiguous timestamps from the naive copy
+                ambiguous_times = start_naive.loc[ambiguous_mask].dt.tz_localize(timezone, ambiguous=ambiguous_array)
+                my_df.loc[ambiguous_mask, "start"] = ambiguous_times
+    except Exception as e:
+        # Provide clear error message for DST issues
+        error_msg = str(e)
+        if "nonexistent" in error_msg.lower() or "does not exist" in error_msg.lower():
+            helpers.handle_error(
+                f"Timestamp does not exist due to daylight saving time transition (spring forward). "
+                f"The timestamp falls in the gap when clocks move forward. "
+                f"Please adjust your timestamps to avoid the DST gap. Error: {error_msg}"
+            )
+        raise
 
     is_delta = _validate_and_detect_delta(my_df)
 
@@ -136,6 +183,32 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
             data.append(tuple([value_dict[column] for column in columns]))
 
     my_df = pd.DataFrame(data, columns=columns)
+
+    # Parse datetime strings after DataFrame creation (for JSON imports)
+    timezone = zoneinfo.ZoneInfo(timezone_identifier)
+    try:
+        # nonexistent='raise': Raise error for non-existent times (spring forward DST gap)
+        # ambiguous='NaT': For ambiguous times (fall back DST overlap), mark as NaT then we'll use the later occurrence
+        my_df["start"] = pd.to_datetime(my_df["start"], format=datetime_format).dt.tz_localize(timezone, nonexistent="raise", ambiguous="NaT")
+
+        # For any NaT values (ambiguous times), re-localize with infer to get the later occurrence
+        if my_df["start"].isna().any():
+            # Get the original string timestamps for ambiguous times
+            ambiguous_mask = my_df["start"].isna()
+            if ambiguous_mask.any():
+                # Re-parse just the ambiguous timestamps, using 'infer' which defaults to later occurrence
+                ambiguous_times = pd.to_datetime(my_df.loc[ambiguous_mask, "start"], format=datetime_format).dt.tz_localize(timezone, ambiguous="infer")
+                my_df.loc[ambiguous_mask, "start"] = ambiguous_times
+    except Exception as e:
+        # Provide clear error message for DST issues
+        error_msg = str(e)
+        if "nonexistent" in error_msg.lower() or "does not exist" in error_msg.lower():
+            helpers.handle_error(
+                f"Timestamp does not exist due to daylight saving time transition (spring forward). "
+                f"The timestamp falls in the gap when clocks move forward. "
+                f"Please adjust your timestamps to avoid the DST gap. Error: {error_msg}"
+            )
+        raise
 
     is_delta = _validate_and_detect_delta(my_df)
 
@@ -207,11 +280,7 @@ def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | Non
     return decimal, timezone_identifier, delimiter, datetime_format
 
 
-def handle_dataframe_no_delta(
-    df: pd.DataFrame,
-    timezone_identifier: str,
-    datetime_format: str,
-) -> dict:
+def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
     """
     Process non-delta statistics from DataFrame.
 
@@ -233,26 +302,16 @@ def handle_dataframe_no_delta(
     columns = df.columns
 
     stats = {}
-    timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
     # Validate that newest timestamp is not too recent
-    # Parse all timestamps first to find true newest chronologically
-    # Using string max would give alphabetical order, not chronological
-    newest_dt: dt.datetime | None = None
-    for timestamp_str in df["start"]:
-        try:
-            dt_obj = dt.datetime.strptime(timestamp_str, datetime_format).replace(tzinfo=timezone)
-            if newest_dt is None or dt_obj > newest_dt:
-                newest_dt = dt_obj
-        except (ValueError, TypeError) as e:
-            helpers.handle_error(f"Invalid timestamp format: {timestamp_str}: {e}")
+    # With datetime objects, simply get max (no parsing needed!)
+    newest_dt = df["start"].max()
 
-    if newest_dt is None:
+    if pd.isna(newest_dt):
         helpers.handle_error("No valid timestamps found in import data")
 
-    # At this point, newest_dt is guaranteed to be a datetime (not None)
-    # Cast to satisfy type checker after the None check above
-    helpers.is_not_in_future(cast("dt.datetime", newest_dt))
+    # Validate newest timestamp
+    helpers.is_not_in_future(newest_dt)
 
     has_mean = "mean" in columns
     has_sum = "sum" in columns
@@ -273,9 +332,9 @@ def handle_dataframe_no_delta(
             stats[statistic_id] = (metadata, [])
 
         if has_mean:
-            new_stat = helpers.get_mean_stat(row, timezone, datetime_format)
+            new_stat = helpers.get_mean_stat_from_datetime(row)
         elif has_sum:
-            new_stat = helpers.get_sum_stat(row, timezone, datetime_format)
+            new_stat = helpers.get_sum_stat_from_datetime(row)
         else:
             # This should never happen due to column validation, but defensive check
             helpers.handle_error("Implementation error: neither mean nor sum columns found")
