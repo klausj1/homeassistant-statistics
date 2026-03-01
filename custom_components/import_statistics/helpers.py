@@ -17,13 +17,6 @@ from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT, U
 _LOGGER = logging.getLogger(__name__)
 
 
-class UnitFrom(Enum):
-    """Where is the unit taken from."""
-
-    TABLE = 1
-    ENTITY = 2
-
-
 class DeltaReferenceType(Enum):
     """Type of reference used for delta conversion."""
 
@@ -65,103 +58,6 @@ def get_source(statistic_id: str) -> str:
     return source
 
 
-def get_mean_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
-    """
-    Process a row and extract mean statistics based on the specified columns and timezone.
-
-    Args:
-    ----
-        row (pandas.Series): The input row containing the statistics data.
-        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
-
-    Returns:
-    -------
-        dict: A dictionary containing the extracted mean statistics.
-
-    Raises:
-    ------
-        HomeAssistantError: If validation fails (invalid timestamp, float values, or min/max/mean constraint).
-
-    """
-    is_full_hour(row["start"], datetime_format)
-    is_valid_float(row["min"])
-    is_valid_float(row["max"])
-    is_valid_float(row["mean"])
-    min_max_mean_are_valid(row["min"], row["max"], row["mean"])
-
-    return {
-        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-        "min": row["min"],
-        "max": row["max"],
-        "mean": row["mean"],
-    }
-
-
-def get_sum_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
-    """
-    Process a row and extract sum statistics based on the specified columns and timezone.
-
-    Args:
-    ----
-        row (pandas.Series): The input row containing the statistics data.
-        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
-
-    Returns:
-    -------
-        dict: A dictionary containing the extracted sum statistics.
-
-    Raises:
-    ------
-        HomeAssistantError: If validation fails (invalid timestamp or float values).
-
-    """
-    is_full_hour(row["start"], datetime_format)
-    is_valid_float(row["sum"])
-
-    if "state" in row.index:
-        is_valid_float(row["state"])
-        return {
-            "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-            "sum": row["sum"],
-            "state": row["state"],
-        }
-
-    return {
-        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-        "sum": row["sum"],
-    }
-
-
-def get_delta_stat(row: pd.Series, timezone: zoneinfo.ZoneInfo, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> dict:
-    """
-    Extract delta statistic from a row.
-
-    Args:
-    ----
-        row (pd.Series): The input row containing the statistics data.
-        timezone (zoneinfo.ZoneInfo): The timezone to convert the timestamps.
-        datetime_format (str): The format of the provided datetimes, e.g. "%d.%m.%Y %H:%M"
-
-    Returns:
-    -------
-        dict: A dictionary containing 'start' (datetime with timezone) and 'delta' (float).
-
-    Raises:
-    ------
-        HomeAssistantError: If validation fails (invalid timestamp or delta value).
-
-    """
-    is_full_hour(row["start"], datetime_format)
-    is_valid_float(row["delta"])
-
-    return {
-        "start": dt.datetime.strptime(row["start"], datetime_format).replace(tzinfo=timezone),
-        "delta": float(row["delta"]),
-    }
-
-
 def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
     """
     Check if the newest timestamp is not too recent (in the future from HA perspective).
@@ -201,92 +97,13 @@ def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
     return True
 
 
-def is_full_hour(timestamp_str: str, datetime_format: str = DATETIME_DEFAULT_FORMAT) -> bool:
-    """
-    Check if the given timestamp is a full hour.
-
-    Args:
-    ----
-        timestamp_str (str): The timestamp string
-        datetime_format (str): The format of the provided timestamp_str, e.g. "%d.%m.%Y %H:%M"
-
-    Returns:
-    -------
-        bool: True if the timestamp is a full hour, False is never returned.
-
-    Raises:
-    ------
-        HomeAssistantError: If the timestamp is not a full hour.
-
-    """
-    try:
-        dt1 = dt.datetime.strptime(timestamp_str, datetime_format).astimezone(dt.UTC)
-    except ValueError as exc:
-        msg = f"Invalid timestamp: {timestamp_str}. The timestamp must be in the format '{datetime_format}'."
-        raise HomeAssistantError(msg) from exc
-
-    if dt1.minute != 0 or dt1.second != 0:
-        msg = f"Invalid timestamp: {timestamp_str}. The timestamp must be a full hour."
-        raise HomeAssistantError(msg)
-
-    return True
-
-
-def is_valid_float(value: str) -> bool:
-    """
-    Check if the given value is a valid float.
-
-    Args:
-    ----
-        value: The value to check.
-
-    Returns:
-    -------
-        bool: True if the value is a valid float, False otherwise.
-
-    """
-    try:
-        float_value = float(value)
-        # Reject NaN values explicitly
-        if pd.isna(float_value):
-            msg = f"Invalid float value: {value} (NaN/empty value not allowed). Check for missing or empty values in your data."
-            raise HomeAssistantError(msg)
-    except ValueError as exc:
-        msg = f"Invalid float value: {value}. Check the decimal separator."
-        raise HomeAssistantError(msg) from exc
-    else:
-        return True
-
-
-def min_max_mean_are_valid(min_value: float, max_value: float, mean_value: float) -> bool:
-    """
-    Check if the given min, max, and mean values are valid.
-
-    Args:
-    ----
-        min_value (float): The minimum value.
-        max_value (float): The maximum value.
-        mean_value (float): The mean value.
-
-    Returns:
-    -------
-        bool: True if the values are valid, False otherwise.
-
-    """
-    if min_value <= mean_value <= max_value:
-        return True
-    msg = f"Invalid values: min: {min_value}, max: {max_value}, mean: {mean_value}, mean must be between min and max."
-    raise HomeAssistantError(msg)
-
-
-def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
+def are_columns_valid(df: pd.DataFrame) -> bool:
     """
     Check if the given DataFrame columns meet the required criteria.
 
     Args:
     ----
         df: dataFrame.
-        unit_from_where: ENTITY if the unit is taken from the entity, TABLE if taken from input file.
 
     Returns:
     -------
@@ -295,16 +112,16 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     """
     columns = df.columns
 
-    # Check required columns: statistic_id, start, and unit (unless from entity)
+    # Check required columns: statistic_id, start, and unit (always required)
     # Determine if this is delta or non-delta data first
     has_delta = "delta" in columns
 
-    if not ("statistic_id" in columns and "start" in columns and ("unit" in columns or unit_from_where == UnitFrom.ENTITY)):
+    if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         found_columns_num = len(columns)
         # embrace each column name with quotes for clarity
         found_columns_quoted = [f"'{col}'" for col in columns]
         found_columns_str = ", ".join(sorted(found_columns_quoted))
-        error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit' ('unit' is needed only if unit_from_entity is false)"
+        error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit'"
         error_str += f" (check delimiter). Number of found columns: {found_columns_num}. Found columns: {found_columns_str}"
         handle_error(error_str)
 
@@ -320,19 +137,12 @@ def are_columns_valid(df: pd.DataFrame, unit_from_where: UnitFrom) -> bool:
     elif has_mean_min_max and has_sum_state:
         handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'")
 
-    # Define allowed columns based on data type and unit source
-    allowed_columns = {"statistic_id", "start", "delta"} if has_delta else {"statistic_id", "start", "mean", "min", "max", "sum", "state"}
-
-    if unit_from_where == UnitFrom.TABLE:
-        allowed_columns.add("unit")
+    # Define allowed columns based on data type - unit is always allowed
+    allowed_columns = {"statistic_id", "start", "unit", "delta"} if has_delta else {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state"}
 
     # Check for unknown columns
     unknown_columns = set(columns) - allowed_columns
     if unknown_columns:
-        # Special case: unit column is present but unit is supposed to come from entity
-        if unknown_columns == {"unit"} and unit_from_where == UnitFrom.ENTITY:
-            handle_error("A unit column is not allowed when unit is taken from entity (unit_from_entity is true). Please remove the unit column from the file.")
-
         unknown_cols_str = ", ".join(sorted(unknown_columns))
         allowed_cols_str = ", ".join(sorted(allowed_columns))
         handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
@@ -357,39 +167,26 @@ def handle_error(error_string: str) -> None:
     raise HomeAssistantError(error_string)
 
 
-def add_unit_to_dataframe(source: str, unit_from_where: UnitFrom, unit_from_row: str, statistic_id: str) -> str:
+def get_unit_from_row(unit_from_row: str, statistic_id: str) -> str:
     """
-    Add unit to dataframe, or leave it empty for now if unit_from_entity is true.
+    Get unit from the input row and validate it exists.
 
     Args:
     ----
-        source: "recorder" for internal statistics
-        unit_from_where: ENTITY if the unit is taken from the entity, TABLE if taken from input file.
         unit_from_row: The unit from the imported file
         statistic_id: The statistic id from the imported file
 
     Returns:
     -------
-        str: unit, or empty if unit_from_entity is true
+        str: unit from the row
 
     Raises:
     ------
-        HomeAssistantError: The raised exception containing the error message.
+        HomeAssistantError: If unit is missing or empty
 
     """
-    if source == "recorder":
-        if unit_from_where == UnitFrom.ENTITY:
-            return ""
-        if unit_from_row != "":
-            return unit_from_row
-        handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
-        return ""
-    if unit_from_where == UnitFrom.ENTITY:
-        handle_error(f"Unit_from_entity set to TRUE is not allowed for external statistics (statistic_id with a ':'). Statistic ID: {statistic_id}.")
-        return ""
     if unit_from_row == "":
-        handle_error(f"Unit does not exist. Statistic ID: {statistic_id}.")
-        return ""
+        handle_error(f"Unit does not exist in input file. Statistic ID: {statistic_id}.")
     return unit_from_row
 
 
@@ -591,6 +388,99 @@ def format_decimal(value: float | None, *, use_comma: bool = False) -> str:
         formatted = formatted.replace(".", ",")
 
     return formatted
+
+
+def validate_timestamps_vectorized(df: pd.DataFrame) -> None:
+    """
+    Validate all timestamps in DataFrame are full hours (vectorized).
+
+    Args:
+    ----
+        df: DataFrame with 'start' column containing datetime objects with timezone
+
+    Raises:
+    ------
+        HomeAssistantError: If any timestamp is not a full hour
+
+    """
+    # Check if any timestamp has non-zero minutes or seconds
+    start_series: pd.Series[pd.Timestamp] = df["start"]  # type: ignore[assignment]
+    invalid_times = (start_series.dt.minute != 0) | (start_series.dt.second != 0)
+
+    if invalid_times.any():
+        # Get first invalid timestamp for error message
+        first_invalid_idx: int = invalid_times.idxmax()  # type: ignore[assignment]
+        first_invalid = df.loc[first_invalid_idx, "start"]
+        # Convert to human-readable row number (1-based + 1 for header = +2)
+        human_row = first_invalid_idx + 2
+        msg = f"Invalid timestamp at row {human_row}: {first_invalid}. The timestamp must be a full hour."
+        raise HomeAssistantError(msg)
+
+
+def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
+    """
+    Validate all float values in specified columns (vectorized).
+
+    Args:
+    ----
+        df: DataFrame to validate
+        columns: List of column names to validate as floats
+
+    Raises:
+    ------
+        HomeAssistantError: If any value is NaN or cannot be converted to float
+
+    """
+    for col in columns:
+        if col not in df.columns:
+            continue
+
+        # Check for NaN values
+        if df[col].isna().any():
+            first_na_idx = int(df[col].isna().idxmax()) + 2
+            msg = f"Invalid float value in column '{col}' at row {first_na_idx}: NaN/empty value not allowed. Check for missing or empty values in your data."
+            raise HomeAssistantError(msg)
+
+        # Try to convert to float (pandas should already have done this, but validate)
+        try:
+            # This will raise if any value cannot be converted
+            pd.to_numeric(df[col], errors="raise")
+        except (ValueError, TypeError) as exc:
+            # Find first problematic value
+            for idx, val in df[col].items():
+                try:
+                    float(val)
+                except (ValueError, TypeError):
+                    # Convert to human-readable row number (1-based + 1 for header = +2)
+                    human_row: int = idx + 2  # type: ignore[assignment]
+                    msg = f"Invalid float value in column '{col}' at row {human_row}: {val}. Check the decimal separator."
+                    raise HomeAssistantError(msg) from exc
+
+
+def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
+    """
+    Validate min <= mean <= max constraint for all rows (vectorized).
+
+    Args:
+    ----
+        df: DataFrame with 'min', 'max', and 'mean' columns
+
+    Raises:
+    ------
+        HomeAssistantError: If constraint is violated for any row
+
+    """
+    # Vectorized check: min <= mean <= max
+    invalid_mmm = ~((df["min"] <= df["mean"]) & (df["mean"] <= df["max"]))
+
+    if invalid_mmm.any():
+        # Get first invalid row for error message
+        first_invalid_idx: int = invalid_mmm.idxmax()  # type: ignore[assignment]
+        row = df.loc[first_invalid_idx]
+        # Convert to human-readable row number (1-based + 1 for header = +2)
+        human_row = first_invalid_idx + 2
+        msg = f"Invalid values at row {human_row}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, mean must be between min and max."
+        raise HomeAssistantError(msg)
 
 
 def sanitize_filename(filename: str) -> str:

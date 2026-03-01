@@ -5,9 +5,10 @@ These tests verify that import correctly handles timestamp ordering when
 datetime formats could cause string-based sorting to fail.
 """
 
+from zoneinfo import ZoneInfo
+
 import pandas as pd
 
-from custom_components.import_statistics.helpers import UnitFrom
 from custom_components.import_statistics.import_service_helper import handle_dataframe_no_delta
 
 
@@ -22,6 +23,7 @@ class TestImportNonDeltaTimestampOrdering:
         - max("01.01.2024 10:00", "31.12.2023 09:00") = "31.12.2023 09:00" (WRONG)
         - Chronologically newest should be 2024-01-01
         """
+        datetime_format = "%d.%m.%Y %H:%M"
         # Create a DataFrame where string max would pick the wrong timestamp
         df = pd.DataFrame(
             [
@@ -44,8 +46,11 @@ class TestImportNonDeltaTimestampOrdering:
             ]
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
         # This should work correctly - it should identify 01.01.2024 as newest
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df)
 
         # Should have processed both records
         assert "sensor.test" in result
@@ -54,6 +59,7 @@ class TestImportNonDeltaTimestampOrdering:
 
     def test_handle_dataframe_no_delta_with_multiple_statistics(self) -> None:
         """Test that each statistic's newest timestamp is found correctly."""
+        datetime_format = "%d.%m.%Y %H:%M"
         df = pd.DataFrame(
             [
                 # sensor.a: newest is 15.01.2024 (not 05.01.2024 despite being larger alphabetically)
@@ -93,8 +99,11 @@ class TestImportNonDeltaTimestampOrdering:
             ]
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
         # Should process all records correctly
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        result = handle_dataframe_no_delta(df)
 
         assert "sensor.a" in result
         assert "sensor.b" in result
@@ -111,6 +120,7 @@ class TestImportTimestampEdgeCases:
 
     def test_year_boundary_timestamps(self) -> None:
         """Test timestamps around year boundary where string sorting would fail."""
+        datetime_format = "%d.%m.%Y %H:%M"
         df = pd.DataFrame(
             [
                 {
@@ -128,7 +138,10 @@ class TestImportTimestampEdgeCases:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
+        result = handle_dataframe_no_delta(df)
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -140,6 +153,7 @@ class TestImportTimestampEdgeCases:
 
     def test_month_boundary_timestamps(self) -> None:
         """Test timestamps around month boundary."""
+        datetime_format = "%d.%m.%Y %H:%M"
         df = pd.DataFrame(
             [
                 {
@@ -161,7 +175,10 @@ class TestImportTimestampEdgeCases:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
+        result = handle_dataframe_no_delta(df)
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -169,6 +186,7 @@ class TestImportTimestampEdgeCases:
 
     def test_day_ordering_within_month(self) -> None:
         """Test that days are ordered correctly (01, 02, ..., 30, 31) not alphabetically."""
+        datetime_format = "%d.%m.%Y %H:%M"
         df = pd.DataFrame(
             [
                 {
@@ -198,7 +216,10 @@ class TestImportTimestampEdgeCases:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d.%m.%Y %H:%M", UnitFrom.TABLE)
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
+        result = handle_dataframe_no_delta(df)
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -210,6 +231,7 @@ class TestAlternativeDateFormats:
 
     def test_mm_dd_yyyy_format(self) -> None:
         """Test American format MM/DD/YYYY where string sorting would fail."""
+        datetime_format = "%m/%d/%Y %H:%M"
         df = pd.DataFrame(
             [
                 {
@@ -231,7 +253,10 @@ class TestAlternativeDateFormats:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%m/%d/%Y %H:%M", UnitFrom.TABLE)
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
+        result = handle_dataframe_no_delta(df)
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
@@ -239,6 +264,7 @@ class TestAlternativeDateFormats:
 
     def test_dd_mon_yyyy_format(self) -> None:
         """Test format with abbreviated month names (e.g., "31-Dec-2023")."""
+        datetime_format = "%d-%b-%Y %H:%M"
         df = pd.DataFrame(
             [
                 {
@@ -260,7 +286,10 @@ class TestAlternativeDateFormats:
             ]
         )
 
-        result = handle_dataframe_no_delta(df, "UTC", "%d-%b-%Y %H:%M", UnitFrom.TABLE)
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(ZoneInfo("UTC"))
+
+        result = handle_dataframe_no_delta(df)
 
         assert "sensor.test" in result
         _, statistics = result["sensor.test"]
