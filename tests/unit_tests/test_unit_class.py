@@ -1,10 +1,11 @@
 """Unit tests to verify unit_class field in metadata."""
 
+from zoneinfo import ZoneInfo
+
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
-from custom_components.import_statistics.helpers import UnitFrom
 from custom_components.import_statistics.import_service_helper import handle_dataframe_no_delta
 
 
@@ -23,8 +24,11 @@ def test_unit_class_present_in_metadata_mean() -> None:
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Get the metadata for the statistic
     metadata = stats["stat1.temp"][0]
@@ -59,8 +63,11 @@ def test_unit_class_present_in_metadata_sum() -> None:
         columns=["statistic_id", "start", "unit", "sum"],
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Get the metadata for the statistic
     metadata = stats["stat2.energy"][0]
@@ -97,8 +104,11 @@ def test_unit_class_multiple_statistics() -> None:
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )
 
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
     # Call the function
-    stats = handle_dataframe_no_delta(my_df, "UTC", DATETIME_DEFAULT_FORMAT, UnitFrom.TABLE)
+    stats = handle_dataframe_no_delta(my_df)
 
     # Verify all statistics have unit_class set to None
     for stat_id in ["sensor.temperature", "sensor.humidity", "sensor.pressure"]:

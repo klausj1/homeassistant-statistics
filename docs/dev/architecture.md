@@ -150,15 +150,13 @@ Service ->> Helper: prepare_data_to_import() [executor]
   Helper <-- Validation: stats dict
 Service <-- Helper: stats dict (no delta marker)
 
-Service ->> Service: check_all_entities_exists()
-  Service ->> HA_API: get entity state
+Service ->> Service: validate_entities_and_units()
+  Service ->> HA_API: get entity state (for recorder statistics)
 Service <-- HA_API: entity exists?
-
-opt unit_from_entity == True
-  Service ->> Service: add_unit_for_all_entities()
-    Service ->> HA_API: get entity attributes
-  Service <-- HA_API: unit_of_measurement
-end
+  Service ->> Recorder: get_metadata() (fetch existing units)
+Service <-- Recorder: existing metadata with units
+  Service ->> Service: validate input units match database units
+Service <-- Service: validation complete or error
 
 Service ->> HA_API: async_import_statistics() OR async_add_external_statistics()
 HA_API ->> HA_API: Update recorder database
@@ -295,7 +293,6 @@ User <-- HA: Success response
 ### 1. Dual-Mode Statistics System
 
 Two mutually exclusive types with different validation and source rules:
-
 
 | Aspect      | Internal (recorder)           | External (custom)                 |
 | ------------- | ------------------------------- | ----------------------------------- |

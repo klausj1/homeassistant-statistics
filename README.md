@@ -80,13 +80,12 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
   - Input format of the `datetime` strings in the file.
   - Default: `DD.MM.YYYY HH:MM` (e.g., `17.03.2024 02:00`)
   - Common formats: `%d.%m.%Y %H:%M`, `%Y.%m.%d %H:%M`, `%Y-%m-%d %H:%M`, `%m/%d/%Y %H:%M`, `%d/%m/%Y %H:%M`
-- **`unit_from_entity` (optional, default: `true`)**
-  - If `true`, the unit is taken from the entity's current state instead of the file.
-  - Only applicable for internal statistics (entity IDs with `.` separator).
 - **`timezone_identifier` (optional)**
   - Defaults to Home Assistant's configured timezone if omitted. Typically can be left empty.
   - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>).
 
+> **Important:** Input files **must** contain a `unit` column with the unit of measurement for each statistic. For existing statistics, the unit in the input file must match the unit already stored in Home Assistant's database, otherwise the import will fail with an error.
+>
 > **Note:** Timestamps must be full hours (minutes must be `:00`). Timestamps are interpreted in the specified timezone.
 >
 > **Performance note**: Importing large datasets may take time as the operation is synchronous. The action completes when all data is saved into the database.

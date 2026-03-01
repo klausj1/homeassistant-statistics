@@ -18,8 +18,8 @@ from custom_components.import_statistics.const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-@pytest.mark.usefixtures("allow_socket_for_integration")
 @pytest.mark.integration
+@pytest.mark.usefixtures("allow_socket_for_integration")
 class TestIntegrationAll:
     """
     Integration tests for all import types with running Home Assistant instance.
@@ -123,16 +123,20 @@ class TestIntegrationAll:
                     if response.status in (200, 401):  # 401 means HA is up but needs token
                         _LOGGER.debug("✓ HA is responsive! Status: %s", response.status)
                         if self.__class__.ha_process is None:
-                            pytest.skip(
+                            msg = (
                                 "A Home Assistant instance is already running on http://localhost:8123. "
                                 "These integration tests require a clean, test-controlled instance. "
                                 "Stop Home Assistant and rerun the tests."
                             )
+                            raise AssertionError(msg)
                         if attempt > 1:
                             await asyncio.sleep(2)  # Give it an extra second to be fully ready
                             _LOGGER.debug("✓ Returning True after waiting 2 more seconds")
                         return True
                     _LOGGER.debug("Unexpected status %s, retrying...", response.status)
+            except AssertionError:
+                # Re-raise AssertionError to fail the test (don't catch it)
+                raise
             except TimeoutError:
                 _LOGGER.debug("Attempt %s (elapsed: %.1fs): Timeout waiting for response", attempt, elapsed)
                 # If we've waited long enough without connection, start HA

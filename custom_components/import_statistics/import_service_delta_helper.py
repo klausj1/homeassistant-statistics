@@ -5,13 +5,12 @@ No hass object needed.
 """
 
 import datetime as dt
-import zoneinfo
 
 import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, UnitFrom, format_decimal
+from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType
 
 
 def convert_deltas_with_older_reference(delta_rows: list[dict], sum_oldest: float | None, state_oldest: float | None) -> list[dict]:
@@ -179,13 +178,7 @@ def convert_deltas_with_newer_reference(
     return converted_rows
 
 
-def handle_dataframe_delta(
-    df: pd.DataFrame,
-    timezone_identifier: str,
-    datetime_format: str,
-    unit_from_where: UnitFrom,
-    references: dict,
-) -> dict:
+def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
     """
     Process delta statistics from DataFrame using pre-fetched references.
 
@@ -197,7 +190,6 @@ def handle_dataframe_delta(
         df: DataFrame with delta column
         timezone_identifier: User's timezone
         datetime_format: Datetime format string
-        unit_from_where: UnitFrom.ENTITY or UnitFrom.TABLE
         references: Dict mapping statistic_id to reference data:
                    {
                        statistic_id: {
@@ -217,9 +209,15 @@ def handle_dataframe_delta(
     """
     _LOGGER.info("Converting delta dataframe with references")
 
+    # Vectorized validation: validate all delta values at once (if timestamps are already datetime objects)
+    # Note: Timestamps are validated per-group below since they may not be parsed yet in unit tests
+    if pd.api.types.is_datetime64_any_dtype(df["start"]):
+        helpers.validate_timestamps_vectorized(df)
+
+    helpers.validate_floats_vectorized(df, ["delta"])
+
     # Group rows by statistic_id
     stats = {}
-    timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
     for statistic_id in df["statistic_id"].unique():
         group = df[df["statistic_id"] == statistic_id]
@@ -241,11 +239,16 @@ def handle_dataframe_delta(
         sum_ref = reference.get("sum") or 0
         state_ref = reference.get("state") or 0
 
-        # Extract delta rows using get_delta_stat
+        # Build delta_rows using itertuples (faster than iterrows)
         delta_rows = []
-        for _index, row in group.iterrows():
-            delta_stat = helpers.get_delta_stat(row, timezone, datetime_format)
-            delta_rows.append(delta_stat)
+        for row in group.itertuples(index=False, name=None):
+            row_dict = dict(zip(group.columns, row, strict=True))
+            delta_rows.append(
+                {
+                    "start": row_dict["start"],
+                    "delta": float(row_dict["delta"]),
+                }
+            )
 
         if not delta_rows:
             _LOGGER.warning("No valid delta rows found for statistic_id: %s", statistic_id)
@@ -257,7 +260,7 @@ def handle_dataframe_delta(
 
         # Get source and unit
         source = helpers.get_source(statistic_id)
-        unit = helpers.add_unit_to_dataframe(source, unit_from_where, group.iloc[0].get("unit", ""), statistic_id)
+        unit = helpers.get_unit_from_row(group.iloc[0].get("unit", ""), statistic_id)
 
         # Route to appropriate conversion method based on reference type
         if ref_type == DeltaReferenceType.OLDER_REFERENCE:
@@ -292,68 +295,3 @@ def handle_dataframe_delta(
 
     _LOGGER.info("Delta dataframe conversion complete: %d statistics", len(stats))
     return stats
-
-
-def get_delta_from_stats(rows: list[dict], *, decimal_comma: bool = False) -> list[dict]:
-    """
-    Calculate delta values from a list of records sorted by statistic_id and start.
-
-    For each statistic_id, calculates delta as the difference between consecutive sum/state values.
-    The first record of each statistic_id has an empty delta (no previous value).
-
-    Args:
-          rows: List of row dicts with statistic_id, start, sum, and/or state fields
-          decimal_comma: Use comma (True) or dot (False) as decimal separator for output
-
-    Returns:
-          list[dict]: Rows with delta column added (formatted as string)
-
-    """
-    if not rows:
-        return []
-
-    # Sort rows by statistic_id first, then by start timestamp (sorted as string works if format is consistent)
-    # Start is in datetime format like "26.01.2024 12:00" - sort as string works if format is consistent
-    sorted_rows = sorted(rows, key=lambda r: (r["statistic_id"], r["start"]))
-
-    result = []
-    previous_sum_by_id = {}
-
-    for row_dict in sorted_rows:
-        statistic_id = row_dict["statistic_id"]
-        new_row = dict(row_dict)
-
-        # Get previous sum for this statistic_id
-        prev_sum = previous_sum_by_id.get(statistic_id)
-
-        # Calculate delta if we have sum/state values and a previous value
-        if prev_sum is not None and "sum" in row_dict:
-            # sum is already a string (formatted), need to extract numeric value
-            sum_str = row_dict["sum"]
-            if sum_str:  # Only if sum is not empty
-                try:
-                    # Convert back to float for calculation
-                    decimal_sep = "," if decimal_comma else "."
-                    sum_value = float(sum_str.replace(decimal_sep, "."))
-                    delta_value = sum_value - prev_sum
-                    new_row["delta"] = format_decimal(delta_value, use_comma=decimal_comma)
-                except (ValueError, AttributeError):
-                    new_row["delta"] = ""
-            else:
-                new_row["delta"] = ""
-        else:
-            # First record for this statistic_id has empty delta
-            new_row["delta"] = ""
-
-        # Update previous sum for next iteration
-        if row_dict.get("sum"):
-            try:
-                decimal_sep = "," if decimal_comma else "."
-                previous_sum_by_id[statistic_id] = float(row_dict["sum"].replace(decimal_sep, "."))
-            except (ValueError, AttributeError):
-                pass
-
-        result.append(new_row)
-
-    # Sort result by statistic_id and start to ensure consistent output order
-    return sorted(result, key=lambda r: (r["statistic_id"], r["start"]))

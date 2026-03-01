@@ -10,9 +10,11 @@ import pytest
 
 
 def create_mock_recorder_instance() -> MagicMock:
-    """Create a mock recorder instance with awaitable async_block_till_done."""
+    """Create a mock recorder instance with awaitable async_block_till_done and async_add_executor_job."""
     mock_instance = MagicMock()
     mock_instance.async_block_till_done = AsyncMock()
+    # Mock async_add_executor_job to execute the function and return the result
+    mock_instance.async_add_executor_job = mock_async_add_executor_job
     return mock_instance
 
 

@@ -4,6 +4,10 @@ target-version = "py312"
 
 line-length = 160
 
+exclude = [
+    "scripts/generate_large_test_data.py",
+]
+
 [lint]
 select = [
     "ALL",
@@ -29,3 +33,4 @@ max-complexity = 25
 
 [lint.per-file-ignores]
 "tests/*.py" = ["S101", "PLR2004"]
+"tests/integration_tests/*.py" = ["TRY301"]

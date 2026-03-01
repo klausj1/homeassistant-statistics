@@ -2,6 +2,7 @@
 
 import datetime as dt
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
@@ -38,6 +39,9 @@ class TestPrepareDeltaHandlingSingleStatistic:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         oldest_import = dt.datetime(2022, 1, 1, 12, 0, tzinfo=dt.UTC)
         newest_import = dt.datetime(2022, 1, 2, 12, 0, tzinfo=dt.UTC)
         ref_older = dt.datetime(2022, 1, 1, 11, 0, tzinfo=dt.UTC)
@@ -55,7 +59,7 @@ class TestPrepareDeltaHandlingSingleStatistic:
                 None,
             )
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert "sensor.energy" in result
             assert result["sensor.energy"]["ref_type"] == DeltaReferenceType.OLDER_REFERENCE
@@ -93,6 +97,9 @@ class TestPrepareDeltaHandlingSingleStatistic:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         ref_newer = dt.datetime(2022, 1, 2, 13, 0, tzinfo=dt.UTC)
 
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
@@ -108,7 +115,7 @@ class TestPrepareDeltaHandlingSingleStatistic:
                 None,
             )
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert "sensor.power" in result
             assert result["sensor.power"]["ref_type"] == DeltaReferenceType.NEWER_REFERENCE
@@ -143,6 +150,9 @@ class TestPrepareDeltaHandlingMultipleStatistics:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         ref_older_energy = dt.datetime(2022, 1, 1, 11, 0, tzinfo=dt.UTC)
         ref_newer_power = dt.datetime(2022, 1, 2, 13, 0, tzinfo=dt.UTC)
 
@@ -175,7 +185,7 @@ class TestPrepareDeltaHandlingMultipleStatistics:
 
             mock_process.side_effect = side_effect_func
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert len(result) == 2
             assert "sensor.energy" in result
@@ -210,6 +220,9 @@ class TestPrepareDeltaHandlingMultipleStatistics:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = (
                 {
@@ -223,7 +236,7 @@ class TestPrepareDeltaHandlingMultipleStatistics:
                 None,
             )
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert len(result) == 2
             assert mock_process.call_count == 2
@@ -253,13 +266,16 @@ class TestPrepareDeltaHandlingTimezoneHandling:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         expected_oldest = dt.datetime(2022, 1, 1, 12, 0, tzinfo=dt.UTC)
         expected_newest = dt.datetime(2022, 1, 2, 12, 0, tzinfo=dt.UTC)
 
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = ({"reference": {}, "ref_type": DeltaReferenceType.OLDER_REFERENCE}, None)
 
-            await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            await prepare_delta_handling(hass, df)
 
             call_args = mock_process.call_args
             assert call_args[0][2] == expected_oldest
@@ -282,6 +298,9 @@ class TestPrepareDeltaHandlingTimezoneHandling:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("Europe/Berlin"))
+
         # 01.01.2022 12:00 in Europe/Berlin = 11:00 UTC
         expected_oldest = dt.datetime(2022, 1, 1, 11, 0, tzinfo=dt.UTC)
         expected_newest = dt.datetime(2022, 1, 2, 11, 0, tzinfo=dt.UTC)
@@ -289,7 +308,7 @@ class TestPrepareDeltaHandlingTimezoneHandling:
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = ({"reference": {}, "ref_type": DeltaReferenceType.OLDER_REFERENCE}, None)
 
-            await prepare_delta_handling(hass, df, "Europe/Berlin", DATETIME_DEFAULT_FORMAT)
+            await prepare_delta_handling(hass, df)
 
             call_args = mock_process.call_args
             assert call_args[0][2] == expected_oldest
@@ -313,13 +332,16 @@ class TestPrepareDeltaHandlingTimezoneHandling:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=custom_format).dt.tz_localize(ZoneInfo("UTC"))
+
         expected_oldest = dt.datetime(2022, 1, 1, 12, 0, tzinfo=dt.UTC)
         expected_newest = dt.datetime(2022, 1, 2, 12, 0, tzinfo=dt.UTC)
 
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = ({"reference": {}, "ref_type": DeltaReferenceType.OLDER_REFERENCE}, None)
 
-            await prepare_delta_handling(hass, df, "UTC", custom_format)
+            await prepare_delta_handling(hass, df)
 
             call_args = mock_process.call_args
             assert call_args[0][2] == expected_oldest
@@ -346,53 +368,16 @@ class TestPrepareDeltaHandlingErrorHandling:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         error_msg = "Entity 'sensor.energy': No statistics found in database for this entity"
 
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = (None, error_msg)
 
             with pytest.raises(HomeAssistantError, match="No statistics found in database"):
-                await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
-
-    @pytest.mark.asyncio
-    async def test_error_invalid_timestamp_format(self) -> None:
-        """
-        Test that invalid timestamp format raises HomeAssistantError.
-
-        Input DataFrame with malformed timestamp: "invalid-date"
-        Expected: HomeAssistantError raised during parsing
-        """
-        hass = MagicMock()
-        df = pd.DataFrame(
-            [
-                ["sensor.energy", "invalid-date", 10],
-                ["sensor.energy", "02.01.2022 12:00", 20],
-            ],
-            columns=["statistic_id", "start", "delta"],
-        )
-
-        with pytest.raises(HomeAssistantError, match="Invalid timestamp format"):
-            await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
-
-    @pytest.mark.asyncio
-    async def test_error_invalid_timezone(self) -> None:
-        """
-        Test that invalid timezone identifier raises an error.
-
-        Input: Invalid timezone identifier "Invalid/Timezone"
-        Expected: Error raised during ZoneInfo initialization
-        """
-        hass = MagicMock()
-        df = pd.DataFrame(
-            [
-                ["sensor.energy", "01.01.2022 12:00", 10],
-                ["sensor.energy", "02.01.2022 12:00", 20],
-            ],
-            columns=["statistic_id", "start", "delta"],
-        )
-
-        with pytest.raises(Exception, match="No time zone found"):
-            await prepare_delta_handling(hass, df, "Invalid/Timezone", DATETIME_DEFAULT_FORMAT)
+                await prepare_delta_handling(hass, df)
 
     @pytest.mark.asyncio
     async def test_error_one_statistic_fails_propagates(self) -> None:
@@ -416,6 +401,9 @@ class TestPrepareDeltaHandlingErrorHandling:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
 
             def side_effect_func(hass, stat_id: str, oldest, newest) -> tuple[dict | None, str | None]:  # noqa: ARG001, ANN001
@@ -426,7 +414,7 @@ class TestPrepareDeltaHandlingErrorHandling:
             mock_process.side_effect = side_effect_func
 
             with pytest.raises(HomeAssistantError, match=r"Error for sensor\.power"):
-                await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+                await prepare_delta_handling(hass, df)
 
 
 class TestPrepareDeltaHandlingEdgeCases:
@@ -450,6 +438,9 @@ class TestPrepareDeltaHandlingEdgeCases:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         expected_timestamp = dt.datetime(2022, 1, 1, 12, 0, tzinfo=dt.UTC)
 
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
@@ -465,7 +456,7 @@ class TestPrepareDeltaHandlingEdgeCases:
                 None,
             )
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert len(result) == 1
             assert "sensor.energy" in result
@@ -492,6 +483,9 @@ class TestPrepareDeltaHandlingEdgeCases:
 
         df = pd.DataFrame(data, columns=["statistic_id", "start", "delta"])
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = (
                 {
@@ -505,7 +499,7 @@ class TestPrepareDeltaHandlingEdgeCases:
                 None,
             )
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert len(result) == 5
             for stat in stats:
@@ -537,6 +531,9 @@ class TestPrepareDeltaHandlingEdgeCases:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         call_args_list: list[tuple[str, dt.datetime, dt.datetime]] = []
 
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
@@ -557,7 +554,7 @@ class TestPrepareDeltaHandlingEdgeCases:
 
             mock_process.side_effect = capture_call
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert len(result) == 3
             assert len(call_args_list) == 3
@@ -598,10 +595,13 @@ class TestPrepareDeltaHandlingEdgeCases:
             columns=["statistic_id", "start", "delta"],
         )
 
+        # Parse timestamps (simulating what prepare_data_to_import does)
+        df["start"] = pd.to_datetime(df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
         with patch("custom_components.import_statistics.import_service._process_delta_references_for_statistic") as mock_process:
             mock_process.return_value = (None, None)
 
-            result = await prepare_delta_handling(hass, df, "UTC", DATETIME_DEFAULT_FORMAT)
+            result = await prepare_delta_handling(hass, df)
 
             assert "sensor.energy" in result
             assert result["sensor.energy"] is None
