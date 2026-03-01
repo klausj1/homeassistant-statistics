@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
 #### Import validation improvements
 
 - **Enhanced data integrity**: Unit validation ensures consistency between import files and existing statistics
+- **Better error messages**: Error messages regarding wrong values in the imported file (e.g. timestamps, floats) now contain the row (and optional the column) in addition to the wrong value
+- **Import Performanc improvement**: Import performance has been improved, but the largest part is still storing the values in sqlite
 
 ---
 
