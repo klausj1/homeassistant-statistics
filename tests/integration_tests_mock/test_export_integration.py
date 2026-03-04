@@ -665,8 +665,8 @@ class TestExportIntegration:
             assert len(data[0]["values"]) == 2, "Should have two value records"
             assert data[0]["values"][0]["sum"] == COUNTER_ENERGY_SUM
             assert data[0]["values"][0]["state"] == COUNTER_ENERGY_STATE
-            # First record should not have delta (no previous value)
-            assert "delta" not in data[0]["values"][0]
+            # First record should have delta=0 for re-import compatibility
+            assert data[0]["values"][0]["delta"] == 0.0
             # Second record should have delta
             assert "delta" in data[0]["values"][1]
 
@@ -754,7 +754,7 @@ class TestExportIntegration:
 
             counter_record = next(r for r in data if r["id"] == "counter.energy")
             assert len(counter_record["values"]) == 2, "Should have 2 counter records"
-            assert "delta" not in counter_record["values"][0], "First counter record should not have delta"
+            assert counter_record["values"][0]["delta"] == 0.0, "First counter record should have delta=0 for re-import compatibility"
             assert "delta" in counter_record["values"][1], "Second counter record should have delta"
 
             # Compare with reference file
