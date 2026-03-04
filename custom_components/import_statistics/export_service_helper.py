@@ -267,7 +267,9 @@ def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetim
                 if previous_sum is not None:
                     delta_value = stat_record["sum"] - previous_sum
                     value_obj["delta"] = delta_value
-                # Note: first record has no delta (previous_sum is None)
+                else:
+                    # First record: output 0 for re-import compatibility (matches TSV/CSV behavior)
+                    value_obj["delta"] = 0.0
                 previous_sum = stat_record["sum"]
 
             entity_obj["values"].append(value_obj)

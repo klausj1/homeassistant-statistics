@@ -604,8 +604,8 @@ class TestPrepareExportJson:
         assert result[0]["id"] == "sensor.energy"
         assert result[0]["values"][0]["sum"] == EXPECTED_SUM_100_5
         assert result[0]["values"][0]["state"] == EXPECTED_STATE_100_5
-        # First record should not have delta (no previous value)
-        assert "delta" not in result[0]["values"][0]
+        # First record should have delta=0 for re-import compatibility
+        assert result[0]["values"][0]["delta"] == 0.0
 
     def test_prepare_export_json_multiple_entities(self) -> None:
         """Test JSON export with multiple entities."""
@@ -740,8 +740,8 @@ class TestPrepareExportJson:
         result = prepare_export_json(statistics_dict, "UTC", "%d.%m.%Y %H:%M")
 
         assert len(result[0]["values"]) == EXPECTED_ROWS_2
-        # First record should not have delta
-        assert "delta" not in result[0]["values"][0]
+        # First record should have delta=0 for re-import compatibility
+        assert result[0]["values"][0]["delta"] == 0.0
         # Second record should have delta = 11.2 - 10.5 = 0.7
         assert "delta" in result[0]["values"][1]
         assert result[0]["values"][1]["delta"] == pytest.approx(0.7)
