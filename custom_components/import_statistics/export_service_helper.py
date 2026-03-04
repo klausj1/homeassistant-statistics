@@ -201,6 +201,13 @@ def prepare_export_data(  # noqa: PLR0913, PLR0912
     return column_order, data_rows
 
 
+def _add_stat_fields_to_value_obj(value_obj: dict, stat_record: dict) -> None:
+    """Add available statistic fields to value object (only if not None)."""
+    for field in ("mean", "min", "max", "sum", "state"):
+        if stat_record.get(field) is not None:
+            value_obj[field] = stat_record[field]
+
+
 def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetime_format: str, units_dict: dict | None = None) -> list:
     """
     Prepare statistics data for JSON export.
@@ -251,16 +258,7 @@ def prepare_export_json(statistics_dict: dict, timezone_identifier: str, datetim
             value_obj = {"datetime": helpers.format_datetime(stat_record["start"], timezone, datetime_format)}
 
             # Add all available fields (only if not None)
-            if stat_record.get("mean") is not None:
-                value_obj["mean"] = stat_record["mean"]
-            if stat_record.get("min") is not None:
-                value_obj["min"] = stat_record["min"]
-            if stat_record.get("max") is not None:
-                value_obj["max"] = stat_record["max"]
-            if stat_record.get("sum") is not None:
-                value_obj["sum"] = stat_record["sum"]
-            if stat_record.get("state") is not None:
-                value_obj["state"] = stat_record["state"]
+            _add_stat_fields_to_value_obj(value_obj, stat_record)
 
             # Calculate delta for counters (only if sum is not None)
             if is_counter and stat_record.get("sum") is not None:
