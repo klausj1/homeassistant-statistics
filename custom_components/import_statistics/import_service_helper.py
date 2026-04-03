@@ -190,7 +190,7 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
     """
     _, timezone_identifier, _, datetime_format = handle_arguments(call, ha_timezone, filename=None)
 
-    valid_columns = ["state", "sum", "min", "max", "mean"]
+    valid_columns = ["state", "sum", "min", "max", "mean", "delta"]
     columns = ["statistic_id", "unit", "start"]
     data = []
 
