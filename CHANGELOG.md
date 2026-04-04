@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
+- **Unit check against entity**: The imported unit is now checked also against the entity, not only the statistics. It there is a mismatch in the unit between the entity and entries in statistics_meta already, importing will not work anymore, the issue must be repaired before importing
 - **JSON supports Delta**: JSON import now supports delta as well (previously the delta values have been rejected)
 
 ## [5.0.0] - Mandatory unit column and unit validation
