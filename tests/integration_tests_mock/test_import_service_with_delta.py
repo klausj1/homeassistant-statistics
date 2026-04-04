@@ -20,7 +20,7 @@ from custom_components.import_statistics.const import (
 )
 from custom_components.import_statistics.helpers import DeltaReferenceType, are_columns_valid
 from custom_components.import_statistics.import_service_delta_helper import convert_deltas_with_older_reference, handle_dataframe_delta
-from tests.conftest import create_mock_recorder_instance, get_service_handler, mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, create_mock_states_with_unit, get_service_handler, mock_async_add_executor_job
 
 
 class TestDeltaImportIntegration:
@@ -36,7 +36,7 @@ class TestDeltaImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+            hass.states = create_mock_states_with_unit("kWh")  # Entity exists
 
             await async_setup(hass, {})
             import_handler = get_service_handler(hass, "import_from_file")
@@ -121,9 +121,21 @@ class TestDeltaImportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
             hass.async_add_executor_job = mock_async_add_executor_job
+
+            # Mock entities with different units
+            def mock_get_state(entity_id: str) -> MagicMock:
+                mock_state = MagicMock()
+                if "energy" in entity_id:
+                    mock_state.attributes = {"unit_of_measurement": "kWh"}
+                elif "gas" in entity_id:
+                    mock_state.attributes = {"unit_of_measurement": "m³"}
+                else:
+                    mock_state.attributes = {"unit_of_measurement": "kWh"}
+                return mock_state
+
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entities exist
+            hass.states.get = mock_get_state
 
             await async_setup(hass, {})
             import_handler = get_service_handler(hass, "import_from_file")
@@ -202,7 +214,7 @@ class TestDeltaImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+            hass.states = create_mock_states_with_unit("kWh")  # Entity exists
 
             await async_setup(hass, {})
             import_handler = get_service_handler(hass, "import_from_file")
@@ -382,7 +394,7 @@ class TestDeltaImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
             json_handler = get_service_handler(hass, "import_from_json")
@@ -448,7 +460,7 @@ class TestDeltaImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+            hass.states = create_mock_states_with_unit("kWh")  # Entity exists
 
             await async_setup(hass, {})
             json_handler = get_service_handler(hass, "import_from_json")

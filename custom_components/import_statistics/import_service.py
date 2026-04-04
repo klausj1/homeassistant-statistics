@@ -286,7 +286,7 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> None:
 
 async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
     """
-    Validate that entities exist and units match statistic_meta.
+    Validate that entities exist and units match both entity state and statistic_meta.
 
     Args:
     ----
@@ -305,11 +305,29 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
         statistic_id = metadata["statistic_id"]
         statistic_ids.add(statistic_id)
 
-        # Check entity exists for recorder statistics
+        # Check entity exists for recorder statistics and validate unit matches entity's current unit
         if metadata["source"] == "recorder":
-            entity_exists = hass.states.get(statistic_id) is not None
-            if not entity_exists:
+            entity_state = hass.states.get(statistic_id)
+            if entity_state is None:
                 handle_error(f"Entity does not exist: '{statistic_id}'")
+            else:
+                # Validate that import unit matches entity's current unit
+                input_unit = metadata.get("unit_of_measurement")
+                entity_unit = entity_state.attributes.get("unit_of_measurement")
+
+                # Normalize entity_unit (convert empty string to None)
+                if entity_unit == "":
+                    entity_unit = None
+
+                # Compare import unit with entity's current unit
+                if input_unit != entity_unit:
+                    input_display = input_unit if input_unit is not None else "(empty)"
+                    entity_display = entity_unit if entity_unit is not None else "(empty)"
+
+                    handle_error(
+                        f"Unit mismatch for '{statistic_id}': input file has '{input_display}' but entity has '{entity_display}'. "
+                        f"Units must match the entity's current unit_of_measurement."
+                    )
 
     # Get existing metadata from database
     recorder_instance = get_instance(hass)
@@ -318,7 +336,7 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
 
     existing_metadata = await recorder_instance.async_add_executor_job(lambda: get_metadata(hass, statistic_ids=statistic_ids))
 
-    # Validate units match for existing statistics
+    # Validate units match for existing statistics in database
     for stat in stats.values():
         metadata = stat[0]
         statistic_id = metadata["statistic_id"]

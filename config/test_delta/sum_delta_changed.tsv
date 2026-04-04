@@ -16,12 +16,12 @@ sensor.imp_inside_same_newest_1	29.12.2025 16:00	kWh	8
 sensor.imp_inside_same_newest_1	30.12.2025 08:00	kWh	9
 sensor.imp_inside_same_newest_1	30.12.2025 09:00	kWh	10
 sensor.imp_inside_same_newest_1	30.12.2025 10:00	kWh	11
-sensor.imp_partly_before	29.12.2025 06:00	kWh	2
-sensor.imp_partly_before	29.12.2025 07:00	kWh	1
-sensor.imp_partly_before	29.12.2025 08:00	kWh	0
-sensor.imp_partly_before	29.12.2025 09:00	kWh	0
-sensor.imp_partly_before	29.12.2025 10:00	kWh	0
-sensor.imp_partly_before	29.12.2025 11:00	kWh	3
+sensor.imp_partly_before	29.12.2025 06:00		2
+sensor.imp_partly_before	29.12.2025 07:00		1
+sensor.imp_partly_before	29.12.2025 08:00		0
+sensor.imp_partly_before	29.12.2025 09:00		0
+sensor.imp_partly_before	29.12.2025 10:00		0
+sensor.imp_partly_before	29.12.2025 11:00		3
 sensor:imp_inside	29.12.2025 09:00	kWh	2
 sensor:imp_inside	29.12.2025 10:00	kWh	2
 sensor:imp_inside	29.12.2025 11:00	kWh	2
