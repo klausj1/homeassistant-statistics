@@ -92,7 +92,7 @@ class TestIntegrationAll:
         """
         Wait for Home Assistant to be fully started, starting it if needed.
 
-        Checks if HA is responsive via HTTP request. If not running, starts it.
+        Checks if HA is responsive and integration services are available.
 
         Args:
             timeout_seconds: Maximum seconds to wait (default 3 minutes)
@@ -104,57 +104,84 @@ class TestIntegrationAll:
         """
         start_time = time.time()
         max_wait = timeout_seconds
-        attempt = 0
+        ha_started = False
 
         _LOGGER.debug("Starting HA startup wait: url=%s, timeout=%ss", ha_url, timeout_seconds)
 
-        # First, try to connect without starting
+        # Try to connect and verify integration is ready
         while (time.time() - start_time) < max_wait:
-            attempt += 1
             elapsed = time.time() - start_time
             try:
                 headers = {"Authorization": f"Bearer {self.ha_token}"}
-                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Trying to connect to %s/api/", attempt, elapsed, ha_url)
-                async with (
-                    aiohttp.ClientSession() as session,
-                    session.get(f"{ha_url}/api/", headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as response,
-                ):
-                    _LOGGER.debug("Got response: status=%s", response.status)
-                    if response.status in (200, 401):  # 401 means HA is up but needs token
-                        _LOGGER.debug("✓ HA is responsive! Status: %s", response.status)
-                        if self.__class__.ha_process is None:
-                            msg = (
-                                "A Home Assistant instance is already running on http://localhost:8123. "
-                                "These integration tests require a clean, test-controlled instance. "
-                                "Stop Home Assistant and rerun the tests."
-                            )
-                            raise AssertionError(msg)
-                        if attempt > 1:
-                            await asyncio.sleep(5)  # Give it extra time to be fully ready
-                            _LOGGER.debug("✓ Returning True after waiting 2 more seconds")
-                        return True
-                    _LOGGER.debug("Unexpected status %s, retrying...", response.status)
+                _LOGGER.debug("Attempt (elapsed: %.1fs): Checking if integration is ready...", elapsed)
+
+                # Check if integration services are available (this also verifies HA is responsive)
+                if await self._verify_integration_ready(ha_url, headers):
+                    if self.__class__.ha_process is None:
+                        msg = (
+                            "A Home Assistant instance is already running on http://localhost:8123. "
+                            "These integration tests require a clean, test-controlled instance. "
+                            "Stop Home Assistant and rerun the tests."
+                        )
+                        raise AssertionError(msg)
+                    _LOGGER.debug("✓ Integration services are available, HA is fully ready")
+                    return True
+
+                _LOGGER.debug("Integration not ready yet, waiting...")
             except AssertionError:
                 # Re-raise AssertionError to fail the test (don't catch it)
                 raise
-            except TimeoutError:
-                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Timeout waiting for response", attempt, elapsed)
+            except (TimeoutError, aiohttp.ClientConnectionError) as e:
+                _LOGGER.debug("Attempt (elapsed: %.1fs): Connection error: %s (HA may not be listening yet)", elapsed, type(e).__name__)
                 # If we've waited long enough without connection, start HA
-                if elapsed > 2 and self.__class__.ha_process is None:
+                if elapsed > 2 and self.__class__.ha_process is None and not ha_started:
                     await self._start_ha()
-            except aiohttp.ClientConnectionError as e:
-                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Connection error: %s (HA may not be listening yet)", attempt, elapsed, type(e).__name__)
-                # If we've waited long enough without connection, start HA
-                if elapsed > 2 and self.__class__.ha_process is None:
-                    await self._start_ha()
+                    ha_started = True
             except aiohttp.ClientError as e:
-                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Client error: %s: %s", attempt, elapsed, type(e).__name__, e)
+                _LOGGER.debug("Attempt (elapsed: %.1fs): Client error: %s: %s", elapsed, type(e).__name__, e)
             except Exception as e:  # noqa: BLE001
-                _LOGGER.debug("Attempt %s (elapsed: %.1fs): Unexpected error: %s: %s", attempt, elapsed, type(e).__name__, e)
+                _LOGGER.debug("Attempt (elapsed: %.1fs): Unexpected error: %s: %s", elapsed, type(e).__name__, e)
 
             await asyncio.sleep(1)
 
         _LOGGER.warning("✗ Timeout after %ss - HA did not start", timeout_seconds)
+        return False
+
+    async def _verify_integration_ready(self, ha_url: str, headers: dict[str, str]) -> bool:
+        """
+        Verify that the import_statistics integration is fully loaded and services are available.
+
+        Args:
+            ha_url: Home Assistant URL
+            headers: HTTP headers with authorization
+
+        Returns:
+            True if integration services are available, False otherwise
+
+        Raises:
+            aiohttp exceptions if connection fails (to trigger HA startup in caller)
+
+        """
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                f"{ha_url}/api/services",
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as response,
+        ):
+            if response.status == 200:
+                services_data = await response.json()
+                # Look for our domain in the services list
+                for service_domain in services_data:
+                    if service_domain.get("domain") == DOMAIN:
+                        # Check if our key services exist
+                        services = service_domain.get("services", {})
+                        if "import_from_file" in services and "export_statistics" in services:
+                            _LOGGER.debug("✓ Found import_statistics services: %s", list(services.keys()))
+                            return True
+                _LOGGER.debug("import_statistics domain not found in services yet")
+                return False
         return False
 
     async def _start_ha(self) -> None:
