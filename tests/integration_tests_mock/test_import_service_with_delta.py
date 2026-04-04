@@ -435,6 +435,102 @@ class TestDeltaImportIntegration:
                 assert pytest.approx(statistics[1]["state"]) == 115.7
 
     @pytest.mark.asyncio
+    async def test_import_delta_json_format_with_delta_column(self) -> None:
+        """
+        Test importing delta data from JSON format with actual delta column values.
+
+        This test validates that JSON imports can handle delta columns just like CSV/TSV imports.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+            hass.states.set = MagicMock()
+            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+
+            await async_setup(hass, {})
+            json_handler = hass.services.async_register.call_args_list[1][0][2]
+
+            # JSON input with delta column (not pre-calculated sum/state)
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_json",
+                {
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DECIMAL: "dot ('.')",
+                    "entities": [
+                        {
+                            "id": "counter.energy",
+                            "unit": "kWh",
+                            "values": [
+                                {"datetime": "01.01.2022 00:00", "delta": 10.5},
+                                {"datetime": "01.01.2022 01:00", "delta": 5.2},
+                                {"datetime": "01.01.2022 02:00", "delta": 3.1},
+                            ],
+                        }
+                    ],
+                },
+            )
+
+            # Mock the database query for oldest statistics
+            mock_reference = {
+                "counter.energy": {
+                    "reference": {
+                        "start": None,
+                        "sum": 100.0,
+                        "state": 200.0,
+                    },
+                    "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+                }
+            }
+
+            with (
+                patch("custom_components.import_statistics.import_service.prepare_delta_handling", new_callable=AsyncMock) as mock_prepare_delta,
+                patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+            ):
+                mock_prepare_delta.return_value = mock_reference
+                await json_handler(call)
+
+                # Verify async_import_statistics was called
+                assert mock_import.called, "async_import_statistics should have been called"
+
+                # Extract the call arguments
+                call_args = mock_import.call_args
+                assert call_args is not None
+
+                # Verify the metadata passed to import
+                metadata = call_args[0][1]
+                assert metadata["statistic_id"] == "counter.energy"
+                assert metadata["source"] == "recorder"
+                assert metadata["unit_of_measurement"] == "kWh"
+                assert metadata["has_sum"] is True
+                assert metadata["mean_type"] == StatisticMeanType.NONE
+
+                # Verify the statistics list - delta values should be converted to sum/state
+                statistics = call_args[0][2]
+                assert len(statistics) == 3
+
+                # Verify accumulated values (delta converted to absolute sum/state)
+                # Reference: sum=100.0, state=200.0
+                # After delta 10.5: sum=110.5, state=210.5
+                # After delta 5.2: sum=115.7, state=215.7
+                # After delta 3.1: sum=118.8, state=218.8
+                assert pytest.approx(statistics[0]["sum"]) == pytest.approx(110.5)
+                assert pytest.approx(statistics[0]["state"]) == pytest.approx(210.5)
+                assert pytest.approx(statistics[1]["sum"]) == pytest.approx(115.7)
+                assert pytest.approx(statistics[1]["state"]) == pytest.approx(215.7)
+                assert pytest.approx(statistics[2]["sum"]) == pytest.approx(118.8)
+                assert pytest.approx(statistics[2]["state"]) == pytest.approx(218.8)
+
+                # Verify timestamps are datetime objects with UTC timezone
+                assert isinstance(statistics[0]["start"], dt.datetime)
+                assert statistics[0]["start"].tzinfo is not None
+
+    @pytest.mark.asyncio
     async def test_delta_reference_validation_failure(self) -> None:
         """Test that missing database reference is properly handled."""
         # Create a delta dataframe

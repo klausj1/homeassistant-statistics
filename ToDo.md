@@ -1,5 +1,9 @@
 # ToDos
 
+## Bugs
+
+Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the unit matches
+
 ## Unsorted backlog
 
 - Support webserver, so that its not necessary to upload import file and download export file
