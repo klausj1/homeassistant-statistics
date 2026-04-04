@@ -130,7 +130,7 @@ class TestIntegrationAll:
                             )
                             raise AssertionError(msg)
                         if attempt > 1:
-                            await asyncio.sleep(2)  # Give it an extra second to be fully ready
+                            await asyncio.sleep(5)  # Give it extra time to be fully ready
                             _LOGGER.debug("✓ Returning True after waiting 2 more seconds")
                         return True
                     _LOGGER.debug("Unexpected status %s, retrying...", response.status)

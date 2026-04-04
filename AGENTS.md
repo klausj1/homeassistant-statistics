@@ -89,13 +89,22 @@ pytest -v tests/test_X.py # Run specific test file
 
 ### Unit Validation
 
-[`validate_entities_and_units()`](custom_components/import_statistics/import_service.py:300) validates units during import:
+[`validate_entities_and_units()`](custom_components/import_statistics/import_service.py:287) validates units during import:
 
 - Input files MUST contain a `unit` column
 - For existing statistics, validates input unit matches database unit in statistic_meta
-- Raises `HomeAssistantError` if units don't match
+- Empty units (None) are supported and must match database empty units
+- Raises `HomeAssistantError` if units don't match (including empty vs non-empty)
 - Uses `get_metadata()` from recorder to fetch existing units
-- [`get_unit_from_row()`](custom_components/import_statistics/helpers.py:345) extracts unit from input and validates it's not empty
+- Error messages display "(empty)" instead of "None" for clarity
+
+[`get_unit_from_row()`](custom_components/import_statistics/helpers.py:168) normalizes unit values:
+
+- Handles pandas NaN with `pd.isna()` check → returns `None`
+- Strips whitespace from valid units
+- Converts empty strings to `None`
+- Rejects invalid string literals ("nan", "None", "null") with clear error message
+- Returns `str | None` (non-empty string or None for empty units)
 
 ### Timezone & Datetime Handling
 

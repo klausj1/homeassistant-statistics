@@ -322,16 +322,24 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
     for stat in stats.values():
         metadata = stat[0]
         statistic_id = metadata["statistic_id"]
-        input_unit = metadata.get("unit_of_measurement", "")
+        input_unit = metadata.get("unit_of_measurement")  # Don't default to ""
 
         # Check if this statistic already exists in the database
         if statistic_id in existing_metadata:
             _metadata_id, existing_meta = existing_metadata[statistic_id]
-            db_unit = existing_meta.get("unit_of_measurement", "")
+            db_unit = existing_meta.get("unit_of_measurement")  # Don't default to ""
 
-            # Validate unit matches
+            # Both units should already be normalized (None or non-empty string)
+            # Compare directly - None == None is True, "kWh" == "kWh" is True
             if input_unit != db_unit:
-                handle_error(f"Unit mismatch for '{statistic_id}': input file has '{input_unit}' but statistic_meta has '{db_unit}'. Units must match exactly.")
+                # Format units for error message
+                input_display = input_unit if input_unit is not None else "(empty)"
+                db_display = db_unit if db_unit is not None else "(empty)"
+
+                handle_error(
+                    f"Unit mismatch for '{statistic_id}': input file has '{input_display}' but statistic_meta has '{db_display}'. Units must match exactly."
+                )
+
             _LOGGER.debug("Unit validation passed for %s: %s", statistic_id, input_unit)
 
 

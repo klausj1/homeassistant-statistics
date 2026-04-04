@@ -6,6 +6,7 @@ import logging
 import zoneinfo
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from homeassistant.components.recorder.statistics import valid_statistic_id
@@ -165,27 +166,48 @@ def handle_error(error_string: str) -> None:
     raise HomeAssistantError(error_string)
 
 
-def get_unit_from_row(unit_from_row: str, statistic_id: str) -> str:
+def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
     """
-    Get unit from the input row and validate it exists.
+    Get unit from the input row and normalize it.
+
+    Handles pandas NaN, empty strings, and rejects invalid string literals.
 
     Args:
     ----
-        unit_from_row: The unit from the imported file
+        unit_from_row: The unit from the imported file (could be str, NaN, None)
         statistic_id: The statistic id from the imported file
 
     Returns:
     -------
-        str: unit from the row
+        str | None: Normalized unit (non-empty string or None for empty units)
 
     Raises:
     ------
-        HomeAssistantError: If unit is missing or empty
+        HomeAssistantError: If unit is invalid string literal like "nan" or "None"
 
     """
-    if unit_from_row == "":
-        handle_error(f"Unit does not exist in input file. Statistic ID: {statistic_id}.")
-    return unit_from_row
+    # Check for pandas NaN (float) or None
+    if pd.isna(unit_from_row):
+        return None
+
+    # Convert to string and strip whitespace
+    unit_str = str(unit_from_row).strip()
+
+    # Empty string becomes None
+    if unit_str == "":
+        return None
+
+    # Reject invalid string literals that look like empty values
+    if unit_str.lower() in ("nan", "none", "null"):
+        handle_error(
+            f"Invalid unit value: '{unit_str}'. "
+            f"If you want an empty unit, leave the cell empty. "
+            f"The strings 'nan', 'None', and 'null' are not valid units. "
+            f"Statistic ID: {statistic_id}."
+        )
+
+    # Return the normalized unit (non-empty string)
+    return unit_str
 
 
 def validate_delimiter(delimiter: str | None) -> str:
