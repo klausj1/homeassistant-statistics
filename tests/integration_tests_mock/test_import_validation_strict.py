@@ -15,7 +15,7 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, create_mock_states_with_unit, get_service_handler, mock_async_add_executor_job
 
 
 class TestImportValidationStrict:
@@ -31,10 +31,10 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with invalid row in the middle
             test_file = Path(tmpdir) / "invalid_middle.csv"
@@ -74,10 +74,10 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with wrong timestamp format
             test_file = Path(tmpdir) / "invalid_format.csv"
@@ -114,10 +114,10 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with non-numeric value
             test_file = Path(tmpdir) / "invalid_float.csv"
@@ -154,10 +154,10 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with min > max
             test_file = Path(tmpdir) / "invalid_minmax.csv"
@@ -194,10 +194,10 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with empty value
             test_file = Path(tmpdir) / "invalid_nan.csv"
@@ -234,10 +234,14 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+
+            # Mock entity with matching unit "kWh"
+            mock_entity_state = MagicMock()
+            mock_entity_state.attributes = {"unit_of_measurement": "kWh"}
+            hass.states.get = MagicMock(return_value=mock_entity_state)
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with all valid rows
             test_file = Path(tmpdir) / "all_valid.csv"
@@ -290,10 +294,10 @@ class TestImportValidationStrict:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with comma separator but configured for dot
             test_file = Path(tmpdir) / "wrong_separator.csv"
@@ -317,5 +321,53 @@ class TestImportValidationStrict:
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
                 pytest.raises(HomeAssistantError, match=r"Invalid float value in column 'sum' at row 2.*100,5"),
+            ):
+                await import_handler(call)
+
+    @pytest.mark.asyncio
+    async def test_import_fails_on_unit_mismatch_with_entity(self) -> None:
+        """Test that import fails when unit doesn't match entity's current unit."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            hass = MagicMock()
+            hass.config = MagicMock()
+            hass.config.config_dir = tmpdir
+            hass.async_add_executor_job = mock_async_add_executor_job
+            hass.states = MagicMock()
+            hass.states.set = MagicMock()
+
+            # Mock entity with unit "xxx"
+            mock_entity_state = MagicMock()
+            mock_entity_state.attributes = {"unit_of_measurement": "xxx"}
+            hass.states.get = MagicMock(return_value=mock_entity_state)
+
+            await async_setup(hass, {})
+            import_handler = get_service_handler(hass, "import_from_file")
+
+            # Create test file with unit "kWh" (different from entity's "xxx")
+            test_file = Path(tmpdir) / "unit_mismatch.csv"
+            test_file.write_text("statistic_id\tstart\tunit\tsum\tstate\nsensor.test_entity\t01.01.2022 00:00\tkWh\t100.0\t100.0\n")
+
+            call = ServiceCall(
+                hass,
+                "import_statistics",
+                "import_from_file",
+                {
+                    ATTR_FILENAME: "unit_mismatch.csv",
+                    ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                    ATTR_DELIMITER: "\t",
+                    ATTR_DECIMAL: "dot ('.')",
+                },
+            )
+
+            with (
+                patch("custom_components.import_statistics.import_service.async_import_statistics"),
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+                pytest.raises(
+                    HomeAssistantError,
+                    match=(
+                        r"Unit mismatch for 'sensor\.test_entity': input file has 'kWh' but entity has 'xxx'\. "
+                        r"Units must match the entity's current unit_of_measurement\."
+                    ),
+                ),
             ):
                 await import_handler(call)

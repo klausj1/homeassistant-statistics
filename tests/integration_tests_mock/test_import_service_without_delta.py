@@ -20,7 +20,7 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
 )
 from custom_components.import_statistics.helpers import are_columns_valid
-from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, create_mock_states_with_unit, get_service_handler, mock_async_add_executor_job
 
 
 class TestStandardImportIntegration:
@@ -36,10 +36,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             test_file = Path(tmpdir) / "csv_comma.csv"
             test_file.write_text(
@@ -74,10 +74,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             test_file = Path(tmpdir) / "tab_data.tsv"
             test_file.write_text(
@@ -114,10 +114,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             test_file = Path(tmpdir) / "data.txt"
             test_file.write_text("statistic_id\tstart\tunit\tsum\tstate\n")
@@ -146,10 +146,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+            hass.states = create_mock_states_with_unit("kWh")  # Entity exists
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test sum CSV file
             test_file = Path(tmpdir) / "sum_test.csv"
@@ -217,12 +217,10 @@ class TestStandardImportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
             hass.async_add_executor_job = mock_async_add_executor_job
-            hass.states = MagicMock()
-            hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entity exists
+            hass.states = create_mock_states_with_unit("°C")  # Entity exists with °C unit
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test mean CSV file
             test_file = Path(tmpdir) / "mean_test.csv"
@@ -285,12 +283,24 @@ class TestStandardImportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
             hass.async_add_executor_job = mock_async_add_executor_job
+
+            # Mock entities with different units
+            def mock_get_state(entity_id: str) -> MagicMock:
+                mock_state = MagicMock()
+                if "energy" in entity_id:
+                    mock_state.attributes = {"unit_of_measurement": "kWh"}
+                elif "gas" in entity_id:
+                    mock_state.attributes = {"unit_of_measurement": "m³"}
+                else:
+                    mock_state.attributes = {"unit_of_measurement": "kWh"}
+                return mock_state
+
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())  # Entities exist
+            hass.states.get = mock_get_state
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file with multiple statistics
             test_file = Path(tmpdir) / "multiple.csv"
@@ -359,7 +369,7 @@ class TestStandardImportIntegration:
             hass.states.get = MagicMock(return_value=None)  # No entity needed for external
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file with external statistic
             test_file = Path(tmpdir) / "external.csv"
@@ -418,7 +428,7 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file without unit column
             test_file = Path(tmpdir) / "no_unit.csv"
@@ -454,10 +464,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            json_handler = hass.services.async_register.call_args_list[1][0][2]
+            json_handler = get_service_handler(hass, "import_from_json")
 
             call = ServiceCall(
                 hass,
@@ -514,12 +524,10 @@ class TestStandardImportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
             hass.async_add_executor_job = mock_async_add_executor_job
-            hass.states = MagicMock()
-            hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("°C")  # Entity with °C unit
 
             await async_setup(hass, {})
-            json_handler = hass.services.async_register.call_args_list[1][0][2]
+            json_handler = get_service_handler(hass, "import_from_json")
 
             call = ServiceCall(
                 hass,
@@ -586,10 +594,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file with comma as decimal separator
             test_file = Path(tmpdir) / "comma.csv"
@@ -638,10 +646,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file
             test_file = Path(tmpdir) / "tz_test.csv"
@@ -731,7 +739,7 @@ class TestStandardImportIntegration:
             hass.states.get = MagicMock(return_value=None)  # Entity does not exist
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file
             test_file = Path(tmpdir) / "nonexistent.csv"
@@ -763,10 +771,10 @@ class TestStandardImportIntegration:
             hass.async_add_executor_job = mock_async_add_executor_job
             hass.states = MagicMock()
             hass.states.set = MagicMock()
-            hass.states.get = MagicMock(return_value=MagicMock())
+            hass.states = create_mock_states_with_unit("kWh")
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file with ISO format
             test_file = Path(tmpdir) / "iso_format.csv"
@@ -819,7 +827,7 @@ class TestStandardImportIntegration:
             hass.states.get = MagicMock(return_value=None)
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test CSV file with multiple external statistics
             test_file = Path(tmpdir) / "multi_external.csv"
@@ -893,7 +901,7 @@ class TestStandardImportIntegration:
             hass.states.get = MagicMock(return_value=mock_entity)
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with unit °F (different from database unit °C)
             test_file = Path(tmpdir) / "temp.csv"
@@ -946,14 +954,10 @@ class TestStandardImportIntegration:
             hass.config = MagicMock()
             hass.config.config_dir = tmpdir
             hass.async_add_executor_job = mock_async_add_executor_job
-            hass.states = MagicMock()
-
-            # Mock entity exists
-            mock_entity = MagicMock()
-            hass.states.get = MagicMock(return_value=mock_entity)
+            hass.states = create_mock_states_with_unit("°C")  # Entity with °C unit
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file for new statistic
             test_file = Path(tmpdir) / "new_stat.csv"

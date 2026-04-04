@@ -41,7 +41,7 @@ template:
       - name: imp_partly_before
         state_class: total_increasing
         device_class: energy
-        unit_of_measurement: "kWh"
+#        unit_of_measurement: "kWh" # Test with empty unit
         state: "{{ 200 }}"
       - name: imp_before
         state_class: total_increasing
@@ -85,5 +85,5 @@ template:
         state: "{{ 5 }}"
       - name: sens_all_changed_new
         state_class: measurement
-        unit_of_measurement: "hPa"
+        unit_of_measurement: "hxxPa"
         state: "{{ 1013 }}"

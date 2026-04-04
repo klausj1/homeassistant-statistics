@@ -33,6 +33,42 @@ async def mock_async_add_executor_job(func: Callable[..., Any], *args: Any) -> A
     return func(*args) if args else func()
 
 
+def create_mock_entity_state(unit: str | None = None) -> MagicMock:
+    """
+    Create a mock entity state with proper attributes.
+
+    Args:
+        unit: Unit of measurement for the entity (None for empty unit)
+
+    Returns:
+        Mock entity state with attributes dictionary
+
+    """
+    mock_state = MagicMock()
+    mock_state.attributes = {"unit_of_measurement": unit}
+    return mock_state
+
+
+def create_mock_states_with_unit(unit: str | None = None) -> MagicMock:
+    """
+    Create a mock hass.states object that returns entities with the specified unit.
+
+    This is a convenience function for tests that need entities with matching units.
+    For tests that need different units per entity, mock hass.states.get directly.
+
+    Args:
+        unit: Unit of measurement for all entities (None for empty unit)
+
+    Returns:
+        Mock states object with get() returning entities with the specified unit
+
+    """
+    mock_states = MagicMock()
+    mock_states.set = MagicMock()
+    mock_states.get = MagicMock(return_value=create_mock_entity_state(unit))
+    return mock_states
+
+
 def get_service_handler(hass: MagicMock, service_name: str) -> Callable[..., Any]:
     """
     Find a registered service handler by name from mock hass.services.async_register calls.
