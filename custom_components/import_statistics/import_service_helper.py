@@ -190,12 +190,27 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
     """
     _, timezone_identifier, _, datetime_format = handle_arguments(call, ha_timezone, filename=None)
 
-    valid_columns = ["state", "sum", "min", "max", "mean"]
-    columns = ["statistic_id", "unit", "start"]
+    # Required columns that are always present
+    required_columns = ["statistic_id", "unit", "start"]
+
+    # Track all columns found across all entities (will be validated later by are_columns_valid)
+    all_columns = set(required_columns)
     data = []
 
     input_entities = call.data.get("entities", [])
 
+    # First pass: collect all unique columns from all entities
+    for entity in input_entities:
+        values = entity["values"]
+        for value in values:
+            # Extract all value columns (excluding 'datetime' which maps to 'start')
+            value_columns = {key for key in value if key != "datetime"}
+            all_columns.update(value_columns)
+
+    # Convert to sorted list for consistent column ordering
+    columns = required_columns + sorted(all_columns - set(required_columns))
+
+    # Second pass: build data rows with all columns
     for entity in input_entities:
         statistic_id, values, unit = (entity["id"], entity["values"], entity["unit"])
         _LOGGER.info(f"Parsing entity with id: {statistic_id} with {len(values)} values")
@@ -205,13 +220,14 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
                 "unit": unit,
                 "start": value["datetime"],
             }
-            for valid_column in valid_columns:
-                if valid_column in value:
-                    if valid_column not in columns:
-                        columns.append(valid_column)
-                    value_dict[valid_column] = value[valid_column]
+            # Add all value columns found in this row
+            for column in columns:
+                if column in required_columns:
+                    continue  # Already set above
+                if column in value:
+                    value_dict[column] = value[column]
 
-            data.append(tuple([value_dict[column] for column in columns]))
+            data.append(tuple([value_dict.get(column) for column in columns]))
 
     my_df = pd.DataFrame(data, columns=columns)
 
