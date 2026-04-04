@@ -15,7 +15,7 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, get_service_handler, mock_async_add_executor_job
 
 
 class TestImportEmptyUnits:
@@ -33,7 +33,7 @@ class TestImportEmptyUnits:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with empty unit (empty cell)
             test_file = Path(tmpdir) / "empty_unit.csv"
@@ -94,7 +94,7 @@ class TestImportEmptyUnits:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with empty unit
             test_file = Path(tmpdir) / "empty_unit.csv"
@@ -146,7 +146,7 @@ class TestImportEmptyUnits:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with unit
             test_file = Path(tmpdir) / "with_unit.csv"
@@ -198,7 +198,7 @@ class TestImportEmptyUnits:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with empty unit for new statistic
             test_file = Path(tmpdir) / "new_empty.csv"
@@ -245,7 +245,7 @@ class TestImportEmptyUnits:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with mixed units
             test_file = Path(tmpdir) / "mixed.csv"
@@ -312,7 +312,7 @@ class TestImportEmptyUnits:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            json_handler = hass.services.async_register.call_args_list[1][0][2]
+            json_handler = get_service_handler(hass, "import_from_json")
 
             call = ServiceCall(
                 hass,

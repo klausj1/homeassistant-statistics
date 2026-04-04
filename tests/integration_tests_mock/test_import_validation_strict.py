@@ -15,7 +15,7 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from tests.conftest import create_mock_recorder_instance, mock_async_add_executor_job
+from tests.conftest import create_mock_recorder_instance, get_service_handler, mock_async_add_executor_job
 
 
 class TestImportValidationStrict:
@@ -34,7 +34,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with invalid row in the middle
             test_file = Path(tmpdir) / "invalid_middle.csv"
@@ -77,7 +77,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with wrong timestamp format
             test_file = Path(tmpdir) / "invalid_format.csv"
@@ -117,7 +117,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with non-numeric value
             test_file = Path(tmpdir) / "invalid_float.csv"
@@ -157,7 +157,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with min > max
             test_file = Path(tmpdir) / "invalid_minmax.csv"
@@ -197,7 +197,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with empty value
             test_file = Path(tmpdir) / "invalid_nan.csv"
@@ -237,7 +237,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with all valid rows
             test_file = Path(tmpdir) / "all_valid.csv"
@@ -293,7 +293,7 @@ class TestImportValidationStrict:
             hass.states.get = MagicMock(return_value=MagicMock())
 
             await async_setup(hass, {})
-            import_handler = hass.services.async_register.call_args_list[0][0][2]
+            import_handler = get_service_handler(hass, "import_from_file")
 
             # Create test file with comma separator but configured for dot
             test_file = Path(tmpdir) / "wrong_separator.csv"
