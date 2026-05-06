@@ -11,6 +11,7 @@ import pandas as pd
 import pytz
 from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.const import (
@@ -95,16 +96,23 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
                     helpers.handle_error(
                         "Implementation error: Ambiguous timestamps detected but no naive copy provided. This indicates a bug in timestamp parsing logic."
                     )
-    except Exception as e:
-        # Provide clear error message for DST issues
+    except HomeAssistantError:
+        raise
+    except Exception as e:  # noqa: BLE001
+        # Provide clear error message for DST issues.
+        # Different pandas/pytz versions raise different exception types:
+        # - pandas with zoneinfo: ValueError with "nonexistent" in message
+        # - pandas with pytz: pytz.exceptions.NonExistentTimeError (message is just the timestamp)
         error_msg = str(e)
-        if "nonexistent" in error_msg.lower() or "does not exist" in error_msg.lower():
+        exception_type = type(e).__name__
+        if "nonexistent" in error_msg.lower() or "does not exist" in error_msg.lower() or exception_type == "NonExistentTimeError":
             helpers.handle_error(
                 "Timestamp does not exist due to daylight saving time transition (spring forward). "
                 "The timestamp falls in the gap when clocks move forward. "
                 f"Please adjust your timestamps to avoid the DST gap. Error: {error_msg}"
             )
-        raise
+        # Catch-all: convert any other unexpected exception to HomeAssistantError
+        helpers.handle_error(f"Failed to localize timestamps: {error_msg}")
 
 
 def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) -> tuple:
@@ -249,6 +257,8 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
         # Apply timezone with DST handling
         _localize_timestamps_with_dst_handling(my_df, timezone_identifier, naive_copy=start_naive)
 
+    except HomeAssistantError:
+        raise
     except Exception as e:
         # Provide clear error message for parsing failures
         error_msg = str(e)

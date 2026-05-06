@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.0.2]
+
+### Bug Fixes
+
+- **DST handling**: Importing timestamps that fall in a daylight saving time gap (e.g. `29.03.2026 02:00` in `Europe/Berlin`) now returns a clear error message instead of an unhandled exception
+
 ## [5.0.1]
 
 ### Changes
