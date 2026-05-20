@@ -1,5 +1,5 @@
 pytest
-pytest-cov>=4.0.0
+pytest-cov>=7.1.0
 pytest-homeassistant-custom-component
 pytest-asyncio
 psutil
