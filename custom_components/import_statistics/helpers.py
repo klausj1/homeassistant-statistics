@@ -77,23 +77,29 @@ def is_not_in_future(newest_timestamp: dt.datetime) -> bool:
         HomeAssistantError: If the timestamp is too recent (in the future).
 
     """
-    now = dt.datetime.now(dt.UTC)
-    # Subtract 65 minutes and truncate to full hour
-    max_allowed = (now - dt.timedelta(minutes=65)).replace(minute=0, second=0, microsecond=0)
 
-    # Convert newest_timestamp to UTC for comparison
-    newest_utc = newest_timestamp.astimezone(dt.UTC)
-
-    if newest_utc > max_allowed:
-        # Display max_allowed in the same timezone as the input timestamp
-        max_allowed_local = max_allowed.astimezone(newest_timestamp.tzinfo)
-        msg = (
-            f"Timestamp {newest_timestamp} is too recent. "
-            f"The newest allowed timestamp is {max_allowed_local} (current time minus 65 minutes, truncated to full hour)."
-        )
-        handle_error(msg)
+    # According to https://github.com/klausj1/homeassistant-statistics/issues/203, timestamps in the future are working and necessary.
+    # For now, keep the method, maybe we need it later.
 
     return True
+
+    # now = dt.datetime.now(dt.UTC)
+    # # Subtract 65 minutes and truncate to full hour
+    # max_allowed = (now - dt.timedelta(minutes=65)).replace(minute=0, second=0, microsecond=0)
+
+    # # Convert newest_timestamp to UTC for comparison
+    # newest_utc = newest_timestamp.astimezone(dt.UTC)
+
+    # if newest_utc > max_allowed:
+    #     # Display max_allowed in the same timezone as the input timestamp
+    #     max_allowed_local = max_allowed.astimezone(newest_timestamp.tzinfo)
+    #     msg = (
+    #         f"Timestamp {newest_timestamp} is too recent. "
+    #         f"The newest allowed timestamp is {max_allowed_local} (current time minus 65 minutes, truncated to full hour)."
+    #     )
+    #     handle_error(msg)
+
+    # return True
 
 
 def are_columns_valid(df: pd.DataFrame) -> bool:
