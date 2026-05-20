@@ -17,10 +17,12 @@ from custom_components.import_statistics.const import (
 )
 from custom_components.import_statistics.import_service_helper import prepare_data_to_import
 
+TESTFILES_DIR = str(Path(__file__).resolve().parent.parent / "testfiles")
+
 
 def test_prepare_data_to_import_valid_file_dot() -> None:
     """Test prepare_data_to_import function with a valid file using dot decimal separator."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
+    file_path = f"{TESTFILES_DIR}/correctcolumnsdot.csv"
 
     data = {
         ATTR_DECIMAL: ",",
@@ -47,7 +49,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
 
 def test_prepare_data_to_import_valid_file_comma() -> None:
     """Test prepare_data_to_import function with a valid file using comma decimal separator."""
-    file_path = "tests/testfiles/correctcolumnsdot.csv"
+    file_path = f"{TESTFILES_DIR}/correctcolumnsdot.csv"
 
     data = {
         ATTR_DECIMAL: ".",
@@ -91,7 +93,7 @@ def test_prepare_data_to_import_invalid_file() -> None:
 
 def test_prepare_data_to_import_invalid_data() -> None:
     """Test prepare_data_to_import function with invalid data in the file."""
-    file_path = "tests/testfiles/wrongcolumns.csv"
+    file_path = f"{TESTFILES_DIR}/wrongcolumns.csv"
 
     data = {
         ATTR_DECIMAL: ",",
