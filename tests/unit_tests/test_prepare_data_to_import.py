@@ -4,8 +4,6 @@ import re
 import tempfile
 from pathlib import Path
 
-TESTFILES_DIR = str(Path(__file__).resolve().parent.parent / "testfiles")
-
 import pandas as pd
 import pytest
 from homeassistant.core import ServiceCall
@@ -18,6 +16,8 @@ from custom_components.import_statistics.const import (
     DATETIME_DEFAULT_FORMAT,
 )
 from custom_components.import_statistics.import_service_helper import prepare_data_to_import
+
+TESTFILES_DIR = str(Path(__file__).resolve().parent.parent / "testfiles")
 
 
 def test_prepare_data_to_import_valid_file_dot() -> None:
