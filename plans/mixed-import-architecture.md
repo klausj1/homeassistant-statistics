@@ -311,6 +311,39 @@ Already supported — `state` is optional for counters. The existing code checks
 | `test_import_mixed_json` | Import JSON with both sensor and counter entities |
 | `test_import_mixed_roundtrip` | Export mixed → re-import produces same data |
 
+### New Integration Test (Real HA, No Mocks)
+
+Add `test_05_import_mixed_then_export_and_compare` to [`test_integration_delta_imports.py`](tests/integration_tests/test_integration_delta_imports.py).
+
+This test runs **after** tests 01-04 (which populate the database with sensor and counter data), so it can leverage the existing HA instance and data.
+
+**Test flow:**
+
+1. **Create a mixed input file** — A pre-built TSV file at `config/test_mixed/mixed_input.tsv` combines sensor data (min/max/mean) and counter data (sum/state) in a single file with all columns. Uses **new entity IDs** (e.g. `sensor.mixed_test_temp`, `sensor.mixed_test_energy`) to avoid collisions with data from tests 01-04. Sensor rows have empty sum/state cells; counter rows have empty min/max/mean cells.
+
+2. **Import the mixed file** — Call `import_from_file` with the mixed TSV. This exercises the new split-then-process pipeline.
+
+3. **Export the imported entities** — Call `export_statistics` for the same entity IDs used in step 1, with the same time range.
+
+4. **Compare export with expected reference** — Use the existing [`_compare_tsv_files_strict()`](tests/integration_tests/test_integration_delta_imports.py:258) or [`_compare_dataframes_strict()`](tests/integration_tests/test_integration_delta_imports.py:331) helper to verify the exported data matches the expected output. This proves the round-trip: mixed import → HA database → mixed export produces equivalent data.
+
+**Test data files needed:**
+
+| File | Description |
+|------|-------------|
+| `config/test_mixed/mixed_input.tsv` | Combined sensor + counter data with new entity IDs |
+| `config/test_mixed/expected_after_import.tsv` | Expected export output |
+
+**Key assertions:**
+- The `import_from_file` service call succeeds (HTTP 200)
+- The exported file contains both sensor columns (min/max/mean) and counter columns (sum/state)
+- Sensor rows have correct min/max/mean values and empty sum/state
+- Counter rows have correct sum/state values and empty min/max/mean
+- Row counts match between input and output
+- Numeric values match within tolerance (0.01)
+
+**Also test JSON round-trip** — A second sub-step imports the same data via `import_from_json` with different entity IDs (e.g. `sensor:mixed_json_temp`, `sensor:mixed_json_energy`), exports to JSON, and compares. This verifies the JSON path handles mixed data correctly too.
+
 ### Existing Tests to Update
 
 | Test File | Change |
