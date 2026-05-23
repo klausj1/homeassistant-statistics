@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 #### Mixed-Type Import
 
 - **Mixed-type import support**: A single CSV/TSV/JSON file can now contain both measurement statistics (min/max/mean) and counter statistics (sum/state)
+- **Consistent Unit checks**: If an import file contains different units for the same statistic id, there is an error
 
 Note:
 

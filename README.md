@@ -192,6 +192,7 @@ The integration performs strict validation on all import data:
   - Invalid numeric values (non-numeric strings, NaN, empty values)
   - Constraint violations (e.g., min > max for measurement data)
   - Missing required columns
+  - Inconsistent units for the same `statistic_id` across rows in the import file
 
 This strict validation ensures data integrity and helps you identify and fix data quality issues immediately.
 
