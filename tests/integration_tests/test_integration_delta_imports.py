@@ -1,7 +1,6 @@
 """Integration test for delta column imports with running Home Assistant instance."""
 
 import asyncio
-import json
 import logging
 import os
 import subprocess
@@ -1074,7 +1073,7 @@ class TestIntegrationAll:
         }
         success = await self._call_service(
             "import_from_json",
-            {"json_data": json.dumps(json_data)},
+            json_data,
             ha_url=self.ha_url,
             token=self.ha_token,
         )
