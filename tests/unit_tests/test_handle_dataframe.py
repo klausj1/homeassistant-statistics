@@ -278,8 +278,8 @@ def test_handle_dataframe_multiple_mean() -> None:
             ["stat2.temp", "01.01.2022 01:00", "C", 4, 40, 35],
             ["stat1.value", "01.01.2022 00:00", "m", 5, 50, 45],
             ["stat1.value", "01.01.2022 01:00", "m", 6, 60, 55],
-            ["stat1.value", "01.01.2022 02:00", "mm", 7, 70, 65],
-            ["stat1.temp", "03.01.2022 00:00", "nnn", 8, 80, 75],
+            ["stat1.value", "01.01.2022 02:00", "m", 7, 70, 65],
+            ["stat1.temp", "03.01.2022 00:00", "C", 8, 80, 75],
         ],
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )

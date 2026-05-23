@@ -502,6 +502,7 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
     for statistic_id in unique_ids:
         # Get unit from first occurrence of this statistic_id
         unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
+        helpers.validate_unit_consistency(unit_series, statistic_id)
         unit: str = unit_series.iloc[0]  # type: ignore[assignment]
         source = helpers.get_source(statistic_id)
 

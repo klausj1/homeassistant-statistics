@@ -106,6 +106,15 @@ pytest -v tests/test_X.py # Run specific test file
 - Rejects invalid string literals ("nan", "None", "null") with clear error message
 - Returns `str | None` (non-empty string or None for empty units)
 
+### Unit Consistency Within Import Files
+
+[`validate_unit_consistency()`](custom_components/import_statistics/helpers.py:195) ensures all rows for the same `statistic_id` have the same unit:
+
+- Normalizes all unit values via `get_unit_from_row()` before comparison (NaN, None, empty, whitespace → `None`)
+- Raises `HomeAssistantError` if different normalized units found for the same entity
+- Called in both `handle_dataframe_no_delta()` and `handle_dataframe_delta()` before metadata construction
+- Prevents silent data corruption where values would be imported with wrong unit metadata
+
 ### Timezone & Datetime Handling
 
 - Use `zoneinfo.ZoneInfo` (Python 3.12 stdlib), NOT `pytz`

@@ -192,6 +192,36 @@ def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
     return unit_str
 
 
+def validate_unit_consistency(unit_series: pd.Series, statistic_id: str) -> None:
+    """
+    Validate that all unit values for a single statistic_id are consistent.
+
+    Normalizes all unique unit values using get_unit_from_row() and checks
+    that only one distinct unit remains. This prevents silent data corruption
+    when the same statistic_id has different units across rows.
+
+    Args:
+    ----
+        unit_series: pandas Series of raw unit values for a single statistic_id
+        statistic_id: The statistic_id string (for error messages)
+
+    Raises:
+    ------
+        HomeAssistantError: If more than one distinct normalized unit is found
+
+    """
+    unique_raw_units = unit_series.unique()
+    normalized_units: set[str | None] = set()
+
+    for raw_unit in unique_raw_units:
+        normalized = get_unit_from_row(raw_unit, statistic_id)
+        normalized_units.add(normalized)
+
+    if len(normalized_units) > 1:
+        display_units = sorted(f"'{u}'" if u is not None else "'(empty)'" for u in normalized_units)
+        handle_error(f"Inconsistent units for '{statistic_id}': found {display_units}. All rows for the same statistic_id must have the same unit.")
+
+
 def validate_delimiter(delimiter: str | None) -> str:
     r"""
     Validate and normalize a delimiter string.
