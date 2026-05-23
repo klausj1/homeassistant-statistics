@@ -184,6 +184,10 @@ async def _process_import(hass, data):
 
 **Modify [`PreparedImportData`](custom_components/import_statistics/import_service.py:198)** — Replace `is_delta: bool` with `data_type: ImportDataType`.
 
+### [`config/configuration.yaml`](config/configuration.yaml)
+
+Add template sensor definitions for the new mixed-test internal entities (e.g. `mixed_test_temp`, `mixed_test_energy`). Required because internal entities (`.` separator) must exist in HA state for [`check_entity_exists()`](custom_components/import_statistics/import_service.py:364) and [`validate_entities_and_units()`](custom_components/import_statistics/import_service.py:287) to pass during the integration test.
+
 ### No Changes Required
 
 - [`__init__.py`](custom_components/import_statistics/__init__.py) — Service registration unchanged
@@ -326,6 +330,34 @@ This test runs **after** tests 01-04 (which populate the database with sensor an
 3. **Export the imported entities** — Call `export_statistics` for the same entity IDs used in step 1, with the same time range.
 
 4. **Compare export with expected reference** — Use the existing [`_compare_tsv_files_strict()`](tests/integration_tests/test_integration_delta_imports.py:258) or [`_compare_dataframes_strict()`](tests/integration_tests/test_integration_delta_imports.py:331) helper to verify the exported data matches the expected output. This proves the round-trip: mixed import → HA database → mixed export produces equivalent data.
+
+**Entity definitions required in [`config/configuration.yaml`](config/configuration.yaml):**
+
+Internal entities (`.` separator, source `recorder`) must be defined as template sensors in [`configuration.yaml`](config/configuration.yaml) so they exist in HA state. Without this, [`check_entity_exists()`](custom_components/import_statistics/import_service.py:364) and [`validate_entities_and_units()`](custom_components/import_statistics/import_service.py:287) will reject the import. External entities (`:` separator) do not need configuration entries.
+
+```yaml
+# Mixed import test entities - sensors (measurement)
+- name: mixed_test_temp
+  state_class: measurement
+  unit_of_measurement: "°C"
+  state: "{{ 20 }}"
+- name: mixed_test_humidity
+  state_class: measurement
+  unit_of_measurement: "%"
+  state: "{{ 50 }}"
+# Mixed import test entities - counters
+- name: mixed_test_energy
+  state_class: total_increasing
+  device_class: energy
+  unit_of_measurement: "kWh"
+  state: "{{ 100 }}"
+- name: mixed_test_water
+  state_class: total_increasing
+  unit_of_measurement: "L"
+  state: "{{ 500 }}"
+```
+
+The JSON round-trip sub-test uses external entity IDs (`sensor:mixed_json_temp`, `sensor:mixed_json_energy`) which do **not** need `configuration.yaml` entries.
 
 **Test data files needed:**
 
