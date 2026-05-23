@@ -5,6 +5,7 @@ No hass object needed.
 """
 
 import zoneinfo
+from enum import Enum
 from pathlib import Path
 
 import pandas as pd
@@ -24,9 +25,18 @@ from custom_components.import_statistics.const import (
 from custom_components.import_statistics.helpers import _LOGGER
 
 
-def _validate_and_detect_delta(df: "pd.DataFrame") -> bool:
+class ImportDataType(Enum):
+    """Type of import data detected from DataFrame columns."""
+
+    SENSOR = "sensor"  # min/max/mean only
+    COUNTER = "counter"  # sum/state only
+    MIXED = "mixed"  # both sensor and counter entities
+    DELTA = "delta"  # delta column present
+
+
+def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataType:
     """
-    Validate DataFrame columns and detect delta mode.
+    Validate DataFrame columns and detect import data type.
 
     Args:
     ----
@@ -34,7 +44,7 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> bool:
 
     Returns:
     -------
-        True if delta mode is detected, False otherwise
+        ImportDataType indicating the type of data in the DataFrame
 
     Raises:
     ------
@@ -48,7 +58,18 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> bool:
             "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
         )
 
-    return "delta" in df.columns
+    columns = df.columns
+    if "delta" in columns:
+        return ImportDataType.DELTA
+
+    has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
+    has_sum_state = "sum" in columns or "state" in columns
+
+    if has_mean_min_max and has_sum_state:
+        return ImportDataType.MIXED
+    if has_mean_min_max:
+        return ImportDataType.SENSOR
+    return ImportDataType.COUNTER
 
 
 def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier: str, *, naive_copy: pd.Series | None = None) -> None:
@@ -127,7 +148,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
 
     Returns:
     -------
-        Tuple of (df, timezone_identifier, datetime_format, is_delta)
+        Tuple of (df, timezone_identifier, datetime_format, data_type)
 
     Raises:
     ------
@@ -173,9 +194,9 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
     # Apply timezone with DST handling
     _localize_timestamps_with_dst_handling(my_df, timezone_identifier, naive_copy=start_naive)
 
-    is_delta = _validate_and_detect_delta(my_df)
+    data_type = _validate_and_detect_delta(my_df)
 
-    return my_df, timezone_identifier, datetime_format, is_delta
+    return my_df, timezone_identifier, datetime_format, data_type
 
 
 def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
@@ -189,7 +210,7 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
 
     Returns:
     -------
-        Tuple of (df, timezone_identifier, datetime_format, is_delta)
+        Tuple of (df, timezone_identifier, datetime_format, data_type)
 
     Raises:
     ------
@@ -266,9 +287,9 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
             helpers.handle_error(f"Failed to parse timestamp. Expected format: {datetime_format}. Error: {error_msg}")
         raise
 
-    is_delta = _validate_and_detect_delta(my_df)
+    data_type = _validate_and_detect_delta(my_df)
 
-    return my_df, timezone_identifier, datetime_format, is_delta
+    return my_df, timezone_identifier, datetime_format, data_type
 
 
 def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | None = None) -> tuple:
@@ -334,6 +355,94 @@ def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | Non
     _LOGGER.debug("Datetime format: %s", datetime_format)
 
     return decimal, timezone_identifier, delimiter, datetime_format
+
+
+def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Split a mixed DataFrame into sensor and counter DataFrames by statistic_id.
+
+    Groups by statistic_id and checks which value columns have non-NaN values.
+    If a single statistic_id has BOTH sensor AND counter data, raises an error.
+
+    Args:
+    ----
+        df: DataFrame with mixed sensor and counter columns
+
+    Returns:
+    -------
+        Tuple of (sensor_df, counter_df) with only the relevant columns for each type.
+        sensor_df columns: [statistic_id, unit, start, min, max, mean]
+        counter_df columns: [statistic_id, unit, start, sum] (+ state if present in original)
+
+    Raises:
+    ------
+        HomeAssistantError: If a single statistic_id has both sensor and counter data
+
+    """
+    sensor_columns = {"min", "max", "mean"}
+    counter_columns = {"sum", "state"}
+
+    sensor_ids = []
+    counter_ids = []
+
+    for statistic_id, group in df.groupby("statistic_id", sort=False):
+        has_sensor_data = any(col in group.columns and group[col].notna().any() for col in sensor_columns)
+        has_counter_data = any(col in group.columns and group[col].notna().any() for col in counter_columns)
+
+        if has_sensor_data and has_counter_data:
+            helpers.handle_error(
+                f"Statistic '{statistic_id}' has both sensor (min/max/mean) and counter (sum/state) data. "
+                f"A single statistic_id must be either sensor or counter, not both."
+            )
+
+        if has_sensor_data:
+            sensor_ids.append(statistic_id)
+        elif has_counter_data:
+            counter_ids.append(statistic_id)
+        else:
+            helpers.handle_error(f"Statistic '{statistic_id}' has no value data in any of the expected columns (min, max, mean, sum, state).")
+
+    # Build sensor DataFrame with only sensor columns
+    sensor_df = df[df["statistic_id"].isin(sensor_ids)][["statistic_id", "unit", "start", "min", "max", "mean"]].copy() if sensor_ids else pd.DataFrame()
+
+    # Build counter DataFrame with only counter columns
+    if counter_ids:
+        counter_cols = ["statistic_id", "unit", "start", "sum"]
+        if "state" in df.columns:
+            counter_cols.append("state")
+        counter_df = df[df["statistic_id"].isin(counter_ids)][counter_cols].copy()
+    else:
+        counter_df = pd.DataFrame()
+
+    return sensor_df, counter_df
+
+
+def handle_dataframe_mixed(df: pd.DataFrame) -> dict:
+    """
+    Process a mixed DataFrame containing both sensor and counter statistics.
+
+    Splits the DataFrame by type and processes each part through the existing pipeline.
+
+    Args:
+    ----
+        df: DataFrame with both sensor (min/max/mean) and counter (sum/state) columns
+
+    Returns:
+    -------
+        Dictionary mapping statistic_id to (metadata, statistics_list)
+
+    Raises:
+    ------
+        HomeAssistantError: On validation errors
+
+    """
+    sensor_df, counter_df = split_dataframe_by_type(df)
+    stats: dict = {}
+    if not sensor_df.empty:
+        stats.update(handle_dataframe_no_delta(sensor_df))
+    if not counter_df.empty:
+        stats.update(handle_dataframe_no_delta(counter_df))
+    return stats
 
 
 def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:

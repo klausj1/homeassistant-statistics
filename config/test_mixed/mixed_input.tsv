@@ -1,0 +1,13 @@
+statistic_id	unit	start	min	max	mean	sum	state
+sensor.mixed_test_temp	°C	25.02.2026 10:00	18.5	22.3	20.1
+sensor.mixed_test_temp	°C	25.02.2026 11:00	19.0	23.0	21.0
+sensor.mixed_test_temp	°C	25.02.2026 12:00	17.0	21.0	19.0
+sensor.mixed_test_humidity	%	25.02.2026 10:00	45	55	50
+sensor.mixed_test_humidity	%	25.02.2026 11:00	48	58	53
+sensor.mixed_test_humidity	%	25.02.2026 12:00	50	60	55
+sensor.mixed_test_energy	kWh	25.02.2026 10:00				0	100
+sensor.mixed_test_energy	kWh	25.02.2026 11:00				10	110
+sensor.mixed_test_energy	kWh	25.02.2026 12:00				25	125
+sensor.mixed_test_water	L	25.02.2026 10:00				0	500
+sensor.mixed_test_water	L	25.02.2026 11:00				50	550
+sensor.mixed_test_water	L	25.02.2026 12:00				120	620

@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.1.0] - Mixed-type import support
+
+### Added
+
+#### Mixed-Type Import
+
+- **Mixed-type import support**: A single CSV/TSV/JSON file can now contain both measurement statistics (min/max/mean) and counter statistics (sum/state)
+  - Previously, import files had to be homogeneous — either all sensors or all counters
+  - Mixed files are automatically detected and split by statistic_id before processing
+  - Each entity is classified as sensor or counter based on which value columns contain non-NaN data
+  - Both sub-groups are processed through the existing well-tested pipeline
+- **`ImportDataType` enum**: New enum (`SENSOR`, `COUNTER`, `MIXED`, `DELTA`) for data type classification and routing in the import pipeline
+- **`split_dataframe_by_type()`**: Groups rows by statistic_id and classifies each entity as sensor or counter
+- **`handle_dataframe_mixed()`**: Splits a mixed DataFrame then processes each part through the existing `handle_dataframe_no_delta()`
+
+#### Tests
+
+- **Unit tests**: Tests for `split_dataframe_by_type()`, `handle_dataframe_mixed()`, mixed column validation, and `ImportDataType` detection
+- **Mock integration tests**: End-to-end import tests with mixed CSV/TSV and JSON files using mocked Home Assistant
+- **Real HA integration test**: Mixed import test against a running Home Assistant instance
+
+### Notes
+
+- Delta column remains incompatible with mixed imports — a file with a `delta` column cannot also contain `min`, `max`, `mean`, `sum`, or `state` columns
+
 ## [5.0.2]
 
 ### Bug Fixes

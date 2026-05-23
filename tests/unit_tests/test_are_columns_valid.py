@@ -33,13 +33,9 @@ def test_are_columns_valid_missing_optional_columns() -> None:
 
 
 def test_are_columns_valid_invalid_columns_combination() -> None:
-    """Test the are_columns_valid function with invalid combination of columns."""
+    """Test the are_columns_valid function with mixed sensor and counter columns (now accepted)."""
     my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "mean", "sum"])
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'"),
-    ):
-        are_columns_valid(my_df)
+    assert are_columns_valid(my_df)
 
 
 def test_are_columns_valid_unknown_columns_rejected() -> None:
