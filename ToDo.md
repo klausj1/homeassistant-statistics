@@ -1,5 +1,9 @@
 # ToDos
 
+## Now
+
+- Check I-Test when manipulating input files, esp. with errors
+
 ## Bugs
 
 Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the unit matches
