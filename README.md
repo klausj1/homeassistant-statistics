@@ -12,7 +12,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 ## Quick Links
 
 - [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
-- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Inventory Categories](./docs/user/export_inventory_categories.md)
+- [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Inventory Categories](./docs/user/export_inventory_categories.md) | [Energy Dashboard](./docs/user/energy-dashboard.md)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
 This is the user guide. If you are a developer, check the [Developer Documentation](./docs/dev/README.md).
