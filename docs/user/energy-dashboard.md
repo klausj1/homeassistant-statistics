@@ -85,7 +85,6 @@ After saving the file, restart Home Assistant. The statistics will appear in the
 
 - Use **`"type": "grid"`** for electricity consumption — not `"type": "electricity"` (which is invalid)
 - External statistics **cannot have a custom display name** — the UI will show the raw statistic ID (e.g. `my_source:electricity_total`)
-- Adding or removing sources from the Energy Dashboard does **not** delete the statistics from the database
 - You can verify the import worked via **Developer Tools → Statistics** — search for your statistic ID prefix
 
 ---
@@ -124,3 +123,5 @@ actions:
       datetime_format: "%Y-%m-%d %H:%M"
 mode: single
 ```
+
+This of course expects the CSV files to have been updated beforehand (daily)!
