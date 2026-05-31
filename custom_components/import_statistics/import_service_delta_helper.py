@@ -178,7 +178,7 @@ def convert_deltas_with_newer_reference(
     return converted_rows
 
 
-def handle_dataframe_delta(df: pd.DataFrame, references: dict, unit_class: str | None = None) -> dict:
+def handle_dataframe_delta(df: pd.DataFrame, references: dict, unit_class: str | None = None, name: str | None = None) -> dict:
     """
     Process delta statistics from DataFrame using pre-fetched references.
 
@@ -278,7 +278,7 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict, unit_class: str |
             "has_sum": True,
             "source": source,
             "statistic_id": statistic_id,
-            "name": None,
+            "name": name,
             "unit_class": unit_class,
             "unit_of_measurement": unit,
         }

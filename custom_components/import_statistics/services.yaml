@@ -8,6 +8,12 @@ import_from_file:
       selector:
         text:
 
+    name:
+      required: false
+      example: "Energy Provider (Gas)"
+      selector:
+        text:
+
     define_import_format:
       collapsed: false
       fields:

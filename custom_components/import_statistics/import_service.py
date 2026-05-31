@@ -204,6 +204,7 @@ class PreparedImportData:
     datetime_format: str
     is_delta: bool
     unit_class: str | None
+    name: str | None = None
 
 
 async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None:
@@ -221,10 +222,10 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None
     if data.is_delta:
         _LOGGER.info("Delta mode detected, fetching references from database")
         references = await prepare_delta_handling(hass, data.df)
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, references, data.unit_class))
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, references, data.unit_class, data.name))
     else:
         _LOGGER.info("Non-delta mode, processing directly")
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df, data.unit_class))
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df, data.unit_class, data.name))
 
     await import_stats(hass, stats)
 
@@ -241,8 +242,9 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 
     _LOGGER.info("Preparing data for import ...")
     df, timezone_id, datetime_format, is_delta, unit_class = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
+    name: str | None = call.data.get("name") or None
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta, unit_class))
+    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta, unit_class, name))
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -254,8 +256,9 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
 
     _LOGGER.info("Preparing data for import")
     df, timezone_id, datetime_format, is_delta, unit_class = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
+    name: str | None = call.data.get("name") or None
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta, unit_class))
+    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta, unit_class, name))
 
 
 async def import_stats(hass: HomeAssistant, stats: dict) -> None:

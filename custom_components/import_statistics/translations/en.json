@@ -26,6 +26,10 @@
                 "unit_class": {
                     "name": "unit_class",
                     "description": "Optional unit class for Energy Dashboard compatibility. Required for external statistics (with ':' in the ID) to appear in the Energy Dashboard. Common values: 'energy' (kWh), 'volume' (m³), 'power', 'temperature'."
+                },
+                "name": {
+                    "name": "name",
+                    "description": "Optional friendly display name for the statistic, stored in the database and shown by the Home Assistant frontend (Energy Dashboard, Statistics Graph card) for external statistics. Applies to all statistic IDs in the imported file."
                 }
             },
             "name": "Import statistics from file"

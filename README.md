@@ -88,6 +88,10 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
   - Required for external statistics (with `:` in the ID) to appear in the Energy Dashboard.
   - Common values: `energy` (for kWh, electricity/gas), `volume` (for water/m³), `power`, `temperature`.
   - See [Home Assistant documentation](https://developers.home-assistant.io/blog/2025/10/16/recorder-statistics-api-changes/) for more details.
+- **`name` (optional)**
+  - Friendly display name for the statistic, stored in the database and shown by the Home Assistant frontend (Energy Dashboard, Statistics Graph card) for external statistics.
+  - Applies to all `statistic_id`s in the imported file.
+  - Re-importing with a `name` updates the stored name immediately (no deletion required).
 
 > **Important:** Input files **must** contain a `unit` column with the unit of measurement for each statistic. For existing statistics, the unit in the input file must match the unit already stored in Home Assistant's database, otherwise the import will fail with an error.
 >
@@ -133,7 +137,7 @@ data:
 
 ##### Import for Energy Dashboard (external statistics)
 
-Use `unit_class` to enable external statistics in the Energy Dashboard:
+Use `unit_class` to enable external statistics in the Energy Dashboard, and `name` to set the display label:
 
 ```yaml
 # Electricity import (external statistic with : in ID)
@@ -144,6 +148,7 @@ data:
   decimal: "."
   datetime_format: "%Y-%m-%d %H:%M"
   unit_class: energy  # Required for Energy Dashboard
+  name: Energy Provider (Electricity)  # Optional: friendly name shown in the frontend
 ```
 
 ```yaml
@@ -155,6 +160,7 @@ data:
   decimal: "."
   datetime_format: "%Y-%m-%d %H:%M"
   unit_class: volume  # Required for Energy Dashboard
+  name: Energy Provider (Water)  # Optional: friendly name shown in the frontend
 ```
 
 > **Note:** The `statistic_id` in your CSV file must use the external format (`domain:name` with `:`) for `unit_class` to work properly. Example: `sensor:imported_electricity`.

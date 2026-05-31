@@ -341,7 +341,7 @@ def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | Non
     return decimal, timezone_identifier, delimiter, datetime_format, unit_class
 
 
-def handle_dataframe_no_delta(df: pd.DataFrame, unit_class: str | None = None) -> dict:
+def handle_dataframe_no_delta(df: pd.DataFrame, unit_class: str | None = None, name: str | None = None) -> dict:
     """
     Process non-delta statistics from DataFrame.
 
@@ -349,6 +349,7 @@ def handle_dataframe_no_delta(df: pd.DataFrame, unit_class: str | None = None) -
     ----
         df: DataFrame with statistic_id, start, and value columns
         unit_class: Optional unit_class for energy dashboard support
+        name: Optional display name applied to all statistics in the DataFrame
 
     Returns:
     -------
@@ -396,8 +397,8 @@ def handle_dataframe_no_delta(df: pd.DataFrame, unit_class: str | None = None) -
 
     for statistic_id in unique_ids:
         # Get unit from first occurrence of this statistic_id
-        unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
-        unit: str = unit_series.iloc[0]  # type: ignore[assignment]
+        first_row = df.loc[df["statistic_id"] == statistic_id].iloc[0]
+        unit: str = first_row["unit"]  # type: ignore[assignment]
         source = helpers.get_source(statistic_id)
 
         metadata = {
@@ -405,7 +406,7 @@ def handle_dataframe_no_delta(df: pd.DataFrame, unit_class: str | None = None) -
             "has_sum": has_sum,
             "source": source,
             "statistic_id": statistic_id,
-            "name": None,
+            "name": name,
             "unit_class": unit_class,
             "unit_of_measurement": helpers.get_unit_from_row(unit, statistic_id),
         }
