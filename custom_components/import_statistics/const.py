@@ -13,6 +13,7 @@ ATTR_ENTITIES = "entities"
 ATTR_DELTA = "delta"
 ATTR_SPLIT_BY = "split_by"
 ATTR_COUNTER_FIELDS = "counter_fields"
+ATTR_UNIT_CLASS = "unit_class"
 
 TESTFILEPATHS = "tests/testfiles/"
 

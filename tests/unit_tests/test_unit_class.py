@@ -27,7 +27,7 @@ def test_unit_class_present_in_metadata_mean() -> None:
     # Parse timestamps (simulating what prepare_data_to_import does)
     my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
 
-    # Call the function
+    # Call the function without unit_class (default None)
     stats = handle_dataframe_no_delta(my_df)
 
     # Get the metadata for the statistic
@@ -66,7 +66,7 @@ def test_unit_class_present_in_metadata_sum() -> None:
     # Parse timestamps (simulating what prepare_data_to_import does)
     my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
 
-    # Call the function
+    # Call the function without unit_class (default None)
     stats = handle_dataframe_no_delta(my_df)
 
     # Get the metadata for the statistic
@@ -107,7 +107,7 @@ def test_unit_class_multiple_statistics() -> None:
     # Parse timestamps (simulating what prepare_data_to_import does)
     my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
 
-    # Call the function
+    # Call the function without unit_class (default None)
     stats = handle_dataframe_no_delta(my_df)
 
     # Verify all statistics have unit_class set to None
@@ -116,3 +116,77 @@ def test_unit_class_multiple_statistics() -> None:
         metadata = stats[stat_id][0]
         assert "unit_class" in metadata, f"unit_class field is missing for {stat_id}"
         assert metadata["unit_class"] is None, f"unit_class should be None for {stat_id}, got {metadata['unit_class']}"
+
+
+def test_unit_class_set_to_energy() -> None:
+    """
+    Test that unit_class field is set to "energy" when provided.
+
+    This test verifies that the unit_class field is properly set to "energy"
+    when the unit_class parameter is provided, which is needed for energy dashboard support.
+    """
+    # Create a sample dataframe with 'sum' (energy data)
+    my_df = pd.DataFrame(
+        [
+            ["sensor:external_energy", "01.01.2022 00:00", "kWh", 100],
+        ],
+        columns=["statistic_id", "start", "unit", "sum"],
+    )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
+    # Call the function with unit_class set to "energy"
+    stats = handle_dataframe_no_delta(my_df, unit_class="energy")
+
+    # Get the metadata for the statistic
+    metadata = stats["sensor:external_energy"][0]
+
+    # Verify unit_class is present and set to "energy"
+    assert "unit_class" in metadata, "unit_class field is missing from metadata"
+    assert metadata["unit_class"] == "energy", f"unit_class should be 'energy', got {metadata['unit_class']}"
+
+    # Verify other expected fields are present
+    assert metadata["mean_type"] == StatisticMeanType.NONE
+    assert metadata["has_sum"] is True
+    assert metadata["statistic_id"] == "sensor:external_energy"
+    assert metadata["source"] == "sensor"  # External statistics use domain as source
+    assert metadata["unit_of_measurement"] == "kWh"
+    assert metadata["name"] is None
+
+
+def test_unit_class_set_to_power() -> None:
+    """
+    Test that unit_class field is set to "power" when provided.
+
+    This test verifies that the unit_class field is properly set to "power"
+    when the unit_class parameter is provided.
+    """
+    # Create a sample dataframe with 'mean' (power data)
+    my_df = pd.DataFrame(
+        [
+            ["sensor:external_power", "01.01.2022 00:00", "W", 10, 500, 250],
+        ],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean"],
+    )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
+    # Call the function with unit_class set to "power"
+    stats = handle_dataframe_no_delta(my_df, unit_class="power")
+
+    # Get the metadata for the statistic
+    metadata = stats["sensor:external_power"][0]
+
+    # Verify unit_class is present and set to "power"
+    assert "unit_class" in metadata, "unit_class field is missing from metadata"
+    assert metadata["unit_class"] == "power", f"unit_class should be 'power', got {metadata['unit_class']}"
+
+    # Verify other expected fields are present
+    assert metadata["mean_type"] == StatisticMeanType.ARITHMETIC
+    assert metadata["has_sum"] is False
+    assert metadata["statistic_id"] == "sensor:external_power"
+    assert metadata["source"] == "sensor"
+    assert metadata["unit_of_measurement"] == "W"
+    assert metadata["name"] is None

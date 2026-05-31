@@ -22,6 +22,10 @@
                 "datetime_format": {
                     "name": "datetime_format",
                     "description": "The format of the datetime strings in the imported file. Default is '%d.%m.%Y %H:%M'. d .. day, m .. month, y .. Year, H .. hour, M .. minute"
+                },
+                "unit_class": {
+                    "name": "unit_class",
+                    "description": "Optional unit class for Energy Dashboard compatibility. Required for external statistics (with ':' in the ID) to appear in the Energy Dashboard. Common values: 'energy' (kWh), 'volume' (m³), 'power', 'temperature'."
                 }
             },
             "name": "Import statistics from file"

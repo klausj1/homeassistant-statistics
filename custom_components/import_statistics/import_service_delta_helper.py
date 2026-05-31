@@ -178,7 +178,7 @@ def convert_deltas_with_newer_reference(
     return converted_rows
 
 
-def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
+def handle_dataframe_delta(df: pd.DataFrame, references: dict, unit_class: str | None = None) -> dict:
     """
     Process delta statistics from DataFrame using pre-fetched references.
 
@@ -188,8 +188,6 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
     Args:
     ----
         df: DataFrame with delta column
-        timezone_identifier: User's timezone
-        datetime_format: Datetime format string
         references: Dict mapping statistic_id to reference data:
                    {
                        statistic_id: {
@@ -197,6 +195,7 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
                            "ref_type": DeltaReferenceType.OLDER_REFERENCE or DeltaReferenceType.NEWER_REFERENCE
                        } or None
                    }
+        unit_class: Optional unit_class for energy dashboard support
 
     Returns:
     -------
@@ -280,7 +279,7 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
             "source": source,
             "statistic_id": statistic_id,
             "name": None,
-            "unit_class": None,
+            "unit_class": unit_class,
             "unit_of_measurement": unit,
         }
 

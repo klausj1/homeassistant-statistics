@@ -83,6 +83,11 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
 - **`timezone_identifier` (optional)**
   - Defaults to Home Assistant's configured timezone if omitted. Typically can be left empty.
   - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>).
+- **`unit_class` (optional)**
+  - Sets the unit class for Energy Dashboard compatibility.
+  - Required for external statistics (with `:` in the ID) to appear in the Energy Dashboard.
+  - Common values: `energy` (for kWh, electricity/gas), `volume` (for water/m³), `power`, `temperature`.
+  - See [Home Assistant documentation](https://developers.home-assistant.io/blog/2025/10/16/recorder-statistics-api-changes/) for more details.
 
 > **Important:** Input files **must** contain a `unit` column with the unit of measurement for each statistic. For existing statistics, the unit in the input file must match the unit already stored in Home Assistant's database, otherwise the import will fail with an error.
 >
@@ -125,6 +130,34 @@ action: import_statistics.import_from_json
 data:
   statistics: <JSON content>
 ```
+
+##### Import for Energy Dashboard (external statistics)
+
+Use `unit_class` to enable external statistics in the Energy Dashboard:
+
+```yaml
+# Electricity import (external statistic with : in ID)
+action: import_statistics.import_from_file
+data:
+  filename: electricity_data.csv
+  delimiter: ","
+  decimal: "."
+  datetime_format: "%Y-%m-%d %H:%M"
+  unit_class: energy  # Required for Energy Dashboard
+```
+
+```yaml
+# Water import (external statistic with : in ID)
+action: import_statistics.import_from_file
+data:
+  filename: water_data.csv
+  delimiter: ","
+  decimal: "."
+  datetime_format: "%Y-%m-%d %H:%M"
+  unit_class: volume  # Required for Energy Dashboard
+```
+
+> **Note:** The `statistic_id` in your CSV file must use the external format (`domain:name` with `:`) for `unit_class` to work properly. Example: `sensor:imported_electricity`.
 
 ### File Format Requirements
 

@@ -126,6 +126,28 @@ For more details regarding long term statistics, see
 
 ---
 
+### Energy Dashboard Integration
+
+To use imported external statistics (with `:` in the statistic ID, e.g., `sensor:imported_energy`) in the Energy Dashboard, you must set the `unit_class` parameter during import:
+
+```yaml
+action: import_statistics.import_from_file
+data:
+  filename: electricity_data.csv
+  delimiter: ","
+  decimal: "."
+  unit_class: energy  # Required for Energy Dashboard
+```
+
+Common `unit_class` values for counters:
+- `energy` - For electricity/gas consumption in kWh
+- `volume` - For water consumption in m³
+- `power` - For power measurements in W
+
+Without `unit_class`, external statistics will not appear in the Energy Dashboard dropdown menus.
+
+---
+
 ## Delta Import
 
 Instead of importing absolute `sum`/`state` values, you can import **delta** values (the change per hour). This is useful because you

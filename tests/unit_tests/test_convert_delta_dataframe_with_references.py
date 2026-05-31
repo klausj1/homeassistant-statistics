@@ -43,6 +43,7 @@ def test_convert_delta_dataframe_with_references_single_statistic() -> None:
     metadata, stats = result["sensor.temperature"]
     assert metadata["has_sum"] is True
     assert metadata["mean_type"].value == 0  # NONE
+    assert metadata["unit_class"] is None  # Default None
     assert len(stats) == 2
     assert stats[0]["sum"] == 110.5
     assert stats[1]["sum"] == 115.7
@@ -87,11 +88,51 @@ def test_convert_delta_dataframe_with_references_multiple_statistics() -> None:
     _energy_meta, energy_stats = result["sensor.energy"]
     assert len(energy_stats) == 2
     assert energy_stats[0]["sum"] == 110.5
+    assert _energy_meta["unit_class"] is None  # Default None
 
     # Check gas
     _gas_meta, gas_stats = result["sensor.gas"]
     assert len(gas_stats) == 2
     assert gas_stats[0]["sum"] == 51.5
+    assert _gas_meta["unit_class"] is None  # Default None
+
+
+def test_convert_delta_dataframe_with_unit_class_energy() -> None:
+    """Test handle_dataframe_delta with unit_class set to energy."""
+    tz_id = "Europe/Vienna"
+    tz = zoneinfo.ZoneInfo(tz_id)
+    datetime_format = "%d.%m.%Y %H:%M"
+
+    df = pd.DataFrame(
+        {
+            "statistic_id": ["sensor:external_energy", "sensor:external_energy"],
+            "start": ["01.01.2022 00:00", "01.01.2022 01:00"],
+            "delta": [10.5, 5.2],
+            "unit": ["kWh", "kWh"],
+        }
+    )
+
+    # Parse timestamps (simulating what prepare_data_to_import does)
+    df["start"] = pd.to_datetime(df["start"], format=datetime_format).dt.tz_localize(tz)
+
+    references = {
+        "sensor:external_energy": {
+            "reference": {"start": dt.datetime(2021, 12, 31, 23, 0, tzinfo=tz), "sum": 100.0, "state": 100.0},
+            "ref_type": DeltaReferenceType.OLDER_REFERENCE,
+        }
+    }
+
+    result = handle_dataframe_delta(df, references, unit_class="energy")
+
+    assert len(result) == 1
+    assert "sensor:external_energy" in result
+    metadata, stats = result["sensor:external_energy"]
+    assert metadata["has_sum"] is True
+    assert metadata["mean_type"].value == 0  # NONE
+    assert metadata["unit_class"] == "energy"  # Set to energy
+    assert len(stats) == 2
+    assert stats[0]["sum"] == 110.5
+    assert stats[1]["sum"] == 115.7
 
 
 def test_convert_delta_dataframe_with_references_missing_reference() -> None:

@@ -55,6 +55,32 @@ import_from_file:
           selector:
             text:
 
+    energy_dashboard_settings:
+      collapsed: true
+      fields:
+        unit_class:
+          required: false
+          example: "energy"
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - "energy"
+                - "power"
+                - "volume"
+                - "volume_flow_rate"
+                - "temperature"
+                - "pressure"
+                - "data_rate"
+                - "data_size"
+                - "irradiance"
+                - "humidity"
+                - "precipitation"
+                - "speed"
+                - "signal_strength"
+                - "volatile_organic_substance"
+                - "monetary"
+
 export_statistics:
   fields:
     filename:
