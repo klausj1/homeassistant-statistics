@@ -281,7 +281,7 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
             "source": source,
             "statistic_id": statistic_id,
             "name": None,
-            "unit_class": None,
+            "unit_class": helpers.get_unit_class(unit),
             "unit_of_measurement": unit,
         }
 

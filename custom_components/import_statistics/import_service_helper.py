@@ -506,14 +506,15 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
         unit: str = unit_series.iloc[0]  # type: ignore[assignment]
         source = helpers.get_source(statistic_id)
 
+        unit_of_measurement = helpers.get_unit_from_row(unit, statistic_id)
         metadata = {
             "mean_type": StatisticMeanType.ARITHMETIC if has_mean else StatisticMeanType.NONE,
             "has_sum": has_sum,
             "source": source,
             "statistic_id": statistic_id,
             "name": None,
-            "unit_class": None,
-            "unit_of_measurement": helpers.get_unit_from_row(unit, statistic_id),
+            "unit_class": helpers.get_unit_class(unit_of_measurement),
+            "unit_of_measurement": unit_of_measurement,
         }
         stats[statistic_id] = (metadata, [])
 

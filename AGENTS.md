@@ -115,6 +115,17 @@ pytest -v tests/test_X.py # Run specific test file
 - Called in both `handle_dataframe_no_delta()` and `handle_dataframe_delta()` before metadata construction
 - Prevents silent data corruption where values would be imported with wrong unit metadata
 
+### Unit Class Resolution
+
+[`get_unit_class()`](custom_components/import_statistics/helpers.py:229) resolves the `unit_class` metadata field from a unit string:
+
+- Uses HA's `STATISTIC_UNIT_TO_UNIT_CONVERTER` to find the converter for a unit
+- Reverse-maps the converter to a `unit_class` string via `UNIT_CLASS_TO_UNIT_CONVERTER`
+- Returns `None` for unknown units, empty strings, or `None` input
+- Module-level `_CONVERTER_TO_UNIT_CLASS` dict is computed once at import time
+- Required by HA Core 2026.11+ (not specifying `unit_class` is deprecated)
+- Called in both `handle_dataframe_no_delta()` and `handle_dataframe_delta()` during metadata construction
+
 ### Timezone & Datetime Handling
 
 - Use `zoneinfo.ZoneInfo` (Python 3.12 stdlib), NOT `pytz`

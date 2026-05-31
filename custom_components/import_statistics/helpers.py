@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from homeassistant.components.recorder.statistics import valid_statistic_id
+from homeassistant.components.recorder.statistics import STATISTIC_UNIT_TO_UNIT_CONVERTER, UNIT_CLASS_TO_UNIT_CONVERTER, valid_statistic_id
 from homeassistant.core import valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 
@@ -220,6 +220,38 @@ def validate_unit_consistency(unit_series: pd.Series, statistic_id: str) -> None
     if len(normalized_units) > 1:
         display_units = sorted(f"'{u}'" if u is not None else "'(empty)'" for u in normalized_units)
         handle_error(f"Inconsistent units for '{statistic_id}': found {display_units}. All rows for the same statistic_id must have the same unit.")
+
+
+# Build reverse mapping: converter class -> unit_class string (module-level, computed once)
+_CONVERTER_TO_UNIT_CLASS: dict[type, str | None] = {converter: unit_class for unit_class, converter in UNIT_CLASS_TO_UNIT_CONVERTER.items()}
+
+
+def get_unit_class(unit: str | None) -> str | None:
+    """
+    Resolve the unit_class for a given unit of measurement.
+
+    Uses Home Assistant's STATISTIC_UNIT_TO_UNIT_CONVERTER to find the converter
+    for the unit, then reverse-maps it to the unit_class string via
+    UNIT_CLASS_TO_UNIT_CONVERTER.
+
+    Args:
+    ----
+        unit: The unit of measurement string (e.g., "kWh", "°C"), or None
+
+    Returns:
+    -------
+        str | None: The unit_class string (e.g., "energy", "temperature"),
+                    or None if the unit has no compatible converter
+
+    """
+    if unit is None:
+        return None
+
+    converter = STATISTIC_UNIT_TO_UNIT_CONVERTER.get(unit)
+    if converter is None:
+        return None
+
+    return _CONVERTER_TO_UNIT_CLASS.get(converter)
 
 
 def validate_delimiter(delimiter: str | None) -> str:

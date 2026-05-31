@@ -352,7 +352,7 @@ def test_handle_dataframe_multiple_mean() -> None:
                 "statistic_id": "stat1.value",
                 "name": None,
                 "source": "recorder",
-                "unit_class": None,
+                "unit_class": "distance",
                 "unit_of_measurement": "m",
             },
             [
