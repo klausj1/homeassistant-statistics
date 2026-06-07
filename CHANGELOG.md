@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [5.1.0] - Mixed-type import support
+## [5.1.0] - Mixed-type import, unit-class
 
 ### Added
 
@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
 Note:
 
 - Delta column remains incompatible with mixed imports — a file with a `delta` column cannot also contain `min`, `max`, `mean`, `sum`, or `state` columns
+
+#### External statistics can be used in the energy board
+
+- When **importing external statistics**, the unit-class (e.g. energy, power, ...) is set automatically depending on the imported unit. This allows to use external statistics with e.g. unit kWh to use them in the energy board.
 
 ## [5.0.2]
 
