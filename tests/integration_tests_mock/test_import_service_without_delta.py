@@ -693,8 +693,8 @@ class TestStandardImportIntegration:
                 assert pytest.approx(statistics[1]["sum"]) == pytest.approx(105.2)
 
     @pytest.mark.asyncio
-    async def test_import_mixed_sum_and_mean_fails(self) -> None:
-        """Test that mixing sum and mean columns fails validation."""
+    async def test_import_mixed_sum_and_mean_accepted(self) -> None:
+        """Test that mixing sum and mean columns is now accepted for mixed imports."""
         # Create a dataframe with both sum and mean
         df = pd.DataFrame(
             {
@@ -706,9 +706,8 @@ class TestStandardImportIntegration:
             }
         )
 
-        # Should raise error when both sum and mean are present
-        with pytest.raises(HomeAssistantError):
-            are_columns_valid(df)
+        # Mixed columns are now accepted (no error raised)
+        assert are_columns_valid(df)
 
     @pytest.mark.asyncio
     async def test_import_missing_required_columns(self) -> None:

@@ -11,7 +11,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 
 ## Quick Links
 
-- [Installation](#installation) | [Importing](#importing-statistics) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
+- [Installation](#installation) | [Importing](#importing-statistics) | [Mixed Import](#mixed-import) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Inventory Categories](./docs/user/export_inventory_categories.md)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
@@ -128,10 +128,11 @@ data:
 
 ### File Format Requirements
 
-Your file must contain one type of statistics:
+Your file can contain one or both types of statistics:
 
-- **Measurements (state_class == measurement or measurement_angle)** (temperature, humidity, direction,etc.): columns `min`, `max`, `mean`
+- **Measurements (state_class == measurement or measurement_angle)** (temperature, humidity, direction, etc.): columns `min`, `max`, `mean`
 - **Counters (state_class == total or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
+- **Mixed files**: A single file can contain both measurement and counter rows (see [Mixed Import](#mixed-import) below). However, delta cannot be mixed with measurements.
 
 > **Before importing counters, make sure to read** [Understanding counter statistics in Home Assistant](./docs/user/counters.md)
 > For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Delta Import](./docs/user/counters.md#delta-import)
@@ -146,14 +147,14 @@ Example files:
 
 Only these columns are accepted (unknown columns cause an error):
 
-| Column               | Required          | Description                          |
-| -------------------- | ----------------- | ------------------------------------ |
-| `statistic_id`       | Yes               | The entity identifier                |
-| `start`              | Yes               | Timestamp                            |
-| `unit`               | Sometimes         | Required for external statistics     |
-| `min`, `max`, `mean` | For measurements  | Cannot mix with counter columns      |
-| `sum`, `state`       | For counters      | Cannot mix with measurement columns  |
-| `delta`              | For counters      | Alternative to sum/state (see below) |
+| Column               | Required          | Description                                          |
+| -------------------- | ----------------- | ---------------------------------------------------- |
+| `statistic_id`       | Yes               | The entity identifier                                |
+| `start`              | Yes               | Timestamp                                            |
+| `unit`               | Sometimes         | Required for external statistics                     |
+| `min`, `max`, `mean` | For measurements  | Can coexist with counter columns in mixed files      |
+| `sum`, `state`       | For counters      | Can coexist with measurement columns in mixed files  |
+| `delta`              | For counters      | Alternative to sum/state; cannot be used in mixed files |
 
 #### Statistic ID Format
 
@@ -191,6 +192,7 @@ The integration performs strict validation on all import data:
   - Invalid numeric values (non-numeric strings, NaN, empty values)
   - Constraint violations (e.g., min > max for measurement data)
   - Missing required columns
+  - Inconsistent units for the same `statistic_id` across rows in the import file
 
 This strict validation ensures data integrity and helps you identify and fix data quality issues immediately.
 
@@ -208,6 +210,55 @@ Content-Type: application/json
 
 <JSON content>
 ```
+
+### Mixed Import
+
+Since v5.1.0, a single file can contain **both measurement and counter statistics**. This is useful when you want to import data for different types of sensors in one operation.
+
+#### Rules for Mixed Files
+
+- Each `statistic_id` must be consistently one type — a single entity cannot have measurement values in some rows and counter values in others
+- Measurement rows provide `min`, `max`, `mean` and leave `sum`/`state` empty
+- Counter rows provide `sum`/`state` and leave `min`/`max`/`mean` empty
+- The `delta` column **cannot** be used in mixed files — delta files must contain only delta data
+- No new service parameters are needed; the same `import_from_file` and `import_from_json` actions work as before
+
+#### Mixed CSV/TSV Example
+
+```tsv
+statistic_id	start	unit	mean	min	max	sum	state
+sensor.temperature	01.01.2024 00:00	°C	20.5	18.0	23.0
+sensor.temperature	01.01.2024 01:00	°C	21.0	19.0	24.0
+sensor.energy	01.01.2024 00:00	kWh			100.5	100.5
+sensor.energy	01.01.2024 01:00	kWh			105.2	105.2
+```
+
+> Measurement rows (`sensor.temperature`) have values in `mean`/`min`/`max` with empty `sum`/`state`. Counter rows (`sensor.energy`) have values in `sum`/`state` with empty `mean`/`min`/`max`.
+
+#### Mixed JSON Example
+
+```json
+[
+  {
+    "statistic_id": "sensor.temperature",
+    "unit": "°C",
+    "values": [
+      {"start": "01.01.2024 00:00", "mean": 20.5, "min": 18.0, "max": 23.0},
+      {"start": "01.01.2024 01:00", "mean": 21.0, "min": 19.0, "max": 24.0}
+    ]
+  },
+  {
+    "statistic_id": "sensor.energy",
+    "unit": "kWh",
+    "values": [
+      {"start": "01.01.2024 00:00", "sum": 100.5, "state": 100.5},
+      {"start": "01.01.2024 01:00", "sum": 105.2, "state": 105.2}
+    ]
+  }
+]
+```
+
+> In JSON format, each entity object specifies its own fields — sensor entities use `mean`/`min`/`max`, counter entities use `sum`/`state`.
 
 ---
 
@@ -361,7 +412,7 @@ The exported file contains:
 | -------------------- | ----------------------- |
 | `min`, `max`, `mean` | `sum`, `state`, `delta` |
 
-> **Note:** You can export measurements and counters together, but you'll need to split them into separate files before re-importing (import only accepts one type per file).
+> **Note:** You can export measurements and counters together. The exported file can be re-imported directly as long as the delta-column is not exported — mixed files with both measurement and counter data are supported since v5.1.0.
 
 ---
 

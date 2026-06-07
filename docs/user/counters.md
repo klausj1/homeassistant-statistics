@@ -7,6 +7,8 @@ There are two types of statistics:
 - measurement type with a state_class `measurement` or `measurement_angle`
 - counter type with a state_class `total` or `total_increasing`
 
+> **Tip:** Since v5.1.0, a single import file can contain both measurement and counter statistics. See [Mixed Import](../../README.md#mixed-import) in the main README for details. Note that the `delta` column cannot be used in mixed files.
+
 Counter statistics (like energy meters) are more complex than measurement statistics. Here's what you need to know:
 
 ### What are `sum` and `state`?

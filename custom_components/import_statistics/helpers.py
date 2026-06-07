@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from homeassistant.components.recorder.statistics import valid_statistic_id
+from homeassistant.components.recorder.statistics import STATISTIC_UNIT_TO_UNIT_CONVERTER, UNIT_CLASS_TO_UNIT_CONVERTER, valid_statistic_id
 from homeassistant.core import valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 
@@ -113,15 +113,10 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
 
     # Check for value column requirements and incompatible combinations
     has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
-    has_sum_state = "sum" in columns or "state" in columns
 
-    if has_delta:
-        # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
-        if "sum" in columns or "state" in columns or has_mean_min_max:
-            handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns")
-    # Non-delta: cannot mix mean/min/max with sum/state
-    elif has_mean_min_max and has_sum_state:
-        handle_error("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'")
+    # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
+    if has_delta and ("sum" in columns or "state" in columns or has_mean_min_max):
+        handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns")
 
     # Define allowed columns based on data type - unit is always allowed
     allowed_columns = {"statistic_id", "start", "unit", "delta"} if has_delta else {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state"}
@@ -195,6 +190,68 @@ def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
 
     # Return the normalized unit (non-empty string)
     return unit_str
+
+
+def validate_unit_consistency(unit_series: pd.Series, statistic_id: str) -> None:
+    """
+    Validate that all unit values for a single statistic_id are consistent.
+
+    Normalizes all unique unit values using get_unit_from_row() and checks
+    that only one distinct unit remains. This prevents silent data corruption
+    when the same statistic_id has different units across rows.
+
+    Args:
+    ----
+        unit_series: pandas Series of raw unit values for a single statistic_id
+        statistic_id: The statistic_id string (for error messages)
+
+    Raises:
+    ------
+        HomeAssistantError: If more than one distinct normalized unit is found
+
+    """
+    unique_raw_units = unit_series.unique()
+    normalized_units: set[str | None] = set()
+
+    for raw_unit in unique_raw_units:
+        normalized = get_unit_from_row(raw_unit, statistic_id)
+        normalized_units.add(normalized)
+
+    if len(normalized_units) > 1:
+        display_units = sorted(f"'{u}'" if u is not None else "'(empty)'" for u in normalized_units)
+        handle_error(f"Inconsistent units for '{statistic_id}': found {display_units}. All rows for the same statistic_id must have the same unit.")
+
+
+# Build reverse mapping: converter class -> unit_class string (module-level, computed once)
+_CONVERTER_TO_UNIT_CLASS: dict[type, str | None] = {converter: unit_class for unit_class, converter in UNIT_CLASS_TO_UNIT_CONVERTER.items()}
+
+
+def get_unit_class(unit: str | None) -> str | None:
+    """
+    Resolve the unit_class for a given unit of measurement.
+
+    Uses Home Assistant's STATISTIC_UNIT_TO_UNIT_CONVERTER to find the converter
+    for the unit, then reverse-maps it to the unit_class string via
+    UNIT_CLASS_TO_UNIT_CONVERTER.
+
+    Args:
+    ----
+        unit: The unit of measurement string (e.g., "kWh", "°C"), or None
+
+    Returns:
+    -------
+        str | None: The unit_class string (e.g., "energy", "temperature"),
+                    or None if the unit has no compatible converter
+
+    """
+    if unit is None:
+        return None
+
+    converter = STATISTIC_UNIT_TO_UNIT_CONVERTER.get(unit)
+    if converter is None:
+        return None
+
+    return _CONVERTER_TO_UNIT_CLASS.get(converter)
 
 
 def validate_delimiter(delimiter: str | None) -> str:

@@ -18,6 +18,8 @@ from custom_components.import_statistics.delta_database_access import (
 from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, handle_error, is_not_in_future
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
+    ImportDataType,
+    handle_dataframe_mixed,
     handle_dataframe_no_delta,
     prepare_data_to_import,
     prepare_json_data_to_import,
@@ -202,7 +204,7 @@ class PreparedImportData:
     df: Any
     timezone_id: str
     datetime_format: str
-    is_delta: bool
+    data_type: Any
 
 
 async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None:
@@ -217,10 +219,13 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None
         data: Prepared import data containing DataFrame and settings
 
     """
-    if data.is_delta:
+    if data.data_type == ImportDataType.DELTA:
         _LOGGER.info("Delta mode detected, fetching references from database")
         references = await prepare_delta_handling(hass, data.df)
         stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, references))
+    elif data.data_type == ImportDataType.MIXED:
+        _LOGGER.info("Mixed mode detected, splitting by statistic type")
+        stats = await hass.async_add_executor_job(lambda: handle_dataframe_mixed(data.df))
     else:
         _LOGGER.info("Non-delta mode, processing directly")
         stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df))
@@ -239,9 +244,9 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import ...")
-    df, timezone_id, datetime_format, is_delta = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
+    df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta))
+    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -252,9 +257,9 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import")
-    df, timezone_id, datetime_format, is_delta = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
+    df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, is_delta))
+    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
 
 
 async def import_stats(hass: HomeAssistant, stats: dict) -> None:

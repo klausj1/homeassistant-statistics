@@ -6,15 +6,16 @@ import pandas as pd
 from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
+from custom_components.import_statistics.helpers import get_unit_class
 from custom_components.import_statistics.import_service_helper import handle_dataframe_no_delta
 
 
 def test_unit_class_present_in_metadata_mean() -> None:
     """
-    Test that unit_class field is present and set to None in metadata for mean statistics.
+    Test that unit_class field is present and correctly resolved for mean statistics.
 
-    This test verifies that the metadata dictionary includes the unit_class field
-    and that it is set to None when creating statistics from data with mean values.
+    Verifies that the metadata dictionary includes the unit_class field
+    and that it is resolved from the unit of measurement (°C -> temperature).
     """
     # Create a sample dataframe with 'mean'
     my_df = pd.DataFrame(
@@ -33,11 +34,9 @@ def test_unit_class_present_in_metadata_mean() -> None:
     # Get the metadata for the statistic
     metadata = stats["stat1.temp"][0]
 
-    # Verify unit_class is present
+    # Verify unit_class is present and correctly resolved
     assert "unit_class" in metadata, "unit_class field is missing from metadata"
-
-    # Verify unit_class is None
-    assert metadata["unit_class"] is None, f"unit_class should be None, got {metadata['unit_class']}"
+    assert metadata["unit_class"] == "temperature", f"unit_class should be 'temperature', got {metadata['unit_class']}"
 
     # Verify other expected fields are present
     assert metadata["mean_type"] == StatisticMeanType.ARITHMETIC
@@ -50,10 +49,10 @@ def test_unit_class_present_in_metadata_mean() -> None:
 
 def test_unit_class_present_in_metadata_sum() -> None:
     """
-    Test that unit_class field is present and set to None in metadata for sum statistics.
+    Test that unit_class field is present and correctly resolved for sum statistics.
 
-    This test verifies that the metadata dictionary includes the unit_class field
-    and that it is set to None when creating statistics from data with sum values.
+    Verifies that the metadata dictionary includes the unit_class field
+    and that it is resolved from the unit of measurement (kWh -> energy).
     """
     # Create a sample dataframe with 'sum'
     my_df = pd.DataFrame(
@@ -72,11 +71,9 @@ def test_unit_class_present_in_metadata_sum() -> None:
     # Get the metadata for the statistic
     metadata = stats["stat2.energy"][0]
 
-    # Verify unit_class is present
+    # Verify unit_class is present and correctly resolved
     assert "unit_class" in metadata, "unit_class field is missing from metadata"
-
-    # Verify unit_class is None
-    assert metadata["unit_class"] is None, f"unit_class should be None, got {metadata['unit_class']}"
+    assert metadata["unit_class"] == "energy", f"unit_class should be 'energy', got {metadata['unit_class']}"
 
     # Verify other expected fields are present
     assert metadata["mean_type"] == StatisticMeanType.NONE
@@ -89,9 +86,9 @@ def test_unit_class_present_in_metadata_sum() -> None:
 
 def test_unit_class_multiple_statistics() -> None:
     """
-    Test that unit_class field is set to None for multiple statistics.
+    Test that unit_class field is correctly resolved for multiple statistics.
 
-    This test verifies that the unit_class field is properly set to None
+    Verifies that the unit_class field is properly resolved from the unit
     for each statistic when processing multiple different statistics.
     """
     # Create a sample dataframe with multiple statistics with mean values
@@ -110,9 +107,91 @@ def test_unit_class_multiple_statistics() -> None:
     # Call the function
     stats = handle_dataframe_no_delta(my_df)
 
-    # Verify all statistics have unit_class set to None
-    for stat_id in ["sensor.temperature", "sensor.humidity", "sensor.pressure"]:
+    # Verify all statistics have correct unit_class
+    expected_unit_classes = {
+        "sensor.temperature": "temperature",
+        "sensor.humidity": "unitless",
+        "sensor.pressure": "pressure",
+    }
+    for stat_id, expected_class in expected_unit_classes.items():
         assert stat_id in stats, f"Statistic {stat_id} not found in results"
         metadata = stats[stat_id][0]
         assert "unit_class" in metadata, f"unit_class field is missing for {stat_id}"
-        assert metadata["unit_class"] is None, f"unit_class should be None for {stat_id}, got {metadata['unit_class']}"
+        assert metadata["unit_class"] == expected_class, f"unit_class should be '{expected_class}' for {stat_id}, got {metadata['unit_class']}"
+
+
+def test_unit_class_none_for_unknown_unit() -> None:
+    """
+    Test that unit_class is None for units not in HA's converter registry.
+
+    Units like custom strings that don't map to any HA unit converter
+    should result in unit_class=None.
+    """
+    my_df = pd.DataFrame(
+        [
+            ["sensor.custom", "01.01.2022 00:00", "bananas", 1, 5, 3],
+        ],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean"],
+    )
+
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
+    stats = handle_dataframe_no_delta(my_df)
+    metadata = stats["sensor.custom"][0]
+
+    assert "unit_class" in metadata, "unit_class field is missing from metadata"
+    assert metadata["unit_class"] is None, f"unit_class should be None for unknown unit, got {metadata['unit_class']}"
+
+
+def test_unit_class_none_for_empty_unit() -> None:
+    """
+    Test that unit_class is None when unit is empty/None.
+
+    Statistics with no unit should have unit_class=None.
+    """
+    my_df = pd.DataFrame(
+        [
+            ["sensor.unitless", "01.01.2022 00:00", "", 1, 5, 3],
+        ],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean"],
+    )
+
+    my_df["start"] = pd.to_datetime(my_df["start"], format=DATETIME_DEFAULT_FORMAT).dt.tz_localize(ZoneInfo("UTC"))
+
+    stats = handle_dataframe_no_delta(my_df)
+    metadata = stats["sensor.unitless"][0]
+
+    assert "unit_class" in metadata, "unit_class field is missing from metadata"
+    assert metadata["unit_class"] is None, f"unit_class should be None for empty unit, got {metadata['unit_class']}"
+
+
+def test_get_unit_class_direct() -> None:
+    """Test get_unit_class helper function directly with various units."""
+    # Known HA units
+    assert get_unit_class("°C") == "temperature"
+    assert get_unit_class("°F") == "temperature"
+    assert get_unit_class("K") == "temperature"
+    assert get_unit_class("kWh") == "energy"
+    assert get_unit_class("Wh") == "energy"
+    assert get_unit_class("W") == "power"
+    assert get_unit_class("kW") == "power"
+    assert get_unit_class("hPa") == "pressure"
+    assert get_unit_class("bar") == "pressure"
+    assert get_unit_class("m") == "distance"
+    assert get_unit_class("km") == "distance"
+    assert get_unit_class("L") == "volume"
+    assert get_unit_class("m³") == "volume"
+    assert get_unit_class("A") == "electric_current"
+    assert get_unit_class("V") == "voltage"
+    assert get_unit_class("kg") == "mass"
+    assert get_unit_class("%") == "unitless"
+    assert get_unit_class("s") == "duration"
+    assert get_unit_class("min") == "duration"
+
+    # Unknown units -> None
+    assert get_unit_class("bananas") is None
+    assert get_unit_class("custom_unit") is None
+    assert get_unit_class("") is None
+
+    # None -> None
+    assert get_unit_class(None) is None

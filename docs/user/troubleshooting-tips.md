@@ -75,6 +75,18 @@ In case you want to analyse yourself, enable debug logging (see [Debug Logging G
 - Use Notepad++ or similar editor to verify encoding
 - Excel may cause encoding issues - verify with a text editor
 
+### Unit Consistency Errors
+
+**Problem:** Import fails with an error like: *"Inconsistent units for 'sensor.temperature': found ['°C', '°F']. All rows for the same statistic_id must have the same unit."*
+
+**Solutions:**
+
+- Ensure every row for the same `statistic_id` uses the exact same unit value
+- Check for accidental empty cells in the `unit` column — mixing empty and non-empty units for the same entity is not allowed
+- Watch for whitespace differences (e.g., `kWh` vs ` kWh `) — while leading/trailing whitespace is trimmed automatically, verify your data is clean
+- The strings `nan`, `None`, and `null` are not valid unit values — leave the cell empty instead if the statistic has no unit
+- If importing from Excel or other tools, check that empty cells aren't being exported as `NaN` or `None` text
+
 ### Timestamp Format Issues
 
 **Problem:** "Invalid timestamp" or "The timestamp must be a full hour"

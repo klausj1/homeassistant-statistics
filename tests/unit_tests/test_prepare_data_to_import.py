@@ -15,7 +15,7 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
     DATETIME_DEFAULT_FORMAT,
 )
-from custom_components.import_statistics.import_service_helper import prepare_data_to_import
+from custom_components.import_statistics.import_service_helper import ImportDataType, prepare_data_to_import
 
 TESTFILES_DIR = str(Path(__file__).resolve().parent.parent / "testfiles")
 
@@ -34,13 +34,13 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
     ha_timezone = "UTC"
 
     # Call the function
-    df, timezone_id, datetime_format, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+    df, timezone_id, datetime_format, data_type = prepare_data_to_import(file_path, call, ha_timezone)
 
     # Check the return types and values
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert is_delta is False
+    assert data_type == ImportDataType.SENSOR
     assert len(df) > 0
     assert "statistic_id" in df.columns
     assert "start" in df.columns
@@ -61,13 +61,13 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
     ha_timezone = "UTC"
 
     # Call the function
-    df, timezone_id, datetime_format, is_delta = prepare_data_to_import(file_path, call, ha_timezone)
+    df, timezone_id, datetime_format, data_type = prepare_data_to_import(file_path, call, ha_timezone)
 
     # Check the return types and values
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert is_delta is False
+    assert data_type == ImportDataType.SENSOR
     assert len(df) > 0
 
 

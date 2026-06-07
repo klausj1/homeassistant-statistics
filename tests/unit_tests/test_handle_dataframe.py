@@ -1,16 +1,14 @@
 """Unit tests for _handle_dataframe function."""
 
-import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-import pytest
 from homeassistant.components.recorder.models import StatisticMeanType
-from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 from custom_components.import_statistics.import_service_helper import (
+    ImportDataType,
     _validate_and_detect_delta,
     handle_dataframe_no_delta,
 )
@@ -280,8 +278,8 @@ def test_handle_dataframe_multiple_mean() -> None:
             ["stat2.temp", "01.01.2022 01:00", "C", 4, 40, 35],
             ["stat1.value", "01.01.2022 00:00", "m", 5, 50, 45],
             ["stat1.value", "01.01.2022 01:00", "m", 6, 60, 55],
-            ["stat1.value", "01.01.2022 02:00", "mm", 7, 70, 65],
-            ["stat1.temp", "03.01.2022 00:00", "nnn", 8, 80, 75],
+            ["stat1.value", "01.01.2022 02:00", "m", 7, 70, 65],
+            ["stat1.temp", "03.01.2022 00:00", "C", 8, 80, 75],
         ],
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )
@@ -354,7 +352,7 @@ def test_handle_dataframe_multiple_mean() -> None:
                 "statistic_id": "stat1.value",
                 "name": None,
                 "source": "recorder",
-                "unit_class": None,
+                "unit_class": "distance",
                 "unit_of_measurement": "m",
             },
             [
@@ -389,11 +387,11 @@ def test_handle_dataframe_multiple_mean() -> None:
 
 def test_handle_dataframe_mean_sum() -> None:
     """
-    Test that _validate_and_detect_delta rejects a DataFrame with both 'mean' and 'sum' columns.
+    Test that _validate_and_detect_delta returns MIXED for a DataFrame with both sensor and counter columns.
 
-    This validates the constraint that mean/min/max columns cannot be combined with sum/state columns.
+    Mixed sensor/counter columns are now accepted and result in ImportDataType.MIXED.
     """
-    # Create a sample dataframe with invalid combination of 'min', 'max' and 'sum'
+    # Create a sample dataframe with both 'min', 'max' and 'sum' columns
     my_df = pd.DataFrame(
         [
             ["stat1.mean", "01.01.2022 00:00", "unit1", 1, 10, 5],
@@ -402,8 +400,5 @@ def test_handle_dataframe_mean_sum() -> None:
         columns=["statistic_id", "start", "unit", "min", "max", "sum"],
     )
 
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("The file must not contain the columns 'sum/state' together with 'mean'/'min'/'max'"),
-    ):
-        _validate_and_detect_delta(my_df)
+    result = _validate_and_detect_delta(my_df)
+    assert result == ImportDataType.MIXED

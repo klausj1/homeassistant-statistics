@@ -966,3 +966,156 @@ class TestIntegrationAll:
         _LOGGER.info("=" * 80)
         _LOGGER.info("All 5 export parameter variations completed successfully!")
         _LOGGER.info("=" * 80)
+
+    @pytest.mark.asyncio
+    async def test_05_import_mixed_then_export_and_compare(self) -> None:
+        """
+        Test mixed import workflow (sensor + counter data in same file) with running Home Assistant.
+
+        Steps:
+        1. Import mixed TSV file containing both sensor (min/max/mean) and counter (sum/state) data
+        2. Export the imported entities and compare with expected output
+        3. Import the same data via JSON using external entity IDs (: separator)
+        4. Export the JSON entities and compare with expected output (adjusted entity IDs)
+        """
+        config_dir = Path(__file__).parent.parent.parent / "config"
+        test_dir = config_dir / "test_mixed"
+
+        # ==================== Wait for HA ====================
+        is_ready = await self._wait_for_ha_startup(timeout_seconds=180)
+        assert is_ready, "Home Assistant did not start within 3 minutes"
+
+        # ==================== STEP 1: Import mixed TSV file ====================
+        _LOGGER.info("Step 1: Import mixed TSV file (sensor + counter data)")
+        success = await self._call_service(
+            "import_from_file",
+            {
+                "filename": "test_mixed/mixed_input.tsv",
+                "timezone_identifier": "Europe/Vienna",
+                "delimiter": "\t",
+                "decimal": "dot ('.')",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to import mixed TSV file"
+
+        # ==================== STEP 2: Export and compare ====================
+        _LOGGER.info("Step 2: Export imported entities and compare with expected output")
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_mixed/export_after_import.tsv",
+                "entities": [
+                    "sensor.mixed_test_temp",
+                    "sensor.mixed_test_humidity",
+                    "sensor.mixed_test_energy",
+                    "sensor.mixed_test_water",
+                ],
+                "start_time": "2026-02-25 00:00:00",
+                "end_time": "2026-02-26 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to export after mixed import"
+
+        export_file = test_dir / "export_after_import.tsv"
+        expected_file = test_dir / "expected_after_import.tsv"
+        assert export_file.exists(), f"Export file not found: {export_file}"
+        assert expected_file.exists(), f"Expected file not found: {expected_file}"
+        assert self._compare_tsv_files_strict(export_file, expected_file), "Mixed TSV export does not match expected"
+        _LOGGER.info("✓ Step 2: Mixed TSV import/export verified")
+
+        # ==================== STEP 3: Import via JSON with external entity IDs ====================
+        _LOGGER.info("Step 3: Import same data via JSON with external entity IDs (: separator)")
+        json_data = {
+            "timezone_identifier": "Europe/Vienna",
+            "entities": [
+                {
+                    "id": "sensor:mixed_json_temp",
+                    "unit": "°C",
+                    "values": [
+                        {"datetime": "25.02.2026 10:00", "min": 18.5, "max": 22.3, "mean": 20.1},
+                        {"datetime": "25.02.2026 11:00", "min": 19.0, "max": 23.0, "mean": 21.0},
+                        {"datetime": "25.02.2026 12:00", "min": 17.0, "max": 21.0, "mean": 19.0},
+                    ],
+                },
+                {
+                    "id": "sensor:mixed_json_humidity",
+                    "unit": "%",
+                    "values": [
+                        {"datetime": "25.02.2026 10:00", "min": 45, "max": 55, "mean": 50},
+                        {"datetime": "25.02.2026 11:00", "min": 48, "max": 58, "mean": 53},
+                        {"datetime": "25.02.2026 12:00", "min": 50, "max": 60, "mean": 55},
+                    ],
+                },
+                {
+                    "id": "sensor:mixed_json_energy",
+                    "unit": "kWh",
+                    "values": [
+                        {"datetime": "25.02.2026 10:00", "sum": 0, "state": 100},
+                        {"datetime": "25.02.2026 11:00", "sum": 10, "state": 110},
+                        {"datetime": "25.02.2026 12:00", "sum": 25, "state": 125},
+                    ],
+                },
+                {
+                    "id": "sensor:mixed_json_water",
+                    "unit": "L",
+                    "values": [
+                        {"datetime": "25.02.2026 10:00", "sum": 0, "state": 500},
+                        {"datetime": "25.02.2026 11:00", "sum": 50, "state": 550},
+                        {"datetime": "25.02.2026 12:00", "sum": 120, "state": 620},
+                    ],
+                },
+            ],
+        }
+        success = await self._call_service(
+            "import_from_json",
+            json_data,
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to import mixed JSON data"
+
+        # ==================== STEP 4: Export JSON entities ====================
+        _LOGGER.info("Step 4: Export JSON-imported entities")
+        success = await self._call_service(
+            "export_statistics",
+            {
+                "filename": "test_mixed/export_after_json_import.tsv",
+                "entities": [
+                    "sensor:mixed_json_temp",
+                    "sensor:mixed_json_humidity",
+                    "sensor:mixed_json_energy",
+                    "sensor:mixed_json_water",
+                ],
+                "start_time": "2026-02-25 00:00:00",
+                "end_time": "2026-02-26 00:00:00",
+                "timezone_identifier": "Europe/Vienna",
+            },
+            ha_url=self.ha_url,
+            token=self.ha_token,
+        )
+        assert success, "Failed to export after JSON import"
+
+        # ==================== STEP 5: Compare JSON export with adjusted expected ====================
+        _LOGGER.info("Step 5: Compare JSON export with expected (adjusted entity IDs)")
+        export_json_file = test_dir / "export_after_json_import.tsv"
+        assert export_json_file.exists(), f"JSON export file not found: {export_json_file}"
+
+        # Read actual export and expected file
+        df_actual = pd.read_csv(export_json_file, sep="\t")
+        df_expected = pd.read_csv(expected_file, sep="\t")
+
+        # Adjust expected entity IDs: replace "." separator with ":" and "mixed_test_" with "mixed_json_"
+        df_expected["statistic_id"] = df_expected["statistic_id"].str.replace(".", ":", n=1, regex=False)
+        df_expected["statistic_id"] = df_expected["statistic_id"].str.replace("mixed_test_", "mixed_json_", regex=False)
+
+        assert self._compare_dataframes_strict(df_actual, df_expected), "JSON export does not match adjusted expected"
+        _LOGGER.info("✓ Step 5: Mixed JSON import/export verified")
+
+        _LOGGER.info("=" * 80)
+        _LOGGER.info("Test 05: Mixed import (TSV + JSON) completed successfully!")
+        _LOGGER.info("=" * 80)

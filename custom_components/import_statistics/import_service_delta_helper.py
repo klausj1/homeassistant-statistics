@@ -260,6 +260,7 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
 
         # Get source and unit
         source = helpers.get_source(statistic_id)
+        helpers.validate_unit_consistency(group["unit"], statistic_id)
         unit = helpers.get_unit_from_row(group.iloc[0].get("unit", ""), statistic_id)
 
         # Route to appropriate conversion method based on reference type
@@ -280,7 +281,7 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
             "source": source,
             "statistic_id": statistic_id,
             "name": None,
-            "unit_class": None,
+            "unit_class": helpers.get_unit_class(unit),
             "unit_of_measurement": unit,
         }
 

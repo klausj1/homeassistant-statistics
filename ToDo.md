@@ -1,5 +1,9 @@
 # ToDos
 
+## Now
+
+- Set unit_class (derive or own column?); see [HA Docu](https://developers.home-assistant.io/blog/2025/10/16/recorder-statistics-api-changes/?_highlight=unit_class)
+
 ## Bugs
 
 Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the unit matches
