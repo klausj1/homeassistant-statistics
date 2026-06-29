@@ -13,7 +13,7 @@
 
 ## Check log files
 
-In case you want to analyse yourself, enable debug logging (see [Debug Logging Guide](./user/debug-logging.md)), and check the logs. They are not so simple to understand, but can provide hints. When creating a bug, they are absolutely necessary.
+In case you want to analyse yourself, enable debug logging (see [Debug Logging Guide](./debug-logging.md)), and check the logs. They are not so simple to understand, but can provide hints. When creating a bug, they are absolutely necessary.
 
 ## Data Import Issues
 
