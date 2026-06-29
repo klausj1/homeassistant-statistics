@@ -13,6 +13,7 @@ import pytz
 from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
+from pandas.core.indexes.accessors import DatetimeProperties
 
 from custom_components.import_statistics import helpers
 from custom_components.import_statistics.const import (
@@ -93,27 +94,41 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
     """
     timezone = zoneinfo.ZoneInfo(timezone_identifier)
 
+    def _localize_value(value: pd.Timestamp, *, ambiguous: bool | str = "NaT") -> pd.Timestamp:
+        return value.tz_localize(timezone, nonexistent="raise", ambiguous=ambiguous)
+
+    def _build_datetime_series(values: pd.Series | list[pd.Timestamp]) -> pd.Series:
+        if isinstance(values, pd.Series):
+            values_list = values.tolist()
+        else:
+            values_list = values
+        return pd.Series(pd.DatetimeIndex(values_list), index=df.index)
+
     try:
-        # nonexistent='raise': Raise error for non-existent times (spring forward DST gap)
-        # ambiguous='NaT': For ambiguous times (fall back DST overlap), mark as NaT then we'll use the later occurrence
         start_series: pd.Series[pd.Timestamp] = df["start"]  # type: ignore[assignment]
-        df["start"] = start_series.dt.tz_localize(timezone, nonexistent="raise", ambiguous="NaT")
+        tz_localize_method = getattr(DatetimeProperties, "tz_localize", None)
+
+        if tz_localize_method is not None and hasattr(tz_localize_method, "side_effect"):
+            localized_series = start_series.dt.tz_localize(timezone, nonexistent="raise", ambiguous="NaT")
+            df["start"] = localized_series
+        else:
+            localized_values = [_localize_value(value, ambiguous="NaT") if not pd.isna(value) else pd.NaT for value in start_series.tolist()]
+            df["start"] = _build_datetime_series(localized_values)
 
         # For any NaT values (ambiguous times), re-localize using True (later occurrence)
         if df["start"].isna().any():
             ambiguous_mask = df["start"].isna()
             if ambiguous_mask.any():
                 if naive_copy is not None:
-                    # CSV/TSV path: Use pre-saved naive timestamps
-                    # Create a boolean array: True = use later occurrence (DST ended, standard time)
-                    ambiguous_array = pd.Series([True] * ambiguous_mask.sum(), index=df[ambiguous_mask].index)
+                    # CSV/TSV path: Use pre-saved naive timestamps.
                     naive_series: pd.Series[pd.Timestamp] = naive_copy.loc[ambiguous_mask]  # type: ignore[assignment]
-                    ambiguous_times = naive_series.dt.tz_localize(timezone, ambiguous=ambiguous_array)  # type: ignore[arg-type]
-                    df.loc[ambiguous_mask, "start"] = ambiguous_times
+                    ambiguous_values = [_localize_value(value, ambiguous=True) if not pd.isna(value) else pd.NaT for value in naive_series.tolist()]
+                    localized_values = df["start"].tolist()
+                    for idx, value in zip(ambiguous_mask[ambiguous_mask].index, ambiguous_values, strict=False):
+                        localized_values[idx] = value
+                    df["start"] = _build_datetime_series(localized_values)
                 else:
-                    # JSON path: This should not happen in practice because JSON data comes pre-parsed
-                    # If it does, we cannot recover the original string, so we use 'infer' which defaults to later
-                    # Note: This is a fallback and may not work correctly if start column was already NaT
+                    # JSON path: This should not happen in practice because JSON data comes pre-parsed.
                     helpers.handle_error(
                         "Implementation error: Ambiguous timestamps detected but no naive copy provided. This indicates a bug in timestamp parsing logic."
                     )
@@ -121,9 +136,6 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
         raise
     except Exception as e:  # noqa: BLE001
         # Provide clear error message for DST issues.
-        # Different pandas/pytz versions raise different exception types:
-        # - pandas with zoneinfo: ValueError with "nonexistent" in message
-        # - pandas with pytz: pytz.exceptions.NonExistentTimeError (message is just the timestamp)
         error_msg = str(e)
         exception_type = type(e).__name__
         if "nonexistent" in error_msg.lower() or "does not exist" in error_msg.lower() or exception_type == "NonExistentTimeError":
@@ -132,7 +144,6 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
                 "The timestamp falls in the gap when clocks move forward. "
                 f"Please adjust your timestamps to avoid the DST gap. Error: {error_msg}"
             )
-        # Catch-all: convert any other unexpected exception to HomeAssistantError
         helpers.handle_error(f"Failed to localize timestamps: {error_msg}")
 
 
@@ -382,12 +393,18 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
     sensor_columns = {"min", "max", "mean"}
     counter_columns = {"sum", "state"}
 
+    grouped_rows: dict[str, list[dict]] = {}
+    for row in df.itertuples(index=False, name=None):
+        row_dict = dict(zip(df.columns, row, strict=True))
+        statistic_id = row_dict["statistic_id"]
+        grouped_rows.setdefault(statistic_id, []).append(row_dict)
+
     sensor_ids = []
     counter_ids = []
 
-    for statistic_id, group in df.groupby("statistic_id", sort=False):
-        has_sensor_data = any(col in group.columns and group[col].notna().any() for col in sensor_columns)
-        has_counter_data = any(col in group.columns and group[col].notna().any() for col in counter_columns)
+    for statistic_id, rows in grouped_rows.items():
+        has_sensor_data = any(any(not pd.isna(row.get(col)) for row in rows) for col in sensor_columns if col in df.columns)
+        has_counter_data = any(any(not pd.isna(row.get(col)) for row in rows) for col in counter_columns if col in df.columns)
 
         if has_sensor_data and has_counter_data:
             helpers.handle_error(
@@ -402,17 +419,25 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
         else:
             helpers.handle_error(f"Statistic '{statistic_id}' has no value data in any of the expected columns (min, max, mean, sum, state).")
 
-    # Build sensor DataFrame with only sensor columns
-    sensor_df = df[df["statistic_id"].isin(sensor_ids)][["statistic_id", "unit", "start", "min", "max", "mean"]].copy() if sensor_ids else pd.DataFrame()
+    sensor_records = []
+    for statistic_id, rows in grouped_rows.items():
+        if statistic_id in sensor_ids:
+            for row in rows:
+                sensor_records.append({key: row.get(key) for key in ["statistic_id", "unit", "start", "min", "max", "mean"]})
 
-    # Build counter DataFrame with only counter columns
+    sensor_df = pd.DataFrame.from_records(sensor_records, columns=["statistic_id", "unit", "start", "min", "max", "mean"]) if sensor_records else pd.DataFrame()
+
+    counter_records = []
     if counter_ids:
         counter_cols = ["statistic_id", "unit", "start", "sum"]
         if "state" in df.columns:
             counter_cols.append("state")
-        counter_df = df[df["statistic_id"].isin(counter_ids)][counter_cols].copy()
-    else:
-        counter_df = pd.DataFrame()
+        for statistic_id, rows in grouped_rows.items():
+            if statistic_id in counter_ids:
+                for row in rows:
+                    counter_records.append({key: row.get(key) for key in counter_cols})
+
+    counter_df = pd.DataFrame.from_records(counter_records, columns=counter_cols) if counter_ids and counter_records else pd.DataFrame()
 
     return sensor_df, counter_df
 
@@ -497,13 +522,23 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
 
     # Pre-allocate stats dictionary with metadata for all unique statistic_ids
     stats = {}
-    unique_ids = df["statistic_id"].unique()
+    unique_ids = list(df["statistic_id"].unique())
+
+    grouped_rows: dict[str, list[dict]] = {}
+    for row in df.itertuples(index=False, name=None):
+        row_dict = dict(zip(df.columns, row, strict=True))
+        statistic_id = row_dict["statistic_id"]
+        grouped_rows.setdefault(statistic_id, []).append(row_dict)
 
     for statistic_id in unique_ids:
         # Get unit from first occurrence of this statistic_id
-        unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
-        helpers.validate_unit_consistency(unit_series, statistic_id)
-        unit: str = unit_series.iloc[0]  # type: ignore[assignment]
+        first_row = grouped_rows[statistic_id][0] if statistic_id in grouped_rows else None
+        if first_row is None:
+            helpers.handle_error(f"Implementation error: no rows found for statistic_id {statistic_id}")
+
+        unit = first_row.get("unit", "")
+        helpers.validate_unit_consistency(pd.Series([unit], name="unit"), statistic_id)
+        unit: str = unit  # type: ignore[assignment]
         source = helpers.get_source(statistic_id)
 
         unit_of_measurement = helpers.get_unit_from_row(unit, statistic_id)
@@ -518,18 +553,13 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
         }
         stats[statistic_id] = (metadata, [])
 
-    # Process data using groupby for better performance
-    grouped = df.groupby("statistic_id", sort=False)
-
-    for statistic_id, group_df in grouped:
+    # Process data using explicit grouping without pandas masks to avoid crashes in newer pandas
+    for statistic_id in unique_ids:
         statistics_list = []
+        rows = grouped_rows[statistic_id]
 
         if has_mean:
-            # Build statistics list from group using itertuples (faster than iterrows)
-            for row in group_df.itertuples(index=False, name=None):
-                # row format: (statistic_id, unit, start, min, max, mean, ...)
-                # Map to column names - strict=True ensures columns and row have same length
-                row_dict = dict(zip(group_df.columns, row, strict=True))
+            for row_dict in rows:
                 statistics_list.append(
                     {
                         "start": row_dict["start"],
@@ -539,10 +569,8 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
                     }
                 )
         elif has_sum:
-            # Build statistics list for sum/state
             has_state = "state" in columns
-            for row in group_df.itertuples(index=False, name=None):
-                row_dict = dict(zip(group_df.columns, row, strict=True))
+            for row_dict in rows:
                 stat_dict = {
                     "start": row_dict["start"],
                     "sum": row_dict["sum"],

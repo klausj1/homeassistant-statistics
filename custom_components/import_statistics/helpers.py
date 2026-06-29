@@ -16,6 +16,34 @@ from homeassistant.exceptions import HomeAssistantError
 _LOGGER = logging.getLogger(__name__)
 
 
+def _patch_pandas_tz_localize() -> None:
+    """Work around pandas 3.0.4 crashes in Series.dt.tz_localize()."""
+    try:
+        from pandas.core.indexes.accessors import DatetimeProperties
+    except Exception:  # pragma: no cover - pandas internals may differ
+        return
+
+    if getattr(DatetimeProperties.tz_localize, "__name__", "") == "_safe_tz_localize":
+        return
+
+    def _safe_tz_localize(self, tz, ambiguous="raise", nonexistent="raise") -> pd.Series:
+        parent = getattr(self, "_parent", None)
+        if parent is None:
+            return self._delegate_method("tz_localize", tz, ambiguous=ambiguous, nonexistent=nonexistent)
+
+        def _localize_value(value: Any) -> Any:
+            if pd.isna(value):
+                return pd.NaT
+            return value.tz_localize(tz, ambiguous=ambiguous, nonexistent=nonexistent)
+
+        return parent.apply(_localize_value)
+
+    DatetimeProperties.tz_localize = _safe_tz_localize
+
+
+_patch_pandas_tz_localize()
+
+
 class DeltaReferenceType(Enum):
     """Type of reference used for delta conversion."""
 
