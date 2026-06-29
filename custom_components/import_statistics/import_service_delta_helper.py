@@ -216,12 +216,10 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
 
     helpers.validate_floats_vectorized(df, ["delta"])
 
-    # Group rows by statistic_id
+    # Group rows by statistic_id using groupby to avoid direct boolean indexing on full DataFrames
     stats = {}
 
-    for statistic_id in df["statistic_id"].unique():
-        group = df[df["statistic_id"] == statistic_id]
-
+    for statistic_id, group in df.groupby("statistic_id", sort=False):
         # Validate reference exists
         if statistic_id not in references:
             helpers.handle_error(f"No reference found for statistic_id: {statistic_id}")
