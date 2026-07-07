@@ -145,19 +145,13 @@ async def prepare_delta_handling(
 
     # Step 1: Extract oldest/newest timestamps from df per statistic_id
     import_ranges = {}
-    grouped_rows: dict[str, list[dict]] = {}
-    for row in df.itertuples(index=False, name=None):
-        row_dict = dict(zip(df.columns, row, strict=True))
-        statistic_id = row_dict["statistic_id"]
-        grouped_rows.setdefault(statistic_id, []).append(row_dict)
 
-    for statistic_id in grouped_rows:
-        rows = grouped_rows[statistic_id]
-        group_df = pd.DataFrame.from_records(rows, columns=df.columns)
+    for statistic_id in df["statistic_id"].unique():
+        group = df[df["statistic_id"] == statistic_id]
 
         # Use vectorized min/max on datetime column (no parsing needed!)
-        oldest_dt = group_df["start"].min()
-        newest_dt = group_df["start"].max()
+        oldest_dt = group["start"].min()
+        newest_dt = group["start"].max()
 
         if pd.isna(oldest_dt) or pd.isna(newest_dt):
             handle_error(f"No valid timestamps found for statistic_id {statistic_id}")
