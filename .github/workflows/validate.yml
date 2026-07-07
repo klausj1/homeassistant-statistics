@@ -19,7 +19,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
         - name: "Checkout the repository"
-          uses: "actions/checkout@v6.0.2"
+          uses: "actions/checkout@v7.0.0"
 
         - name: "Run hassfest validation"
           uses: "home-assistant/actions/hassfest@master"
@@ -31,7 +31,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
         - name: "Checkout the repository"
-          uses: "actions/checkout@v6.0.2"
+          uses: "actions/checkout@v7.0.0"
 
         - name: "Run HACS validation"
           uses: "hacs/action@main"
