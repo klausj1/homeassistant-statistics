@@ -57,7 +57,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylin
         DOMAIN,
         "import_from_json",
         handle_import_from_json,
-        description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
+        description_placeholders={
+            "json_example_url": "https://github.com/klausj1/homeassistant-statistics/blob/main/assets/state_sum.json",
+        },
     )
 
     async def handle_export_statistics(call: ServiceCall) -> None:

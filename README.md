@@ -122,8 +122,29 @@ data:
 
 ```yaml
 action: import_statistics.import_from_json
-data:
-  statistics: <JSON content>
+data: |
+  {
+    "timezone_identifier": "America/Los_Angeles",
+    "entities": [
+      {
+        "id": "sensor:finance_test",
+        "unit": "$",
+        "values": [
+          {"min": 10.0, "max": 12.0, "mean": 11.0, "datetime": "13.06.2026 00:00"},
+          {"min": 20.0, "max": 22.0, "mean": 21.0, "datetime": "14.06.2026 00:00"},
+          {"min": 30.0, "max": 32.0, "mean": 31.0, "datetime": "15.06.2026 00:00"}
+        ]
+      },
+      {
+        "id": "sensor:counter_test",
+        "unit": "kWh",
+        "values": [
+          {"sum": 10.0, "state": 12.0, "datetime": "13.05.2026 00:00"},
+          {"sum": 20.0, "state": 22.0, "datetime": "14.05.2026 00:00"}
+        ]
+      }
+    ]
+  }
 ```
 
 ### File Format Requirements
@@ -204,12 +225,29 @@ Example format: [state_sum.json](./assets/state_sum.json)
 
 **Via API:**
 
-```http
-POST https://<your-ha-url>/api/services/import_statistics/import_from_json
-Content-Type: application/json
-
-<JSON content>
+```bash
+curl -X POST "http://<your-ha-url>:8123/api/services/import_statistics/import_from_json" \
+  -H "Authorization: Bearer <long_lived_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "timezone_identifier": "America/Los_Angeles",
+    "entities": [
+      {
+        "id": "sensor:finance_test",
+        "unit": "$",
+        "values": [
+          {"min": 10.0, "max": 12.0, "mean": 11.0, "datetime": "13.06.2026 00:00"},
+          {"min": 20.0, "max": 22.0, "mean": 21.0, "datetime": "14.06.2026 00:00"},
+          {"min": 30.0, "max": 32.0, "mean": 31.0, "datetime": "15.06.2026 00:00"}
+        ]
+      }
+    ]
+  }'
 ```
+
+> For local testing, `http://localhost:8123` is often the simplest endpoint. If you use HTTPS, make sure your Home Assistant instance is configured with a valid certificate; otherwise you may see TLS errors such as `packet too long`.
+>
+> For older Home Assistant setups that do not use long-lived access tokens, you can also authenticate with the standard API password instead of the bearer token.
 
 ### Mixed Import
 
@@ -238,27 +276,30 @@ sensor.energy	01.01.2024 01:00	kWh			105.2	105.2
 #### Mixed JSON Example
 
 ```json
-[
-  {
-    "statistic_id": "sensor.temperature",
-    "unit": "°C",
-    "values": [
-      {"start": "01.01.2024 00:00", "mean": 20.5, "min": 18.0, "max": 23.0},
-      {"start": "01.01.2024 01:00", "mean": 21.0, "min": 19.0, "max": 24.0}
-    ]
-  },
-  {
-    "statistic_id": "sensor.energy",
-    "unit": "kWh",
-    "values": [
-      {"start": "01.01.2024 00:00", "sum": 100.5, "state": 100.5},
-      {"start": "01.01.2024 01:00", "sum": 105.2, "state": 105.2}
-    ]
-  }
-]
+{
+  "timezone_identifier": "Europe/Vienna",
+  "entities": [
+    {
+      "id": "sensor.temperature",
+      "unit": "°C",
+      "values": [
+        {"datetime": "01.01.2024 00:00", "mean": 20.5, "min": 18.0, "max": 23.0},
+        {"datetime": "01.01.2024 01:00", "mean": 21.0, "min": 19.0, "max": 24.0}
+      ]
+    },
+    {
+      "id": "sensor.energy",
+      "unit": "kWh",
+      "values": [
+        {"datetime": "01.01.2024 00:00", "sum": 100.5, "state": 100.5},
+        {"datetime": "01.01.2024 01:00", "sum": 105.2, "state": 105.2}
+      ]
+    }
+  ]
+}
 ```
 
-> In JSON format, each entity object specifies its own fields — sensor entities use `mean`/`min`/`max`, counter entities use `sum`/`state`.
+> In JSON format, the top-level object contains `timezone_identifier` and an `entities` array. Each entity object specifies its own fields — sensor entities use `mean`/`min`/`max`, counter entities use `sum`/`state`.
 
 ---
 
