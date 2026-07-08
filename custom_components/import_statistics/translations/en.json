@@ -26,6 +26,10 @@
             },
             "name": "Import statistics from file"
         },
+        "import_from_json": {
+            "description": "Imports long term statistic values (1h) from a JSON payload. See {json_example_url} for an example of the expected JSON structure.",
+            "name": "Import statistics from JSON"
+        },
         "export_inventory": {
             "name": "Export Statistics Inventory",
             "description": "Exports metadata-only inventory of all long-term statistics (no time-series data). Useful for migration planning and comparing statistics between Home Assistant instances.",
