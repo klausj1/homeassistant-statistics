@@ -6,6 +6,7 @@
   - Also provide a better error message if no data is found
   - Align the keys with yaml (breaking change)
   - Check json docu ai changes, add info regarding token, add reason for json (no need to copy file)
+  - Is the timezone used?
 - Set unit_class (derive or own column?); see [HA Docu](https://developers.home-assistant.io/blog/2025/10/16/recorder-statistics-api-changes/?_highlight=unit_class)
 
 ## Bugs

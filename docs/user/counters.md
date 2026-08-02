@@ -66,7 +66,7 @@ Using the second row to explain:
 2. This is stored in the statistics table with the timestamp 14:00
 3. The delta at 14:00 represents consumption during the 14:00-15:00 period (the values of this period are stored with the timestamps 13:00 and 14:00 in the database)
 
-The **energy board** uses the `sum` column to calculate the graphs.
+The **energy dashboard** uses the `sum` column to calculate the graphs.
 
 The **statistics graph card** can display the state, the sum, or the delta. The sum displayed (usually using a line chart) is not the sum from the database, but a cumulative sum that starts at 0 at the beginning of the displayed period (so it is easier to see the consumption on the displayed period). The delta is useful to show the consumption during the specified period (usually using a Bar chart).
 
@@ -237,7 +237,7 @@ sensor:imp_inside 29.12.2025 14:00 kWh 5
 - 29.12.2025 15:00: sum=28, state=38 (delta: 7, unchanged)
 - 29.12.2025 16:00: sum=36, state=46 (delta: 8, unchanged)
 
-> **Important**: Please note there is no "spike" at 29.12.2025 15:00 because the sum of the deltas between 29.12.2025 09:00 and 29.12.2025 14:00 is identical in the database and in the import (both are 21). If there is a difference, then the delta at 29.12.2025 15:00 would be different than before the import, which results in a wrong value at this timestamp e.g. in the energy board.
+> **Important**: Please note there is no "spike" at 29.12.2025 15:00 because the sum of the deltas between 29.12.2025 09:00 and 29.12.2025 14:00 is identical in the database and in the import (both are 21). If there is a difference, then the delta at 29.12.2025 15:00 would be different than before the import, which results in a wrong value at this timestamp e.g. in the energy dashboard.
 > Use the [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab) to correct the wrong delta at this timestamp (the value which is corrected there is the delta of the selected hour, not the sum).
 > See next example for such a spike
 
@@ -284,7 +284,7 @@ sensor:imp_inside_spike 29.12.2025 14:00 kWh 15
 - 29.12.2025 15:00: sum=28, state=38 (delta: -53, **spike!** - negative value to compensate)
 - 29.12.2025 16:00: sum=36, state=46 (delta: 8, unchanged)
 
-> **Warning: Spike at the boundary** Because the sum of imported deltas (12+12+12+15+15+15 = 81) is much larger than the original database deltas (1+2+3+4+5+6 = 21), the integration creates a negative delta of -53 at 29.12.2025 15:00 to reconnect to the existing database value. This spike will appear in visualizations like the energy board. To avoid this, ensure the total sum of your corrected deltas matches the total sum of the original values in that time range.
+> **Warning: Spike at the boundary** Because the sum of imported deltas (12+12+12+15+15+15 = 81) is much larger than the original database deltas (1+2+3+4+5+6 = 21), the integration creates a negative delta of -53 at 29.12.2025 15:00 to reconnect to the existing database value. This spike will appear in visualizations like the energy dashboard. To avoid this, ensure the total sum of your corrected deltas matches the total sum of the original values in that time range.
 > If the sum of the delta is wrong, use the [Home Assistant developer tools / statistic tab](https://www.home-assistant.io/docs/tools/dev-tools/#statistics-tab) to correct the wrong delta at this timestamp (the value which is corrected there is the delta of the selected hour, not the sum).
 
 </details>
