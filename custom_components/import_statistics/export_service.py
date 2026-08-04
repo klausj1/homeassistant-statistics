@@ -286,7 +286,7 @@ def _filename_with_suffix(input_filename: str, suffix: str) -> str:
     return f"{input_filename}{suffix}"
 
 
-async def _export_split_file(  # noqa: PLR0913
+async def _export_split_file(  # noqa: PLR0913, PLR0917
     hass: HomeAssistant,
     filename: str,
     stats_dict: dict,
@@ -323,7 +323,7 @@ async def _export_split_file(  # noqa: PLR0913
         await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
 
 
-async def _export_split_statistics(  # noqa: PLR0913
+async def _export_split_statistics(  # noqa: PLR0913, PLR0917
     hass: HomeAssistant,
     filename: str,
     statistics_dict: dict,
@@ -370,7 +370,7 @@ async def _export_split_statistics(  # noqa: PLR0913
         )
 
 
-async def _export_single_file(  # noqa: PLR0913
+async def _export_single_file(  # noqa: PLR0913, PLR0917
     hass: HomeAssistant,
     filename: str,
     statistics_dict: dict,

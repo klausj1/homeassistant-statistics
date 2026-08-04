@@ -20,6 +20,7 @@ ignore = [
     "COM812", # incompatible with formatter
     "ISC001", # incompatible with formatter
     "EXE002", # Added by Klaus
+    "CPY001", # Added by Klaus, do not need a copyright header
 ]
 
 [lint.flake8-pytest-style]
