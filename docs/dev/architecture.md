@@ -490,7 +490,7 @@ This ensures:
                 "mean": 18.7,
             },
             # ... more records
-        ]
+        ],
     ),
     "power:total": (
         {
@@ -509,7 +509,7 @@ This ensures:
                 "state": 1234.56,
             },
             # ... more records
-        ]
+        ],
     ),
 }
 ```
@@ -520,8 +520,8 @@ This ensures:
 {
     "sensor.energy": {
         "start": datetime(...),  # datetime of reference record
-        "sum": 5432.1,          # sum value at reference time
-        "state": 5432.1,        # state value at reference time
+        "sum": 5432.1,  # sum value at reference time
+        "state": 5432.1,  # state value at reference time
     },
     "power:total": None,  # No reference found (error case)
 }
@@ -532,14 +532,14 @@ This ensures:
 ```python
 (
     "_DELTA_PROCESSING_NEEDED",  # Marker string
-    df,                          # DataFrame with delta column
-    {                            # references_needed dict
+    df,  # DataFrame with delta column
+    {  # references_needed dict
         "sensor.energy": (oldest_dt_utc, newest_dt_utc),
         "power:total": (oldest_dt_utc, newest_dt_utc),
     },
-    "Europe/Vienna",             # timezone_identifier
-    "%d.%m.%Y %H:%M",           # datetime_format
-    UnitFrom.TABLE,             # unit_from_where
+    "Europe/Vienna",  # timezone_identifier
+    "%d.%m.%Y %H:%M",  # datetime_format
+    UnitFrom.TABLE,  # unit_from_where
 )
 ```
 

@@ -156,10 +156,10 @@ Currently returns `bool` (is_delta). Change to return an enum or named type:
 
 ```python
 class ImportDataType(Enum):
-    SENSOR = "sensor"       # min/max/mean only
-    COUNTER = "counter"     # sum/state only
-    MIXED = "mixed"         # both sensor and counter entities
-    DELTA = "delta"         # delta column present
+    SENSOR = "sensor"  # min/max/mean only
+    COUNTER = "counter"  # sum/state only
+    MIXED = "mixed"  # both sensor and counter entities
+    DELTA = "delta"  # delta column present
 ```
 
 ### [`import_service.py`](custom_components/import_statistics/import_service.py)
