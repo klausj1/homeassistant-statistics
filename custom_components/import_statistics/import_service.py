@@ -207,7 +207,7 @@ class PreparedImportData:
     data_type: Any
 
 
-async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None:
+async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict:
     """
     Process import after DataFrame is prepared.
 
@@ -230,10 +230,10 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> None
         _LOGGER.info("Non-delta mode, processing directly")
         stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df))
 
-    await import_stats(hass, stats)
+    return await import_stats(hass, stats)
 
 
-async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
     """Handle import_from_file service implementation."""
     _LOGGER.info("Service handle_import_from_file called")
     file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
@@ -246,10 +246,10 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
     _LOGGER.info("Preparing data for import ...")
     df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
+    return await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
 
 
-async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
     """Handle import_from_json service implementation."""
     _LOGGER.info("Service handle_import_from_json called")
 
@@ -259,13 +259,44 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
     _LOGGER.info("Preparing data for import")
     df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
 
-    await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
+    return await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
 
 
-async def import_stats(hass: HomeAssistant, stats: dict) -> None:
+async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
     """Import statistics into Home Assistant and wait for recorder to commit."""
     _LOGGER.info("Validating entities and units")
     await validate_entities_and_units(hass, stats)
+
+    # Determine whether each statistic will actually receive new data
+    results: dict[str, dict] = {}
+    _LOGGER.info("Checking for new data before import")
+    for stat in stats.values():
+        metadata = stat[0]
+        statistics = stat[1]
+        statistic_id = metadata["statistic_id"]
+
+        newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
+        newest_db_start = newest_db_record["start"] if newest_db_record else None
+
+        newest_import_start = None
+        has_new_data = True  # Assume new if no DB record exists
+        if statistics:
+            newest_import_start = max(s["start"].astimezone(dt.UTC) for s in statistics)
+            has_new_data = newest_db_start is None or newest_import_start > newest_db_start
+
+        results[statistic_id] = {
+            "statistic_id": statistic_id,
+            "has_new_data": has_new_data,
+            "newest_import_start": newest_import_start.isoformat() if newest_import_start else None,
+            "newest_db_start": newest_db_start.isoformat() if newest_db_start else None,
+        }
+        _LOGGER.debug(
+            "Statistic %s: newest_db=%s, newest_import=%s, has_new_data=%s",
+            statistic_id,
+            newest_db_start,
+            newest_import_start,
+            has_new_data,
+        )
 
     _LOGGER.info("Calling hass import methods")
     for stat in stats.values():
@@ -287,6 +318,8 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> None:
     _LOGGER.info("Waiting for recorder to commit imported statistics to database")
     await get_instance(hass).async_block_till_done()
     _LOGGER.info("Finished importing data - all statistics committed to database")
+
+    return {"results": results}
 
 
 async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:

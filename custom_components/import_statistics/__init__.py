@@ -1,7 +1,7 @@
 """The import_statistics integration."""
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -38,25 +38,27 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylin
 
     """
 
-    async def handle_import_from_file(call: ServiceCall) -> None:
+    async def handle_import_from_file(call: ServiceCall) -> ServiceResponse:
         """Handle the service call."""
-        await handle_import_from_file_impl(hass, call)
+        return await handle_import_from_file_impl(hass, call)
 
     hass.services.async_register(
         DOMAIN,
         "import_from_file",
         handle_import_from_file,
+        supports_response=SupportsResponse.OPTIONAL,
         description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
     )
 
-    async def handle_import_from_json(call: ServiceCall) -> None:
+    async def handle_import_from_json(call: ServiceCall) -> ServiceResponse:
         """Handle the json service call."""
-        await handle_import_from_json_impl(hass, call)
+        return await handle_import_from_json_impl(hass, call)
 
     hass.services.async_register(
         DOMAIN,
         "import_from_json",
         handle_import_from_json,
+        supports_response=SupportsResponse.OPTIONAL,
         description_placeholders={
             "json_example_url": "https://github.com/klausj1/homeassistant-statistics/blob/main/assets/state_sum.json",
         },

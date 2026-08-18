@@ -212,6 +212,73 @@ Only these columns are accepted (unknown columns cause an error):
 
 > If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
 
+### Service Response
+
+`import_from_file` and `import_from_json` can optionally return information about whether each imported statistic actually received new data. To receive a response, set `response_variable` in your automation or script.
+
+```yaml
+- action: import_statistics.import_from_file
+  data:
+    filename: my_statistics.csv
+    delimiter: ","
+    decimal: "."
+    datetime_format: "%Y-%m-%d %H:%M"
+  response_variable: import_result
+```
+
+The response is a JSON-serializable dict:
+
+```json
+{
+  "results": {
+    "sensor:imported_energy": {
+      "statistic_id": "sensor:imported_energy",
+      "has_new_data": true,
+      "newest_import_start": "2026-08-17T23:00:00+00:00",
+      "newest_db_start": "2026-08-16T23:00:00+00:00"
+    }
+  }
+}
+```
+
+Use the response in any action. This example creates a persistent notification if no new data got imported:
+
+```yaml
+- choose:
+    - conditions:
+        - condition: template
+          value_template: >-
+            {{ not import_result.results['sensor:imported_energy'].has_new_data }}
+      sequence:
+        - service: persistent_notification.create
+          data:
+            title: "Import Error"
+            message: "No new data for sensor:imported_energy!"
+```
+
+
+You can also list all statistics that had no new data in a single notification:
+
+```yaml
+- service: persistent_notification.create
+  data:
+    title: "Statistics without new data"
+    message: >
+      {% set no_new_ids = [] %}
+      {% for info in import_result.results.values() %}
+        {% if not info.has_new_data %}
+          {% set no_new_ids = no_new_ids + [info.statistic_id] %}
+        {% endif %}
+      {% endfor %}
+      {% if no_new_ids %}
+        No new data for: {{ no_new_ids | join(', ') }}
+      {% else %}
+        All imported statistics contain new data.
+      {% endif %}
+```
+
+> **Note:** The response variable is only populated when the action is called with `response_variable`. Without it the action behaves as before and returns no response.
+
 ### Data Validation
 
 The integration performs strict validation on all import data:
