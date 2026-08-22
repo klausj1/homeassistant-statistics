@@ -2,7 +2,8 @@
 
 ## Now
 
-- Set unit_class (derive or own column?); see [HA Docu](https://developers.home-assistant.io/blog/2025/10/16/recorder-statistics-api-changes/?_highlight=unit_class)
+- Import from json documentation is misleading, check issue and fix.
+  - later: Align the keys with yaml (breaking change)
 
 ## Bugs
 
@@ -11,7 +12,6 @@ Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the 
 ## Unsorted backlog
 
 - Support webserver, so that its not necessary to upload import file and download export file
-- Allow import of counter and measurement in one file
 - Collect errors, and exit only after complete checking is done -> when we have a UI
 
 ## Export

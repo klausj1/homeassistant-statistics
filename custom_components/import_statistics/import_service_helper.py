@@ -228,6 +228,9 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
 
     input_entities = call.data.get("entities", [])
 
+    # Validate JSON schema early to provide clear errors for malformed input
+    helpers.validate_json_schema(call.data)
+
     # First pass: collect all unique columns from all entities
     for entity in input_entities:
         values = entity["values"]
