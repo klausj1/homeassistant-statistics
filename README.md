@@ -307,6 +307,8 @@ Since v5.1.0, a single file can contain **both measurement and counter statistic
 
 #### Mixed CSV/TSV Example
 
+<!-- markdownlint-disable MD010 -->
+
 ```tsv
 statistic_id	start	unit	mean	min	max	sum	state
 sensor.temperature	01.01.2024 00:00	°C	20.5	18.0	23.0
@@ -314,6 +316,7 @@ sensor.temperature	01.01.2024 01:00	°C	21.0	19.0	24.0
 sensor.energy	01.01.2024 00:00	kWh			100.5	100.5
 sensor.energy	01.01.2024 01:00	kWh			105.2	105.2
 ```
+<!-- markdownlint-enable MD010 -->
 
 > Measurement rows (`sensor.temperature`) have values in `mean`/`min`/`max` with empty `sum`/`state`. Counter rows (`sensor.energy`) have values in `sum`/`state` with empty `mean`/`min`/`max`.
 
