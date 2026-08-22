@@ -2,6 +2,7 @@
 
 import datetime as dt
 import datetime as dt_module
+import json
 import logging
 import zoneinfo
 from enum import Enum
@@ -14,6 +15,13 @@ from homeassistant.core import valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
 
 _LOGGER = logging.getLogger(__name__)
+
+try:
+    import voluptuous as vol  # optional dependency for JSON validation
+    from voluptuous.error import MultipleInvalid
+except ImportError:  # pragma: no cover - environment may or may not have voluptuous
+    vol = None
+    MultipleInvalid = None
 
 
 class DeltaReferenceType(Enum):
@@ -343,6 +351,70 @@ def validate_file_encoding(file_path: str, expected_encoding: str = "utf-8") -> 
         handle_error(f"Cannot read file '{file_path}': {e}")
 
     return False
+
+
+def validate_json_schema(json_data: dict) -> None:
+    """
+    Validate JSON import payload against expected schema using voluptuous.
+
+    Raises a HomeAssistantError via `handle_error()` with a helpful message
+    and an example if validation fails.
+    """
+    if vol is None:
+        handle_error("voluptuous is required for JSON validation but is not available in the environment")
+
+    # Define schema for values entries: require 'datetime' and allow one or more value fields
+    value_entry = vol.Schema(
+        {
+            vol.Required("datetime"): vol.All(str),
+            vol.Optional("sum"): vol.Any(int, float),
+            vol.Optional("state"): vol.Any(int, float),
+            vol.Optional("min"): vol.Any(int, float),
+            vol.Optional("max"): vol.Any(int, float),
+            vol.Optional("mean"): vol.Any(int, float),
+            vol.Optional("delta"): vol.Any(int, float),
+        },
+        extra=vol.PREVENT_EXTRA,
+    )
+
+    entity_schema = vol.Schema(
+        {
+            vol.Required("id"): vol.All(str),
+            vol.Optional("unit"): vol.Any(str, None),
+            vol.Required("values"): vol.All(list, [value_entry]),
+        },
+        extra=vol.PREVENT_EXTRA,
+    )
+
+    # Allow extra top-level keys (e.g., decimal, datetime_format) as service
+    # calls may include additional parameters. We still prevent extra keys in
+    # nested structures (entities/values).
+    top_schema = vol.Schema(
+        {vol.Optional("timezone_identifier"): vol.Any(str, None), vol.Required("entities"): vol.All(list, [entity_schema])},
+        extra=vol.ALLOW_EXTRA,
+    )
+
+    # Voluptuous may attempt to modify mappings during validation; ensure we
+    # validate against a plain dict (convert Home Assistant ReadOnlyDicts).
+    try:
+        plain_data = json.loads(json.dumps(json_data))
+    except (TypeError, ValueError):
+        # Fallback: shallow copy
+        try:
+            plain_data = dict(json_data)
+        except TypeError:
+            plain_data = json_data
+
+    try:
+        top_schema(plain_data)
+    except MultipleInvalid as exc:
+        example = {"entities": [{"id": "sensor.my_counter", "unit": "kWh", "values": [{"datetime": "17.03.2024 02:00", "sum": 12.34}]}]}
+        try:
+            example_str = json.dumps(example, indent=2)
+        except (TypeError, ValueError):
+            example_str = str(example)
+
+        handle_error(f"Invalid JSON import format: {exc}. Example of valid payload:\n{example_str}")
 
 
 def validate_filename(filename: str, config_dir: str) -> str:

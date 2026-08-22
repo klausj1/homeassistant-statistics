@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.2.0] - JSON import validation and JSON parity with file imports
+
+### Added
+
+#### JSON import validation
+
+- **Structured validation for JSON imports**: Malformed JSON payloads are now rejected early with clear error messages and examples of the expected schema
+- **JSON mixed-type support**: JSON imports now follow the same mixed measurement/counter behavior as CSV/TSV files, including support for mixed entities in a single payload
+
+### Changes
+
+- **JSON delta payloads**: JSON import now accepts `delta` values and processes them through the same reference-based conversion logic as CSV/TSV imports
+- **JSON parity with other import formats**: JSON imports now use the same validation and conversion pipeline as the other import formats, removing the previous special-case behavior
+- **Clearer errors**: Invalid JSON payloads now fail with a direct, actionable error instead of failing later during processing
+
+### Bug Fixes
+
+- **Invalid JSON payloads**: Fixed cases where missing or malformed fields in the JSON import payload were not caught early enough
+- **Delta imports in JSON**: JSON delta payloads are now handled consistently with CSV/TSV imports
+
 ## [5.1.0] - Mixed-type import, unit-class
 
 ### Added

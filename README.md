@@ -38,10 +38,14 @@ This is the user guide. If you are a developer, check the [Developer Documentati
 
 ## Available Actions
 
+All actions can be called via the home assistant actions UI.
+
+Import from JSON can also be called via REST API (e.g. curl). JSON import does not support import from a JSON file directly, it must be part of the Yaml configuration, see [Import from JSON](#import-from-json).
+
 | Action                                | Description                                    |
 | ------------------------------------- | ---------------------------------------------- |
 | `import_statistics.import_from_file`  | Import statistics from a CSV/TSV file          |
-| `import_statistics.import_from_json`  | Import statistics from JSON (UI or API)        |
+| `import_statistics.import_from_json`  | Import statistics from JSON                    |
 | `import_statistics.export_statistics` | Export statistics to CSV/TSV or JSON           |
 | `import_statistics.export_inventory`  | Export metadata inventory of all statistics    |
 
@@ -53,21 +57,24 @@ This is the user guide. If you are a developer, check the [Developer Documentati
 
 Import your statistics from CSV, TSV, or JSON files to populate or update Home Assistant's long-term statistics database.
 
+> You cannot import a JSON file directly. You have to provide the JSON data as part of the Yaml configuration in the action UI, see [Import from JSON](#import-from-json).
+
 ### How to Import
 
 1. Copy your file to your Home Assistant config folder
 2. Go to **Developer Tools → Actions**
-3. Select `import_statistics: import_from_file` (or `import_from_json`)
+3. Select `import_statistics: import_from_file`
 4. Fill in the settings (from the UI or YAML)
 5. Click `perform action` to start the import.
 
 ### Settings Description
 
+> The settings are only valid for CSV/TSV import, not for JSON. See [Import from JSON](#import-from-json).
+
 - **`filename` (required)**
   - Input file name (relative to Home Assistant config directory).
   - Supported:
     - `.csv` or `.tsv` for CSV/TSV import
-    - `.json` for JSON import (use `import_from_json` action)
 - **`delimiter` (optional)**
   - Delimiter between columns for CSV/TSV import.
   - If omitted, it is inferred from the filename extension:
@@ -94,6 +101,8 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
 
 ![import from file](assets/service_import_ui.png)
 
+> Import from JSON cannot be used with the UI mode, only via YAML mode.
+
 #### Examples using YAML
 
 ##### Import from TSV file
@@ -119,6 +128,8 @@ data:
 ```
 
 ##### Import from JSON
+
+> You have to provide the JSON data as part of the Yaml configuration, not as separate file.
 
 ```yaml
 action: import_statistics.import_from_json
@@ -219,11 +230,25 @@ This strict validation ensures data integrity and helps you identify and fix dat
 
 ### JSON Import
 
-You can also import via JSON, either through the UI or the Home Assistant API.
+You can import data via JSON, either through the UI or the Home Assistant API. The JSON payload is validated using the same rules as the CSV/TSV import path, including required fields, unit checks, timestamp validation, and delta processing.
+
+The top-level JSON object accepts an optional `timezone_identifier` field and a required `entities` array. Each entity entry must contain:
+
+- `id`: statistic id or entity id
+- `unit`: unit of measurement for that entity
+- `values`: list of hourly data points
+
+Each value object must contain a `datetime` field and then uses one of the supported value formats:
+
+- measurement data: `min`, `max`, `mean`
+- counter data: `sum`, `state`
+- delta data: `delta`
+
+For delta imports, the JSON payload uses the same `delta` column logic as CSV/TSV files: values are treated as hourly deltas and converted to the required sum/state values using a database reference. This makes JSON import consistent with the other import formats instead of treating JSON as a separate special case.
 
 Example format: [state_sum.json](./assets/state_sum.json)
 
-**Via API:**
+**Measurement example:**
 
 ```bash
 curl -X POST "http://<your-ha-url>:8123/api/services/import_statistics/import_from_json" \
@@ -245,9 +270,28 @@ curl -X POST "http://<your-ha-url>:8123/api/services/import_statistics/import_fr
   }'
 ```
 
-> For local testing, `http://localhost:8123` is often the simplest endpoint. If you use HTTPS, make sure your Home Assistant instance is configured with a valid certificate; otherwise you may see TLS errors such as `packet too long`.
+**Delta example:**
+
+```json
+{
+  "timezone_identifier": "Europe/Vienna",
+  "entities": [
+    {
+      "id": "counter.energy",
+      "unit": "kWh",
+      "values": [
+        {"datetime": "01.01.2024 00:00", "delta": 10.5},
+        {"datetime": "01.01.2024 01:00", "delta": 5.2},
+        {"datetime": "01.01.2024 02:00", "delta": 3.1}
+      ]
+    }
+  ]
+}
+```
+
+> You need a long_lived_access_token. Get it in the Home Assistant UI, under your profile/security.
 >
-> For older Home Assistant setups that do not use long-lived access tokens, you can also authenticate with the standard API password instead of the bearer token.
+> For local testing, `http://localhost:8123` is often the simplest endpoint. If you use HTTPS, make sure your Home Assistant instance is configured with a valid certificate; otherwise you may see TLS errors such as `packet too long`.
 
 ### Mixed Import
 
