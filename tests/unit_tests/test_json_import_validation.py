@@ -13,7 +13,8 @@ def test_validate_json_schema_valid() -> None:
             {
                 "id": "sensor.test_counter",
                 "unit": "kWh",
-                "values": [{"datetime": "17.03.2024 02:00", "sum": 12.34}],
+                # require both sum and state for counter entries
+                "values": [{"datetime": "17.03.2024 02:00", "sum": 12.34, "state": 12.34}],
             }
         ]
     }

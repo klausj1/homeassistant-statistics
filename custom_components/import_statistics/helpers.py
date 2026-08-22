@@ -364,7 +364,7 @@ def validate_json_schema(json_data: dict) -> None:
         handle_error("voluptuous is required for JSON validation but is not available in the environment")
 
     # Define schema for values entries: require 'datetime' and allow one or more value fields
-    value_entry = vol.Schema(
+    value_schema = vol.Schema(
         {
             vol.Required("datetime"): vol.All(str),
             vol.Optional("sum"): vol.Any(int, float),
@@ -376,6 +376,49 @@ def validate_json_schema(json_data: dict) -> None:
         },
         extra=vol.PREVENT_EXTRA,
     )
+
+    def _value_group_validator(value: dict) -> dict:
+        """Ensure values use exactly one allowed group: sensor, counter, or delta.
+
+        - sensor: requires all of 'min','mean','max'
+        - counter: requires both 'sum' and 'state'
+        - delta: requires 'delta'
+        """
+        # Keys other than 'datetime' are value fields
+        present = {k for k in value.keys() if k != "datetime"}
+
+        sensor_group = {"min", "mean", "max"}
+        counter_group = {"sum", "state"}
+        delta_group = {"delta"}
+
+        if not present:
+            raise vol.Invalid("Each value must include one of: all of 'min','mean','max', or both 'sum' and 'state', or 'delta'")
+
+        # Sensor group
+        if present & sensor_group:
+            if not sensor_group.issubset(present):
+                raise vol.Invalid("When using sensor values, all of 'min','mean','max' must be present")
+            # must not include other groups
+            if present - sensor_group:
+                raise vol.Invalid("Sensor values cannot be mixed with other value types")
+            return value
+
+        # Counter group: require both sum and state
+        if counter_group.issubset(present):
+            if present - counter_group:
+                raise vol.Invalid("Counter values (sum/state) cannot be mixed with other value types")
+            return value
+
+        # Delta group
+        if "delta" in present:
+            if present - delta_group:
+                raise vol.Invalid("Delta cannot be combined with other value types")
+            return value
+
+        raise vol.Invalid("Each value must contain either all of 'min','mean','max', or both 'sum' and 'state', or 'delta'")
+
+    # Combine base schema with the group validator
+    value_entry = vol.All(value_schema, _value_group_validator)
 
     entity_schema = vol.Schema(
         {
