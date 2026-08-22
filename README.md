@@ -214,7 +214,7 @@ Only these columns are accepted (unknown columns cause an error):
 
 ### Service Response
 
-`import_from_file` and `import_from_json` can optionally return information about whether each imported statistic actually received new data. To receive a response, set `response_variable` in your automation or script.
+`import_from_file` and `import_from_json` can optionally return an import `status` for each statistic. To receive a response, set `response_variable` in your automation or script.
 
 ```yaml
 - action: import_statistics.import_from_file
@@ -233,7 +233,7 @@ The response is a JSON-serializable dict:
   "results": {
     "sensor:imported_energy": {
       "statistic_id": "sensor:imported_energy",
-      "has_new_data": true,
+      "status": "<see below>",
       "newest_import_start": "2026-08-17T23:00:00+00:00",
       "newest_db_start": "2026-08-16T23:00:00+00:00"
     }
@@ -241,18 +241,23 @@ The response is a JSON-serializable dict:
 }
 ```
 
-Use the response in any action. This example creates a persistent notification if no new data got imported:
+> **Note:** The response includes a `status` field for each statistic. The possible values are:
+> - `new data` — the newest start timestamp in the import is newer than the newest timestamp in the database.
+> - `existing data` — the import only overwrites existing timestamps or adds older/equal timestamps (still saved, but no new timestamp is added).
+> - `no data` — no rows were provided for this statistic, so nothing is imported.
+
+Use the response in any action. This example creates a persistent notification if no newer data was found in the import:
 
 ```yaml
 - choose:
     - conditions:
         - condition: template
           value_template: >-
-            {{ not import_result.results['sensor:imported_energy'].has_new_data }}
+            {{ import_result.results['sensor:imported_energy'].status != 'new data' }}
       sequence:
         - service: persistent_notification.create
           data:
-            title: "Import Error"
+            title: "No new data"
             message: "No new data for sensor:imported_energy!"
 ```
 
@@ -266,7 +271,7 @@ You can also list all statistics that had no new data in a single notification:
     message: >
       {% set no_new_ids = [] %}
       {% for info in import_result.results.values() %}
-        {% if not info.has_new_data %}
+        {% if info.status != 'new data' %}
           {% set no_new_ids = no_new_ids + [info.statistic_id] %}
         {% endif %}
       {% endfor %}

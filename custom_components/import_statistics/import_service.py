@@ -267,7 +267,7 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
     _LOGGER.info("Validating entities and units")
     await validate_entities_and_units(hass, stats)
 
-    # Determine whether each statistic will actually receive new data
+    # Determine the import status for each statistic before writing
     results: dict[str, dict] = {}
     _LOGGER.info("Checking for new data before import")
     for stat in stats.values():
@@ -279,23 +279,23 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
         newest_db_start = newest_db_record["start"] if newest_db_record else None
 
         newest_import_start = None
-        has_new_data = True  # Assume new if no DB record exists
+        status = "no data"
         if statistics:
             newest_import_start = max(s["start"].astimezone(dt.UTC) for s in statistics)
-            has_new_data = newest_db_start is None or newest_import_start > newest_db_start
+            status = "new data" if (newest_db_start is None or newest_import_start > newest_db_start) else "existing data"
 
         results[statistic_id] = {
             "statistic_id": statistic_id,
-            "has_new_data": has_new_data,
+            "status": status,
             "newest_import_start": newest_import_start.isoformat() if newest_import_start else None,
             "newest_db_start": newest_db_start.isoformat() if newest_db_start else None,
         }
         _LOGGER.debug(
-            "Statistic %s: newest_db=%s, newest_import=%s, has_new_data=%s",
+            "Statistic %s: newest_db=%s, newest_import=%s, status=%s",
             statistic_id,
             newest_db_start,
             newest_import_start,
-            has_new_data,
+            status,
         )
 
     _LOGGER.info("Calling hass import methods")
