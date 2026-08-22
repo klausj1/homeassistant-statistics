@@ -3,10 +3,7 @@
 ## Now
 
 - Import from json documentation is misleading, check issue and fix.
-  - In work Also provide a better error message if no data is found
-    Do a manual test with correct and wrong schema, and with missing / mixed min/sum/...
   - later: Align the keys with yaml (breaking change)
-- Set unit_class (derive or own column?); see [HA Docu](https://developers.home-assistant.io/blog/2025/10/16/recorder-statistics-api-changes/?_highlight=unit_class)
 
 ## Bugs
 
