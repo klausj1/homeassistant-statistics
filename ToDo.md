@@ -2,9 +2,6 @@
 
 ## Now
 
-- Import from json documentation is misleading, check issue and fix.
-  - later: Align the keys with yaml (breaking change)
-
 ## Bugs
 
 Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the unit matches
@@ -13,6 +10,7 @@ Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the 
 
 - Support webserver, so that its not necessary to upload import file and download export file
 - Collect errors, and exit only after complete checking is done -> when we have a UI
+- Align the keys in the json with yaml (breaking change, or make it compatible)
 
 ## Export
 
