@@ -19,6 +19,7 @@ from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceT
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
     ImportDataType,
+    get_import_status_for_statistic,
     handle_dataframe_mixed,
     handle_dataframe_no_delta,
     prepare_data_to_import,
@@ -278,24 +279,14 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
         newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
         newest_db_start = newest_db_record["start"] if newest_db_record else None
 
-        newest_import_start = None
-        status = "no data"
-        if statistics:
-            newest_import_start = max(s["start"].astimezone(dt.UTC) for s in statistics)
-            status = "new data" if (newest_db_start is None or newest_import_start > newest_db_start) else "existing data"
-
-        results[statistic_id] = {
-            "statistic_id": statistic_id,
-            "status": status,
-            "newest_import_start": newest_import_start.isoformat() if newest_import_start else None,
-            "newest_db_start": newest_db_start.isoformat() if newest_db_start else None,
-        }
+        result_entry = get_import_status_for_statistic(statistic_id, statistics, newest_db_start)
+        results[statistic_id] = result_entry
         _LOGGER.debug(
             "Statistic %s: newest_db=%s, newest_import=%s, status=%s",
             statistic_id,
             newest_db_start,
-            newest_import_start,
-            status,
+            result_entry["newest_import_start"],
+            result_entry["status"],
         )
 
     _LOGGER.info("Calling hass import methods")

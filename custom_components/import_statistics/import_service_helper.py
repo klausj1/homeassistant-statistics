@@ -4,6 +4,8 @@ Helper functions for import service - data preparation from files/JSON.
 No hass object needed.
 """
 
+import datetime as dt
+
 import zoneinfo
 from enum import Enum
 from pathlib import Path
@@ -557,3 +559,36 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
         stats[statistic_id][1].extend(statistics_list)
 
     return stats
+
+
+def get_import_status_for_statistic(
+    statistic_id: str,
+    statistics: list[dict],
+    newest_db_start: dt.datetime | None,
+) -> dict:
+    """
+    Determine the import status for a single statistic and build the response entry.
+
+    Args:
+    ----
+        statistic_id: The statistic identifier
+        statistics: List of statistic rows, each containing a 'start' datetime
+        newest_db_start: The newest start timestamp already in the database, or None
+
+    Returns:
+    -------
+        Dictionary with statistic_id, status, newest_import_start and newest_db_start.
+        Timestamps are returned as ISO-formatted strings, or None when not available.
+    """
+    newest_import_start: dt.datetime | None = None
+    status = "no data"
+    if statistics:
+        newest_import_start = max(s["start"].astimezone(dt.UTC) for s in statistics)
+        status = "new data" if (newest_db_start is None or newest_import_start > newest_db_start) else "existing data"
+
+    return {
+        "statistic_id": statistic_id,
+        "status": status,
+        "newest_import_start": newest_import_start.isoformat() if newest_import_start else None,
+        "newest_db_start": newest_db_start.isoformat() if newest_db_start else None,
+    }
