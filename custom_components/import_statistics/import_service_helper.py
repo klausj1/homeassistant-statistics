@@ -1,7 +1,7 @@
 """
 Helper functions for import service - data preparation from files/JSON.
 
-No hass object needed.
+Most helpers do not need a hass object; status helpers use the hass object for database lookups.
 """
 
 import datetime as dt
@@ -13,10 +13,12 @@ from pathlib import Path
 import pandas as pd
 import pytz
 from homeassistant.components.recorder.models import StatisticMeanType
-from homeassistant.core import ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import helpers
+from custom_components.import_statistics.delta_database_access import _get_newest_db_statistic
+
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -592,3 +594,33 @@ def get_import_status_for_statistic(
         "newest_import_start": newest_import_start.isoformat() if newest_import_start else None,
         "newest_db_start": newest_db_start.isoformat() if newest_db_start else None,
     }
+
+
+async def get_import_status_for_all_statistics(hass: HomeAssistant, stats: dict) -> dict:
+    """
+    Determine the import status for every statistic before writing.
+
+    Returns a dictionary keyed by statistic_id, with the same entries as
+    get_import_status_for_statistic.
+    """
+    results: dict[str, dict] = {}
+    _LOGGER.info("Checking for new data before import")
+    for stat in stats.values():
+        metadata = stat[0]
+        statistics = stat[1]
+        statistic_id = metadata["statistic_id"]
+
+        newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
+        newest_db_start = newest_db_record["start"] if newest_db_record else None
+
+        result_entry = get_import_status_for_statistic(statistic_id, statistics, newest_db_start)
+        results[statistic_id] = result_entry
+        _LOGGER.debug(
+            "Statistic %s: newest_db=%s, newest_import=%s, status=%s",
+            statistic_id,
+            newest_db_start,
+            result_entry["newest_import_start"],
+            result_entry["status"],
+        )
+
+    return results

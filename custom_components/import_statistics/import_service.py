@@ -11,7 +11,6 @@ from homeassistant.helpers.recorder import get_instance
 
 from custom_components.import_statistics.const import ATTR_FILENAME
 from custom_components.import_statistics.delta_database_access import (
-    _get_newest_db_statistic,
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
 )
@@ -19,7 +18,7 @@ from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceT
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
     ImportDataType,
-    get_import_status_for_statistic,
+    get_import_status_for_all_statistics,
     handle_dataframe_mixed,
     handle_dataframe_no_delta,
     prepare_data_to_import,
@@ -269,25 +268,7 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
     await validate_entities_and_units(hass, stats)
 
     # Determine the import status for each statistic before writing
-    results: dict[str, dict] = {}
-    _LOGGER.info("Checking for new data before import")
-    for stat in stats.values():
-        metadata = stat[0]
-        statistics = stat[1]
-        statistic_id = metadata["statistic_id"]
-
-        newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
-        newest_db_start = newest_db_record["start"] if newest_db_record else None
-
-        result_entry = get_import_status_for_statistic(statistic_id, statistics, newest_db_start)
-        results[statistic_id] = result_entry
-        _LOGGER.debug(
-            "Statistic %s: newest_db=%s, newest_import=%s, status=%s",
-            statistic_id,
-            newest_db_start,
-            result_entry["newest_import_start"],
-            result_entry["status"],
-        )
+    results = await get_import_status_for_all_statistics(hass, stats)
 
     _LOGGER.info("Calling hass import methods")
     for stat in stats.values():

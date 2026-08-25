@@ -24,7 +24,7 @@ class TestImportServiceResponse:
         with (
             patch("custom_components.import_statistics.import_service.validate_entities_and_units", new=AsyncMock()),
             patch(
-                "custom_components.import_statistics.import_service._get_newest_db_statistic",
+                "custom_components.import_statistics.import_service_helper._get_newest_db_statistic",
                 new=AsyncMock(return_value={"start": db_start}),
             ),
             patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
@@ -53,7 +53,7 @@ class TestImportServiceResponse:
         with (
             patch("custom_components.import_statistics.import_service.validate_entities_and_units", new=AsyncMock()),
             patch(
-                "custom_components.import_statistics.import_service._get_newest_db_statistic",
+                "custom_components.import_statistics.import_service_helper._get_newest_db_statistic",
                 new=AsyncMock(return_value={"start": db_start}),
             ),
             patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
