@@ -32,9 +32,31 @@ def test_are_columns_valid_missing_optional_columns() -> None:
     assert are_columns_valid(my_df)
 
 
+@pytest.mark.parametrize(
+    "sensor_columns",
+    [
+        ["mean"],
+        ["min"],
+        ["max"],
+        ["mean", "min"],
+        ["mean", "max"],
+        ["min", "max"],
+    ],
+)
+def test_are_columns_valid_partial_sensor_columns(sensor_columns: list[str]) -> None:
+    """Test that sensor imports require all mean, min, and max columns."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", *sensor_columns])
+
+    with pytest.raises(
+        HomeAssistantError,
+        match=re.escape("Columns 'mean', 'min', and 'max' must either all be present or all be absent"),
+    ):
+        are_columns_valid(my_df)
+
+
 def test_are_columns_valid_invalid_columns_combination() -> None:
     """Test the are_columns_valid function with mixed sensor and counter columns (now accepted)."""
-    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "mean", "sum"])
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "mean", "min", "max", "sum"])
     assert are_columns_valid(my_df)
 
 
