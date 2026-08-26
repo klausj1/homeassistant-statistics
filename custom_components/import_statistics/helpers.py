@@ -136,6 +136,10 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
         allowed_cols_str = ", ".join(sorted(allowed_columns))
         handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
 
+    sensor_columns = {"mean", "min", "max"} & set(columns)
+    if sensor_columns and sensor_columns != {"mean", "min", "max"}:
+        handle_error("Columns 'mean', 'min', and 'max' must either all be present or all be absent")
+
     return True
 
 

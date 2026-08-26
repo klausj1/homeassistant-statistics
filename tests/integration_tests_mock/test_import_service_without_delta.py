@@ -703,6 +703,8 @@ class TestStandardImportIntegration:
                 "unit": ["kWh"],
                 "sum": [100.0],
                 "mean": [50.0],
+                "max": [60.0],
+                "min": [40.0],
             }
         )
 
