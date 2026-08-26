@@ -5,7 +5,6 @@ Most helpers do not need a hass object; status helpers use the hass object for d
 """
 
 import datetime as dt
-
 import zoneinfo
 from enum import Enum
 from pathlib import Path
@@ -17,8 +16,6 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import helpers
-from custom_components.import_statistics.delta_database_access import _get_newest_db_statistic
-
 from custom_components.import_statistics.const import (
     ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
@@ -26,6 +23,7 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
     DATETIME_DEFAULT_FORMAT,
 )
+from custom_components.import_statistics.delta_database_access import _get_newest_db_statistic
 from custom_components.import_statistics.helpers import _LOGGER
 
 
@@ -581,6 +579,7 @@ def get_import_status_for_statistic(
     -------
         Dictionary with statistic_id, status, newest_import_start and newest_db_start.
         Timestamps are returned as ISO-formatted strings, or None when not available.
+
     """
     newest_import_start: dt.datetime | None = None
     status = "no data"
