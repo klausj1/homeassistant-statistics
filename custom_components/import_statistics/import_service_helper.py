@@ -1,9 +1,10 @@
 """
 Helper functions for import service - data preparation from files/JSON.
 
-No hass object needed.
+Most helpers do not need a hass object; status helpers use the hass object for database lookups.
 """
 
+import datetime as dt
 import zoneinfo
 from enum import Enum
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 import pytz
 from homeassistant.components.recorder.models import StatisticMeanType
-from homeassistant.core import ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import helpers
@@ -22,6 +23,7 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
     DATETIME_DEFAULT_FORMAT,
 )
+from custom_components.import_statistics.delta_database_access import _get_newest_db_statistic
 from custom_components.import_statistics.helpers import _LOGGER
 
 
@@ -557,3 +559,67 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
         stats[statistic_id][1].extend(statistics_list)
 
     return stats
+
+
+def get_import_status_for_statistic(
+    statistic_id: str,
+    statistics: list[dict],
+    newest_db_start: dt.datetime | None,
+) -> dict:
+    """
+    Determine the import status for a single statistic and build the response entry.
+
+    Args:
+    ----
+        statistic_id: The statistic identifier
+        statistics: List of statistic rows, each containing a 'start' datetime
+        newest_db_start: The newest start timestamp already in the database, or None
+
+    Returns:
+    -------
+        Dictionary with statistic_id, status, newest_import_start and newest_db_start.
+        Timestamps are returned as ISO-formatted strings, or None when not available.
+
+    """
+    newest_import_start: dt.datetime | None = None
+    status = "no data"
+    if statistics:
+        newest_import_start = max(s["start"].astimezone(dt.UTC) for s in statistics)
+        status = "new data" if (newest_db_start is None or newest_import_start > newest_db_start) else "existing data"
+
+    return {
+        "statistic_id": statistic_id,
+        "status": status,
+        "newest_import_start": newest_import_start.isoformat() if newest_import_start else None,
+        "newest_db_start": newest_db_start.isoformat() if newest_db_start else None,
+    }
+
+
+async def get_import_status_for_all_statistics(hass: HomeAssistant, stats: dict) -> dict:
+    """
+    Determine the import status for every statistic before writing.
+
+    Returns a dictionary keyed by statistic_id, with the same entries as
+    get_import_status_for_statistic.
+    """
+    results: dict[str, dict] = {}
+    _LOGGER.info("Checking for new data before import")
+    for stat in stats.values():
+        metadata = stat[0]
+        statistics = stat[1]
+        statistic_id = metadata["statistic_id"]
+
+        newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
+        newest_db_start = newest_db_record["start"] if newest_db_record else None
+
+        result_entry = get_import_status_for_statistic(statistic_id, statistics, newest_db_start)
+        results[statistic_id] = result_entry
+        _LOGGER.debug(
+            "Statistic %s: newest_db=%s, newest_import=%s, status=%s",
+            statistic_id,
+            newest_db_start,
+            result_entry["newest_import_start"],
+            result_entry["status"],
+        )
+
+    return results

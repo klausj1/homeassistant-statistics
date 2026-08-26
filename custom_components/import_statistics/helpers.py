@@ -10,18 +10,13 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import voluptuous as vol
 from homeassistant.components.recorder.statistics import STATISTIC_UNIT_TO_UNIT_CONVERTER, UNIT_CLASS_TO_UNIT_CONVERTER, valid_statistic_id
 from homeassistant.core import valid_entity_id
 from homeassistant.exceptions import HomeAssistantError
+from voluptuous.error import MultipleInvalid
 
 _LOGGER = logging.getLogger(__name__)
-
-try:
-    import voluptuous as vol  # optional dependency for JSON validation
-    from voluptuous.error import MultipleInvalid
-except ImportError:  # pragma: no cover - environment may or may not have voluptuous
-    vol = None
-    MultipleInvalid = None
 
 
 class DeltaReferenceType(Enum):
@@ -135,6 +130,10 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
         unknown_cols_str = ", ".join(sorted(unknown_columns))
         allowed_cols_str = ", ".join(sorted(allowed_columns))
         handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
+
+    sensor_columns = {"mean", "min", "max"} & set(columns)
+    if sensor_columns and sensor_columns != {"mean", "min", "max"}:
+        handle_error("Columns 'mean', 'min', and 'max' must either all be present or all be absent")
 
     return True
 
@@ -360,9 +359,6 @@ def validate_json_schema(json_data: dict) -> None:
     Raises a HomeAssistantError via `handle_error()` with a helpful message
     and an example if validation fails.
     """
-    if vol is None:
-        handle_error("voluptuous is required for JSON validation but is not available in the environment")
-
     # Define schema for values entries: require 'datetime' and allow one or more value fields
     value_schema = vol.Schema(
         {

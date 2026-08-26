@@ -212,6 +212,79 @@ Only these columns are accepted (unknown columns cause an error):
 
 > If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
 
+### Service Response
+
+`import_from_file` and `import_from_json` can optionally return an import `status` for each statistic. To receive a response, set `response_variable` in your automation or script.
+
+```yaml
+- action: import_statistics.import_from_file
+  data:
+    filename: my_statistics.csv
+    delimiter: ","
+    decimal: "."
+    datetime_format: "%Y-%m-%d %H:%M"
+  response_variable: import_result
+```
+
+The response is a JSON-serializable dict:
+
+```json
+{
+  "results": {
+    "sensor:imported_energy": {
+      "statistic_id": "sensor:imported_energy",
+      "status": "<see below>",
+      "newest_import_start": "2026-08-17T23:00:00+00:00",
+      "newest_db_start": "2026-08-16T23:00:00+00:00"
+    }
+  }
+}
+```
+
+> **Note:** The response includes a `status` field for each statistic. The possible values are:
+>
+> - `new data` — the newest start timestamp in the import is newer than the newest timestamp in the database.
+> - `existing data` — the import only overwrites existing timestamps or adds older/equal timestamps (still saved, but no new timestamp is added).
+> - `no data` — no rows were provided for this statistic, so nothing is imported.
+>
+
+Use the response in any action. This example creates a persistent notification if no newer data was found in the import:
+
+```yaml
+- choose:
+    - conditions:
+        - condition: template
+          value_template: >-
+            {{ import_result.results['sensor:imported_energy'].status != 'new data' }}
+      sequence:
+        - service: persistent_notification.create
+          data:
+            title: "No new data"
+            message: "No new data for sensor:imported_energy!"
+```
+
+You can also list all statistics that had no new data in a single notification:
+
+```yaml
+- service: persistent_notification.create
+  data:
+    title: "Statistics without new data"
+    message: >
+      {% set no_new_ids = [] %}
+      {% for info in import_result.results.values() %}
+        {% if info.status != 'new data' %}
+          {% set no_new_ids = no_new_ids + [info.statistic_id] %}
+        {% endif %}
+      {% endfor %}
+      {% if no_new_ids %}
+        No new data for: {{ no_new_ids | join(', ') }}
+      {% else %}
+        All imported statistics contain new data.
+      {% endif %}
+```
+
+> **Note:** The response variable is only populated when the action is called with `response_variable`. Without it the action behaves as before and returns no response.
+
 ### Data Validation
 
 The integration performs strict validation on all import data:

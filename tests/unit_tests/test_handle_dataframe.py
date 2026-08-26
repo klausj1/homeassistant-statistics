@@ -391,13 +391,13 @@ def test_handle_dataframe_mean_sum() -> None:
 
     Mixed sensor/counter columns are now accepted and result in ImportDataType.MIXED.
     """
-    # Create a sample dataframe with both 'min', 'max' and 'sum' columns
+    # Create a sample dataframe with all sensor columns and a counter column
     my_df = pd.DataFrame(
         [
-            ["stat1.mean", "01.01.2022 00:00", "unit1", 1, 10, 5],
-            ["stat1.mean", "02.01.2022 00:00", "unit1", 2, 20, 15],
+            ["stat1.mean", "01.01.2022 00:00", "unit1", 1, 10, 5, 5],
+            ["stat1.mean", "02.01.2022 00:00", "unit1", 2, 20, 15, 15],
         ],
-        columns=["statistic_id", "start", "unit", "min", "max", "sum"],
+        columns=["statistic_id", "start", "unit", "min", "max", "mean", "sum"],
     )
 
     result = _validate_and_detect_delta(my_df)

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.3.0] - Import service response and validation improvements
+
+### Added
+
+- **Optional import service response**: `import_from_file` and `import_from_json` can return per-statistic import results when `response_variable` is set, including `new data`, `existing data`, or `no data` status
+
+### Bug Fixes
+
+- **Sensor column validation**: Import files containing `min`, `max`, or `mean` now provide a clear error message if not all three columns are there (before the service call returned unknown error in this case)
+
 ## [5.2.0] - JSON import validation and documentation improvement
 
 ### Added
