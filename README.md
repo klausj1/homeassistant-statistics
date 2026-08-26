@@ -242,9 +242,11 @@ The response is a JSON-serializable dict:
 ```
 
 > **Note:** The response includes a `status` field for each statistic. The possible values are:
+>
 > - `new data` — the newest start timestamp in the import is newer than the newest timestamp in the database.
 > - `existing data` — the import only overwrites existing timestamps or adds older/equal timestamps (still saved, but no new timestamp is added).
 > - `no data` — no rows were provided for this statistic, so nothing is imported.
+>
 
 Use the response in any action. This example creates a persistent notification if no newer data was found in the import:
 
@@ -260,7 +262,6 @@ Use the response in any action. This example creates a persistent notification i
             title: "No new data"
             message: "No new data for sensor:imported_energy!"
 ```
-
 
 You can also list all statistics that had no new data in a single notification:
 
