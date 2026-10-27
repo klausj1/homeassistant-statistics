@@ -9,7 +9,7 @@ Usage: python3 jeedom2homeassistant-puissance.py <input_file> <output_file> <pre
 """
 
 import csv
-import datetime
+import datetime as dt
 import sys
 from pathlib import Path
 
@@ -24,7 +24,7 @@ def process_file(input_file: str, output_file: str, prefix: str) -> None:
     Reads time-series data from input_file, groups by hour calculating
     statistics, and writes results to output_file using prefix in the id.
     """
-    data: dict[datetime.datetime, list[float]] = {}
+    data: dict[dt.datetime, list[float]] = {}
 
     # Read and process the input file
     infile_path = Path(input_file)
@@ -34,7 +34,7 @@ def process_file(input_file: str, output_file: str, prefix: str) -> None:
             if len(row) > MIN_ROW_COLS:
                 try:
                     # Parse and format the date
-                    timestamp = datetime.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.UTC)
+                    timestamp = dt.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=dt.UTC)
                     value = float(row[1].replace(",", "."))
                     # Round down to the nearest full hour
                     full_hour = timestamp.replace(minute=0, second=0, microsecond=0)

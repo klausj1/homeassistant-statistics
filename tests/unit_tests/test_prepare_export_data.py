@@ -1,7 +1,7 @@
 """Unit tests for prepare_export_data and related export functions."""
 
 import csv
-import datetime
+import datetime as dt
 import json
 import tempfile
 import zoneinfo
@@ -66,7 +66,7 @@ class TestFormatDatetime:
 
     def test_format_datetime_naive_assumed_utc(self) -> None:
         """Test that naive datetime is assumed to be UTC."""
-        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=datetime.UTC)
+        dt_obj = dt.datetime(2024, 1, 26, 12, 0, 0, tzinfo=dt.UTC)
         timezone = zoneinfo.ZoneInfo("Europe/Vienna")
         result = format_datetime(dt_obj, timezone, "%d.%m.%Y %H:%M")
         assert result == "26.01.2024 13:00"
@@ -87,7 +87,7 @@ class TestFormatDatetime:
 
     def test_format_datetime_timezone_aware_conversion(self) -> None:
         """Test converting between different timezones."""
-        dt_obj = datetime.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("America/New_York"))
+        dt_obj = dt.datetime(2024, 1, 26, 12, 0, 0, tzinfo=zoneinfo.ZoneInfo("America/New_York"))
         timezone = zoneinfo.ZoneInfo("Asia/Tokyo")
         result = format_datetime(dt_obj, timezone, "%Y-%m-%d %H:%M")
         # 12:00 EST = 02:00 JST (next day)
@@ -138,37 +138,37 @@ class TestDetectStatisticType:
 
     def test_detect_sensor_type_mean(self) -> None:
         """Test detection of sensor type with mean."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "mean": 20.5, "min": 20.0, "max": 21.0}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC), "mean": 20.5, "min": 20.0, "max": 21.0}]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor"
 
     def test_detect_sensor_type_min(self) -> None:
         """Test detection of sensor type with min."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "min": 20.0}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC), "min": 20.0}]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor"
 
     def test_detect_sensor_type_max(self) -> None:
         """Test detection of sensor type with max."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "max": 21.0}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC), "max": 21.0}]
         result = _detect_statistic_type(stats_list)
         assert result == "sensor"
 
     def test_detect_counter_type_sum(self) -> None:
         """Test detection of counter type with sum."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "sum": 100.5}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC), "sum": 100.5}]
         result = _detect_statistic_type(stats_list)
         assert result == "counter"
 
     def test_detect_counter_type_state(self) -> None:
         """Test detection of counter type with state."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "state": 100.5}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC), "state": 100.5}]
         result = _detect_statistic_type(stats_list)
         assert result == "counter"
 
     def test_detect_counter_type_both(self) -> None:
         """Test detection of counter type with both sum and state."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC), "sum": 100.5, "state": 100.5}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC), "sum": 100.5, "state": 100.5}]
         result = _detect_statistic_type(stats_list)
         assert result == "counter"
 
@@ -180,7 +180,7 @@ class TestDetectStatisticType:
 
     def test_detect_unknown_type_no_matching_fields(self) -> None:
         """Test detection of unknown type with no matching fields."""
-        stats_list = [{"start": datetime.datetime.now(tz=datetime.UTC)}]
+        stats_list = [{"start": dt.datetime.now(tz=dt.UTC)}]
         result = _detect_statistic_type(stats_list)
         assert result == "unknown"
 
@@ -193,7 +193,7 @@ class TestDetectStatisticType:
         """
         stats_list = [
             {
-                "start": datetime.datetime.now(tz=datetime.UTC),
+                "start": dt.datetime.now(tz=dt.UTC),
                 "mean": 20.5,
                 "min": 20.0,
                 "max": 21.0,
@@ -213,7 +213,7 @@ class TestDetectStatisticType:
         """
         stats_list = [
             {
-                "start": datetime.datetime.now(tz=datetime.UTC),
+                "start": dt.datetime.now(tz=dt.UTC),
                 "mean": None,  # Present but None
                 "min": None,  # Present but None
                 "max": None,  # Present but None
@@ -681,7 +681,7 @@ class TestPrepareExportJson:
         statistics_dict = {
             "sensor.temperature": [
                 {
-                    "start": datetime.datetime.now(tz=datetime.UTC),
+                    "start": dt.datetime.now(tz=dt.UTC),
                     "mean": 20.5,
                     "min": 20.0,
                     "max": 21.0,

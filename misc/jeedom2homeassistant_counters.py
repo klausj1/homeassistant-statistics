@@ -11,7 +11,7 @@ Usage: python3 process_file.py <input_file> <output_file> <prefix>
 
 import contextlib
 import csv
-import datetime
+import datetime as dt
 import sys
 from pathlib import Path
 
@@ -37,16 +37,16 @@ def add_prefix_and_format_date(input_file: str, temp_file: str, prefix: str) -> 
             if len(row) > 1:
                 old_date = row[0]
                 # parse as UTC-aware datetime
-                new_date = datetime.datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.UTC).strftime("%d.%m.%Y %H:%M")
+                new_date = dt.datetime.strptime(old_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=dt.UTC).strftime("%d.%m.%Y %H:%M")
                 writer.writerow([prefix, new_date, row[1].replace(",", ".")])
 
 
 def interpolate_value(
-    prev_time: datetime.datetime,
+    prev_time: dt.datetime,
     prev_value: float,
-    current_time: datetime.datetime,
+    current_time: dt.datetime,
     current_value: float,
-    target_time: datetime.datetime,
+    target_time: dt.datetime,
 ) -> float:
     """
     Linearly interpolate the value for the target time.
@@ -66,7 +66,7 @@ def interpolate_value(
 
 def adjust_to_full_hours(temp_file: str, output_file: str) -> None:
     """Adjust the data to only include full hours."""
-    data: list[tuple[datetime.datetime, str, float]] = []
+    data: list[tuple[dt.datetime, str, float]] = []
 
     # Read the temporary file
     infile_path = Path(temp_file)
@@ -74,7 +74,7 @@ def adjust_to_full_hours(temp_file: str, output_file: str) -> None:
         reader = csv.reader(infile, delimiter=";")
         for row in reader:
             if len(row) >= MIN_ROW_COLS:
-                timestamp = datetime.datetime.strptime(row[1], "%d.%m.%Y %H:%M").replace(tzinfo=datetime.UTC)
+                timestamp = dt.datetime.strptime(row[1], "%d.%m.%Y %H:%M").replace(tzinfo=dt.UTC)
                 value = float(row[2])
                 data.append((timestamp, row[0], value))
 
