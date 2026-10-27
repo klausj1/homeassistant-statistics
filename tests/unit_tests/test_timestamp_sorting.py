@@ -7,7 +7,7 @@ This is critical because certain datetime formats (e.g., "%d.%m.%Y %H:%M") would
 produce incorrect ordering if sorted as strings.
 """
 
-import datetime
+import datetime as dt
 
 from custom_components.import_statistics.export_service_helper import (
     get_delta_from_stats,
@@ -31,19 +31,19 @@ class TestExportTimestampSorting:
         statistics_dict = {
             "sensor.test": [
                 {
-                    "start": datetime.datetime(2023, 12, 31, 14, 0, 0).timestamp(),  # Should be first chronologically
+                    "start": dt.datetime(2023, 12, 31, 14, 0, 0).timestamp(),  # Should be first chronologically
                     "mean": 10.0,
                     "min": 9.0,
                     "max": 11.0,
                 },
                 {
-                    "start": datetime.datetime(2024, 1, 1, 15, 0, 0).timestamp(),  # Should be second chronologically
+                    "start": dt.datetime(2024, 1, 1, 15, 0, 0).timestamp(),  # Should be second chronologically
                     "mean": 20.0,
                     "min": 19.0,
                     "max": 21.0,
                 },
                 {
-                    "start": datetime.datetime(2024, 1, 2, 16, 0, 0).timestamp(),  # Should be third chronologically
+                    "start": dt.datetime(2024, 1, 2, 16, 0, 0).timestamp(),  # Should be third chronologically
                     "mean": 30.0,
                     "min": 29.0,
                     "max": 31.0,
@@ -71,12 +71,12 @@ class TestExportTimestampSorting:
         """Test chronological ordering within each entity when multiple entities present."""
         statistics_dict = {
             "sensor.a": [
-                {"start": datetime.datetime(2024, 1, 15, 10, 0, 0).timestamp(), "mean": 100.0, "min": 99.0, "max": 101.0},
-                {"start": datetime.datetime(2024, 1, 5, 10, 0, 0).timestamp(), "mean": 50.0, "min": 49.0, "max": 51.0},
+                {"start": dt.datetime(2024, 1, 15, 10, 0, 0).timestamp(), "mean": 100.0, "min": 99.0, "max": 101.0},
+                {"start": dt.datetime(2024, 1, 5, 10, 0, 0).timestamp(), "mean": 50.0, "min": 49.0, "max": 51.0},
             ],
             "sensor.b": [
-                {"start": datetime.datetime(2024, 1, 20, 10, 0, 0).timestamp(), "mean": 200.0, "min": 199.0, "max": 201.0},
-                {"start": datetime.datetime(2024, 1, 10, 10, 0, 0).timestamp(), "mean": 150.0, "min": 149.0, "max": 151.0},
+                {"start": dt.datetime(2024, 1, 20, 10, 0, 0).timestamp(), "mean": 200.0, "min": 199.0, "max": 201.0},
+                {"start": dt.datetime(2024, 1, 10, 10, 0, 0).timestamp(), "mean": 150.0, "min": 149.0, "max": 151.0},
             ],
         }
 
@@ -109,9 +109,9 @@ class TestExportTimestampSorting:
         """Test that JSON export maintains chronological order."""
         statistics_dict = {
             "sensor.test": [
-                {"start": datetime.datetime(2024, 1, 15, 10, 0, 0).timestamp(), "mean": 100.0, "min": 99.0, "max": 101.0},
-                {"start": datetime.datetime(2024, 1, 5, 10, 0, 0).timestamp(), "mean": 50.0, "min": 49.0, "max": 51.0},
-                {"start": datetime.datetime(2024, 1, 10, 10, 0, 0).timestamp(), "mean": 75.0, "min": 74.0, "max": 76.0},
+                {"start": dt.datetime(2024, 1, 15, 10, 0, 0).timestamp(), "mean": 100.0, "min": 99.0, "max": 101.0},
+                {"start": dt.datetime(2024, 1, 5, 10, 0, 0).timestamp(), "mean": 50.0, "min": 49.0, "max": 51.0},
+                {"start": dt.datetime(2024, 1, 10, 10, 0, 0).timestamp(), "mean": 75.0, "min": 74.0, "max": 76.0},
             ]
         }
 
@@ -146,19 +146,19 @@ class TestExportTimestampSorting:
         rows = [
             {
                 "statistic_id": "sensor.counter",
-                "_sort_timestamp": datetime.datetime(2024, 1, 15, 10, 0, 0).timestamp(),
+                "_sort_timestamp": dt.datetime(2024, 1, 15, 10, 0, 0).timestamp(),
                 "start": "15.01.2024 10:00",
                 "sum": "300",
             },
             {
                 "statistic_id": "sensor.counter",
-                "_sort_timestamp": datetime.datetime(2024, 1, 5, 10, 0, 0).timestamp(),
+                "_sort_timestamp": dt.datetime(2024, 1, 5, 10, 0, 0).timestamp(),
                 "start": "05.01.2024 10:00",
                 "sum": "100",
             },
             {
                 "statistic_id": "sensor.counter",
-                "_sort_timestamp": datetime.datetime(2024, 1, 10, 10, 0, 0).timestamp(),
+                "_sort_timestamp": dt.datetime(2024, 1, 10, 10, 0, 0).timestamp(),
                 "start": "10.01.2024 10:00",
                 "sum": "200",
             },
@@ -188,13 +188,13 @@ class TestExportTimestampSorting:
         rows = [
             {
                 "statistic_id": "sensor.counter",
-                "_sort_timestamp": datetime.datetime(2024, 1, 15, 10, 0, 0).timestamp(),
+                "_sort_timestamp": dt.datetime(2024, 1, 15, 10, 0, 0).timestamp(),
                 "start": "15.01.2024 10:00",
                 "sum": "300",
             },
             {
                 "statistic_id": "sensor.counter",
-                "_sort_timestamp": datetime.datetime(2024, 1, 5, 10, 0, 0).timestamp(),
+                "_sort_timestamp": dt.datetime(2024, 1, 5, 10, 0, 0).timestamp(),
                 "start": "05.01.2024 10:00",
                 "sum": "100",
             },
@@ -247,7 +247,7 @@ class TestImportTimestampRangeDetection:
 
         # The fix is to parse timestamps first, then compare
         dt_format = "%d.%m.%Y %H:%M"
-        dt_objects = [datetime.datetime.strptime(ts, dt_format) for ts in timestamps]
+        dt_objects = [dt.datetime.strptime(ts, dt_format) for ts in timestamps]
         oldest_dt = min(dt_objects)
         newest_dt = max(dt_objects)
 

@@ -1,7 +1,6 @@
 """Helpers for the import_statistics integration."""
 
 import datetime as dt
-import datetime as dt_module
 import json
 import logging
 import zoneinfo
@@ -538,7 +537,7 @@ def format_datetime(dt_obj: dt.datetime | float, timezone: zoneinfo.ZoneInfo, fo
     """
     # Handle Unix timestamp (float or int) from recorder API
     if isinstance(dt_obj, (float, int)):
-        dt_obj = dt_module.datetime.fromtimestamp(dt_obj, tz=dt.UTC)
+        dt_obj = dt.datetime.fromtimestamp(dt_obj, tz=dt.UTC)
 
     # At this point, dt_obj is guaranteed to be a datetime
     if not isinstance(dt_obj, dt.datetime):
