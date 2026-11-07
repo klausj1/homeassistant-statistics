@@ -246,6 +246,11 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
         helpers.handle_error("filename is required and must be a string")
     if entities_input_raw is not None and not isinstance(entities_input_raw, list):
         helpers.handle_error("entities must be a list")
+    if isinstance(entities_input_raw, list):
+        if any(entity is not None and not isinstance(entity, str) for entity in entities_input_raw):
+            helpers.handle_error("entities must contain only statistic ID strings")
+        if any(entity is None for entity in entities_input_raw) and any(entity is not None for entity in entities_input_raw):
+            helpers.handle_error("entities must not mix null values with statistic IDs")
     if start_time_str_raw is not None and not isinstance(start_time_str_raw, str):
         helpers.handle_error("start_time must be a string")
     if end_time_str_raw is not None and not isinstance(end_time_str_raw, str):
@@ -257,7 +262,9 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
 
     # Type narrowing
     filename: str = cast("str", filename_raw)
-    entities_input: list[str] | None = None if entities_input_raw is None else cast("list[str]", entities_input_raw)
+    entities_input: list[str] | None = (
+        None if entities_input_raw is None else ([entity for entity in cast("list[str | None]", entities_input_raw) if entity is not None] or None)
+    )
     start_time_str: str | None = None if start_time_str_raw is None else cast("str", start_time_str_raw)
     end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
     split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)

@@ -22,7 +22,7 @@ from custom_components.import_statistics.const import (
     ATTR_START_TIME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from custom_components.import_statistics.export_service import _get_statistic_ids, get_statistics_from_recorder
+from custom_components.import_statistics.export_service import _get_statistic_ids, _validate_service_parameters, get_statistics_from_recorder
 from tests.conftest import get_service_handler, mock_async_add_executor_job
 
 # Test constants
@@ -372,6 +372,29 @@ class TestGetStatisticIds:
 
 class TestHandleExportStatistics:
     """Test handle_export_statistics service handler."""
+
+    def test_validate_service_parameters_treats_null_entities_as_unset(self) -> None:
+        """Treat an empty entity selector value as no filter."""
+        call = ServiceCall(
+            MagicMock(),
+            "import_statistics",
+            "export_statistics",
+            {ATTR_FILENAME: "export.tsv", ATTR_ENTITIES: [None]},
+        )
+
+        assert _validate_service_parameters(call)[1] is None
+
+    def test_validate_service_parameters_rejects_mixed_null_entities(self) -> None:
+        """Reject entity lists that mix null selector values with IDs."""
+        call = ServiceCall(
+            MagicMock(),
+            "import_statistics",
+            "export_statistics",
+            {ATTR_FILENAME: "export.tsv", ATTR_ENTITIES: [None, "sensor.temperature"]},
+        )
+
+        with pytest.raises(HomeAssistantError, match="must not mix null values"):
+            _validate_service_parameters(call)
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_valid_call(self) -> None:
