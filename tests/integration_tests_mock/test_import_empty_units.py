@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.core import ServiceCall
-from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import (
@@ -129,10 +128,10 @@ class TestImportEmptyUnits:
             with (
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
-                pytest.raises(HomeAssistantError, match=r"Unit mismatch.*\(empty\).*°C"),
             ):
-                # Should fail - empty vs °C
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("Unit mismatch" in error and "(empty)" in error and "°C" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_unit_fails_when_database_empty(self) -> None:
@@ -181,10 +180,10 @@ class TestImportEmptyUnits:
             with (
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
-                pytest.raises(HomeAssistantError, match=r"Unit mismatch.*°C.*\(empty\)"),
             ):
-                # Should fail - °C vs empty
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("Unit mismatch" in error and "°C" in error and "(empty)" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_new_statistic_with_empty_unit(self) -> None:

@@ -8,6 +8,7 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.helpers import (
+    AggregatedValidationError,
     validate_floats_vectorized,
     validate_min_max_mean_vectorized,
     validate_timestamps_vectorized,
@@ -91,6 +92,24 @@ class TestValidateTimestampsVectorized:
         with pytest.raises(HomeAssistantError, match=r"row 3.*01:15"):
             validate_timestamps_vectorized(df)
 
+    def test_reports_all_invalid_timestamps(self) -> None:
+        """Report every timestamp that is not on a full hour."""
+        df = pd.DataFrame(
+            {
+                "start": [
+                    datetime(2022, 1, 1, 0, 15, tzinfo=ZoneInfo("UTC")),
+                    datetime(2022, 1, 1, 1, 30, tzinfo=ZoneInfo("UTC")),
+                ]
+            }
+        )
+
+        with pytest.raises(AggregatedValidationError) as exc:
+            validate_timestamps_vectorized(df)
+
+        assert len(exc.value.errors) == 2
+        assert "row 2" in exc.value.errors[0]
+        assert "row 3" in exc.value.errors[1]
+
     def test_works_with_different_timezones(self) -> None:
         """Test that validation works with different timezones."""
         df = pd.DataFrame(
@@ -173,6 +192,15 @@ class TestValidateFloatsVectorized:
         # Should report row 3 (first NaN at index 1, +2 = row 3)
         with pytest.raises(HomeAssistantError, match=r"row 3"):
             validate_floats_vectorized(df, ["sum"])
+
+    def test_reports_all_invalid_values_across_columns(self) -> None:
+        """Report every invalid value across each requested column."""
+        df = pd.DataFrame({"sum": [None, "bad"], "state": ["invalid", 2.0]})
+
+        with pytest.raises(AggregatedValidationError) as exc:
+            validate_floats_vectorized(df, ["sum", "state"])
+
+        assert len(exc.value.errors) == 3
 
     def test_validates_multiple_columns(self) -> None:
         """Test that all specified columns are validated with column and row info."""
@@ -328,6 +356,21 @@ class TestValidateMinMaxMeanVectorized:
         # Should report second row (row 3), not third (row 4)
         with pytest.raises(HomeAssistantError, match=r"row 3.*min: 25.0.*max: 15.0"):
             validate_min_max_mean_vectorized(df)
+
+    def test_reports_all_invalid_rows(self) -> None:
+        """Report every row that violates min <= mean <= max."""
+        df = pd.DataFrame(
+            {
+                "min": [10.0, 25.0, 30.0],
+                "max": [20.0, 15.0, 10.0],
+                "mean": [15.0, 20.0, 20.0],
+            }
+        )
+
+        with pytest.raises(AggregatedValidationError) as exc:
+            validate_min_max_mean_vectorized(df)
+
+        assert len(exc.value.errors) == 2
 
     def test_works_with_negative_values(self) -> None:
         """Test that negative values work correctly."""

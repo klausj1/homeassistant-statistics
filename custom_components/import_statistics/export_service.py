@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 import pytz
 from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.recorder import get_instance
 
 if TYPE_CHECKING:
@@ -184,8 +185,18 @@ async def get_statistics_from_recorder(
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier!r}")
 
     # Parse and validate time strings
-    start_dt = _parse_and_validate_time(start_time_str, tz, "start_time")
-    end_dt = _parse_and_validate_time(end_time_str, tz, "end_time")
+    time_errors = []
+    try:
+        start_dt = _parse_and_validate_time(start_time_str, tz, "start_time")
+    except HomeAssistantError as err:
+        time_errors.extend(err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)])
+        start_dt = None
+    try:
+        end_dt = _parse_and_validate_time(end_time_str, tz, "end_time")
+    except HomeAssistantError as err:
+        time_errors.extend(err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)])
+        end_dt = None
+    helpers.handle_errors(time_errors)
 
     # Get recorder instance
     recorder_instance = get_instance(hass)
@@ -241,34 +252,37 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     split_by_raw = call.data.get(ATTR_SPLIT_BY, "none")
     counter_fields_raw = call.data.get(ATTR_COUNTER_FIELDS, "both")
 
+    errors = []
     # Validate required parameters
     if not filename_raw or not isinstance(filename_raw, str):
-        helpers.handle_error("filename is required and must be a string")
+        errors.append("filename is required and must be a string")
     if entities_input_raw is not None and not isinstance(entities_input_raw, list):
-        helpers.handle_error("entities must be a list")
+        errors.append("entities must be a list")
     if isinstance(entities_input_raw, list):
         if any(entity is not None and not isinstance(entity, str) for entity in entities_input_raw):
-            helpers.handle_error("entities must contain only statistic ID strings")
+            errors.append("entities must contain only statistic ID strings")
         if any(entity is None for entity in entities_input_raw) and any(entity is not None for entity in entities_input_raw):
-            helpers.handle_error("entities must not mix null values with statistic IDs")
+            errors.append("entities must not mix null values with statistic IDs")
     if start_time_str_raw is not None and not isinstance(start_time_str_raw, str):
-        helpers.handle_error("start_time must be a string")
+        errors.append("start_time must be a string")
     if end_time_str_raw is not None and not isinstance(end_time_str_raw, str):
-        helpers.handle_error("end_time must be a string")
+        errors.append("end_time must be a string")
     if split_by_raw is not None and not isinstance(split_by_raw, str):
-        helpers.handle_error("split_by must be a string")
+        errors.append("split_by must be a string")
     if counter_fields_raw is not None and not isinstance(counter_fields_raw, str):
-        helpers.handle_error("counter_fields must be a string")
+        errors.append("counter_fields must be a string")
 
     # Type narrowing
-    filename: str = cast("str", filename_raw)
+    filename: str = filename_raw if isinstance(filename_raw, str) else ""
     entities_input: list[str] | None = (
-        None if entities_input_raw is None else ([entity for entity in cast("list[str | None]", entities_input_raw) if entity is not None] or None)
+        None
+        if not isinstance(entities_input_raw, list)
+        else ([entity for entity in entities_input_raw if isinstance(entity, str)] or None)
     )
-    start_time_str: str | None = None if start_time_str_raw is None else cast("str", start_time_str_raw)
-    end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
-    split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)
-    counter_fields: str = "both" if counter_fields_raw is None else cast("str", counter_fields_raw)
+    start_time_str: str | None = start_time_str_raw if isinstance(start_time_str_raw, str) else None
+    end_time_str: str | None = end_time_str_raw if isinstance(end_time_str_raw, str) else None
+    split_by: str = split_by_raw if isinstance(split_by_raw, str) else "none"
+    counter_fields: str = counter_fields_raw if isinstance(counter_fields_raw, str) else "both"
 
     # Backwards compatible rename: 'sensor' -> 'measurement'
     if split_by == "sensor":
@@ -276,12 +290,13 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
 
     valid_split_values = {"none", "measurement", "counter", "both"}
     if split_by not in valid_split_values:
-        helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
+        errors.append(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
 
     valid_counter_field_values = {"both", "sum", "delta"}
     if counter_fields not in valid_counter_field_values:
-        helpers.handle_error(f"counter_fields must be one of {sorted(valid_counter_field_values)}, got {counter_fields!r}")
+        errors.append(f"counter_fields must be one of {sorted(valid_counter_field_values)}, got {counter_fields!r}")
 
+    helpers.handle_errors(errors)
     return filename, entities_input, start_time_str, end_time_str, split_by, counter_fields
 
 
@@ -411,7 +426,16 @@ async def _export_single_file(  # noqa: PLR0913, PLR0917
     return len(rows)
 
 
-async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> dict[str, int]:
+async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
+    """Handle an export and return validation failures as a service response."""
+    try:
+        return await _handle_export_statistics(hass, call)
+    except HomeAssistantError as err:
+        errors = err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)]
+        return {"failed": True, "errors": errors}
+
+
+async def _handle_export_statistics(hass: HomeAssistant, call: ServiceCall) -> dict[str, int]:
     """Handle export_statistics service implementation."""
     # Validate and extract parameters
     filename, entities_input, start_time_str, end_time_str, split_by, counter_fields = _validate_service_parameters(call)

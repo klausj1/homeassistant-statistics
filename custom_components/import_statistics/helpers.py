@@ -25,6 +25,22 @@ class DeltaReferenceType(Enum):
     NEWER_REFERENCE = "newer"  # Reference is at or after newest import
 
 
+class AggregatedValidationError(HomeAssistantError):
+    """A collection of validation errors that can be returned by a service."""
+
+    def __init__(self, errors: list[str]) -> None:
+        """Initialize the collected validation errors."""
+        self.errors = errors
+        super().__init__("\n".join(errors))
+
+
+def handle_errors(errors: list[str]) -> None:
+    """Log and raise all collected validation errors."""
+    if not errors:
+        return
+    handle_error(errors)
+
+
 def get_source(statistic_id: str) -> str:
     """
     Get the source of a statistic based on the given statistic_id.
@@ -133,19 +149,24 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
     return True
 
 
-def handle_error(error_string: str) -> NoReturn:
+def handle_error(error_string: str | list[str]) -> NoReturn:
     """
     Handle an error by logging a warning and raising a HomeAssistantError.
 
     Args:
     ----
-        error_string (str): The error message.
+        error_string: One error message or a collection of error messages.
 
     Raises:
     ------
         HomeAssistantError: The raised exception containing the error message.
 
     """
+    if isinstance(error_string, list):
+        for error in error_string:
+            _LOGGER.warning(error)
+        raise AggregatedValidationError(error_string)
+
     _LOGGER.warning(error_string)
     raise HomeAssistantError(error_string)
 
@@ -464,7 +485,8 @@ def validate_json_schema(json_data: dict) -> None:
         except (TypeError, ValueError):
             example_str = str(example)
 
-        handle_error(f"Invalid JSON import format: {exc}. Example of valid payload:\n{example_str}")
+        errors = [f"Invalid JSON import format: {error}. Example of valid payload:\n{example_str}" for error in exc.errors]
+        handle_errors(errors)
 
 
 def validate_filename(filename: str, config_dir: str) -> str:
@@ -594,13 +616,11 @@ def validate_timestamps_vectorized(df: pd.DataFrame) -> None:
     invalid_times = (start_series.dt.minute != 0) | (start_series.dt.second != 0)
 
     if invalid_times.any():
-        # Get first invalid timestamp for error message
-        first_invalid_idx: int = invalid_times.idxmax()  # type: ignore[assignment]
-        first_invalid = df.loc[first_invalid_idx, "start"]
-        # Convert to human-readable row number (1-based + 1 for header = +2)
-        human_row = first_invalid_idx + 2
-        msg = f"Invalid timestamp at row {human_row}: {first_invalid}. The timestamp must be a full hour."
-        raise HomeAssistantError(msg)
+        errors = [
+            f"Invalid timestamp at row {idx + 2}: {df.loc[idx, 'start']}. The timestamp must be a full hour."
+            for idx in invalid_times[invalid_times].index
+        ]
+        handle_errors(errors)
 
 
 def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
@@ -617,30 +637,29 @@ def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
         HomeAssistantError: If any value is NaN or cannot be converted to float
 
     """
+    errors = []
     for col in columns:
         if col not in df.columns:
             continue
 
-        # Check for NaN values
-        if df[col].isna().any():
-            first_na_idx = int(df[col].isna().idxmax()) + 2
-            msg = f"Invalid float value in column '{col}' at row {first_na_idx}: NaN/empty value not allowed. Check for missing or empty values in your data."
-            raise HomeAssistantError(msg)
-
-        # Try to convert to float (pandas should already have done this, but validate)
-        try:
-            # This will raise if any value cannot be converted
-            pd.to_numeric(df[col], errors="raise")
-        except (ValueError, TypeError) as exc:
-            # Find first problematic value
-            for idx, val in df[col].items():
-                try:
-                    float(val)
-                except (ValueError, TypeError):
-                    # Convert to human-readable row number (1-based + 1 for header = +2)
-                    human_row: int = idx + 2  # type: ignore[assignment]
-                    msg = f"Invalid float value in column '{col}' at row {human_row}: {val}. Check the decimal separator."
-                    raise HomeAssistantError(msg) from exc
+        for idx, value in df[col].items():
+            if pd.isna(value):
+                errors.append(
+                    f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. "
+                    "Check for missing or empty values in your data."
+                )
+                continue
+            try:
+                numeric_value = float(value)
+            except (ValueError, TypeError):
+                errors.append(f"Invalid float value in column '{col}' at row {idx + 2}: {value}. Check the decimal separator.")
+            else:
+                if pd.isna(numeric_value):
+                    errors.append(
+                        f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. "
+                        "Check for missing or empty values in your data."
+                    )
+    handle_errors(errors)
 
 
 def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
@@ -660,10 +679,11 @@ def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
     invalid_mmm = ~((df["min"] <= df["mean"]) & (df["mean"] <= df["max"]))
 
     if invalid_mmm.any():
-        # Get first invalid row for error message
-        first_invalid_idx: int = invalid_mmm.idxmax()  # type: ignore[assignment]
-        row = df.loc[first_invalid_idx]
-        # Convert to human-readable row number (1-based + 1 for header = +2)
-        human_row = first_invalid_idx + 2
-        msg = f"Invalid values at row {human_row}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, mean must be between min and max."
-        raise HomeAssistantError(msg)
+        errors = []
+        for idx in invalid_mmm[invalid_mmm].index:
+            row = df.loc[idx]
+            errors.append(
+                f"Invalid values at row {idx + 2}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, "
+                "mean must be between min and max."
+            )
+        handle_errors(errors)

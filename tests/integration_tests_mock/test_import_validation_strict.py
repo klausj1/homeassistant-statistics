@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.core import ServiceCall
-from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import (
@@ -60,9 +59,10 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(HomeAssistantError, match=r"Invalid timestamp at row 3.*01:30.*The timestamp must be a full hour"),
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("Invalid timestamp at row 3" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_fails_on_invalid_timestamp_format(self) -> None:
@@ -100,9 +100,9 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(HomeAssistantError),  # Pandas will raise an error for invalid format
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
 
     @pytest.mark.asyncio
     async def test_import_fails_on_invalid_float_value(self) -> None:
@@ -140,9 +140,10 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(HomeAssistantError, match=r"Invalid float value in column 'sum' at row 2.*abc"),
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("Invalid float value in column 'sum' at row 2" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_fails_on_min_max_constraint_violation(self) -> None:
@@ -180,9 +181,10 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(HomeAssistantError, match=r"Invalid values at row 2: min: 25\.0, max: 15\.0, mean: 20\.0"),
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("Invalid values at row 2" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_fails_on_nan_value(self) -> None:
@@ -220,9 +222,10 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(HomeAssistantError, match=r"Invalid float value in column 'sum' at row 2.*NaN/empty"),
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("NaN/empty" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_succeeds_with_all_valid_rows(self) -> None:
@@ -320,9 +323,10 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(HomeAssistantError, match=r"Invalid float value in column 'sum' at row 2.*100,5"),
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("100,5" in error for error in response["errors"])
 
     @pytest.mark.asyncio
     async def test_import_fails_on_unit_mismatch_with_entity(self) -> None:
@@ -362,12 +366,7 @@ class TestImportValidationStrict:
             with (
                 patch("custom_components.import_statistics.import_service.async_import_statistics"),
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
-                pytest.raises(
-                    HomeAssistantError,
-                    match=(
-                        r"Unit mismatch for 'sensor\.test_entity': input file has 'kWh' but entity has 'xxx'\. "
-                        r"Units must match the entity's current unit_of_measurement\."
-                    ),
-                ),
             ):
-                await import_handler(call)
+                response = await import_handler(call)
+            assert response["failed"] is True
+            assert any("Unit mismatch for 'sensor.test_entity'" in error for error in response["errors"])

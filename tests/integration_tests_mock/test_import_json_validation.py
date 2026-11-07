@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.core import ServiceCall
-from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_TIMEZONE_IDENTIFIER
@@ -53,8 +52,8 @@ async def test_import_json_valid_calls_import() -> None:
 
 
 @pytest.mark.asyncio
-async def test_import_json_invalid_raises_error() -> None:
-    """Invalid JSON import payload should raise HomeAssistantError with helpful message."""
+async def test_import_json_invalid_returns_failure_response() -> None:
+    """Invalid JSON import payload should return a failure response with a helpful message."""
     with tempfile.TemporaryDirectory() as tmpdir:
         hass = MagicMock()
         hass.config = MagicMock()
@@ -73,5 +72,7 @@ async def test_import_json_invalid_raises_error() -> None:
             {ATTR_TIMEZONE_IDENTIFIER: "UTC", ATTR_DECIMAL: "dot ('.')", "not_entities": []},
         )
 
-        with pytest.raises(HomeAssistantError, match="Invalid JSON import format"):
-            await json_handler(call)
+        response = await json_handler(call)
+
+        assert response["failed"] is True
+        assert any("Invalid JSON import format" in error for error in response["errors"])

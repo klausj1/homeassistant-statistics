@@ -5,6 +5,7 @@ Most helpers do not need a hass object; status helpers use the hass object for d
 """
 
 import zoneinfo
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -516,6 +517,46 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
     return sensor_df, counter_df
 
 
+def _collect_validation_errors(validate: Callable[[], None]) -> list[str]:
+    """Run one validator and return its errors instead of stopping validation."""
+    try:
+        validate()
+    except HomeAssistantError as err:
+        return err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)]
+    return []
+
+
+def _validate_dataframe_for_import(df: pd.DataFrame) -> None:
+    """Collect and raise independent row and unit validation errors."""
+    errors = []
+    newest_dt = df["start"].max()
+    if pd.isna(newest_dt):
+        errors.append("No valid timestamps found in import data")
+    else:
+        errors.extend(_collect_validation_errors(lambda: helpers.is_not_in_future(newest_dt)))
+
+    errors.extend(_collect_validation_errors(lambda: helpers.validate_timestamps_vectorized(df)))
+
+    if "mean" in df.columns:
+        float_errors = _collect_validation_errors(lambda: helpers.validate_floats_vectorized(df, ["min", "max", "mean"]))
+        errors.extend(float_errors)
+        if not float_errors:
+            errors.extend(_collect_validation_errors(lambda: helpers.validate_min_max_mean_vectorized(df)))
+    elif "sum" in df.columns:
+        float_columns = ["sum"]
+        if "state" in df.columns:
+            float_columns.append("state")
+        errors.extend(_collect_validation_errors(lambda: helpers.validate_floats_vectorized(df, float_columns)))
+    else:
+        errors.append("Implementation error: neither mean nor sum columns found")
+
+    for statistic_id in df["statistic_id"].unique():
+        unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
+        errors.extend(_collect_validation_errors(lambda series=unit_series, sid=statistic_id: helpers.validate_unit_consistency(series, sid)))
+
+    helpers.handle_errors(errors)
+
+
 def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
     """
     Process non-delta statistics from DataFrame.
@@ -539,32 +580,9 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
 
     # Validate that newest timestamp is not too recent
     # With datetime objects, simply get max (no parsing needed!)
-    newest_dt = df["start"].max()
-
-    if pd.isna(newest_dt):
-        helpers.handle_error("No valid timestamps found in import data")
-
-    # Validate newest timestamp
-    helpers.is_not_in_future(newest_dt)
-
     has_mean = "mean" in columns
     has_sum = "sum" in columns
-
-    # Vectorized validation: validate all timestamps at once
-    helpers.validate_timestamps_vectorized(df)
-
-    # Vectorized validation: validate all float columns at once
-    if has_mean:
-        helpers.validate_floats_vectorized(df, ["min", "max", "mean"])
-        helpers.validate_min_max_mean_vectorized(df)
-    elif has_sum:
-        float_cols = ["sum"]
-        if "state" in columns:
-            float_cols.append("state")
-        helpers.validate_floats_vectorized(df, float_cols)
-    else:
-        # This should never happen due to column validation, but defensive check
-        helpers.handle_error("Implementation error: neither mean nor sum columns found")
+    _validate_dataframe_for_import(df)
 
     # Pre-allocate stats dictionary with metadata for all unique statistic_ids
     stats = {}
@@ -573,7 +591,6 @@ def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:
     for statistic_id in unique_ids:
         # Get unit from first occurrence of this statistic_id
         unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
-        helpers.validate_unit_consistency(unit_series, statistic_id)
         unit: str = unit_series.iloc[0]  # type: ignore[assignment]
         source = helpers.get_source(statistic_id)
 

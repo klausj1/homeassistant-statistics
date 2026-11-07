@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics, get_metadata
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.recorder import get_instance
 
 from custom_components.import_statistics.const import ATTR_COUNTER_MODE, ATTR_FILENAME, ATTR_IGNORE_UNKNOWN_ENTITIES
@@ -16,7 +17,14 @@ from custom_components.import_statistics.delta_database_access import (
     _get_reference_at_or_after_timestamp,
     _get_reference_before_timestamp,
 )
-from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, handle_error, is_not_in_future
+from custom_components.import_statistics.helpers import (
+    _LOGGER,
+    AggregatedValidationError,
+    DeltaReferenceType,
+    handle_error,
+    handle_errors,
+    is_not_in_future,
+)
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
     CounterDataType,
@@ -274,6 +282,15 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict
 
 
 async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
+    """Handle a file import and return validation failures as a service response."""
+    try:
+        return await _handle_import_from_file(hass, call)
+    except HomeAssistantError as err:
+        errors = err.errors if isinstance(err, AggregatedValidationError) else [str(err)]
+        return {"failed": True, "errors": errors}
+
+
+async def _handle_import_from_file(hass: HomeAssistant, call: ServiceCall) -> dict:
     """Handle import_from_file service implementation."""
     _LOGGER.info("Service handle_import_from_file called")
     file_path = f"{hass.config.config_dir}/{call.data.get(ATTR_FILENAME)}"
@@ -303,6 +320,15 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
+    """Handle a JSON import and return validation failures as a service response."""
+    try:
+        return await _handle_import_from_json(hass, call)
+    except HomeAssistantError as err:
+        errors = err.errors if isinstance(err, AggregatedValidationError) else [str(err)]
+        return {"failed": True, "errors": errors}
+
+
+async def _handle_import_from_json(hass: HomeAssistant, call: ServiceCall) -> dict:
     """Handle import_from_json service implementation."""
     _LOGGER.info("Service handle_import_from_json called")
     counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "strict"))
@@ -412,6 +438,8 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
         HomeAssistantError: If entity doesn't exist or unit doesn't match
 
     """
+    errors = []
+
     # Collect all statistic_ids to query metadata
     statistic_ids = set()
     for stat in stats.values():
@@ -423,7 +451,7 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
         if metadata["source"] == "recorder":
             entity_state = hass.states.get(statistic_id)
             if entity_state is None:
-                handle_error(f"Entity does not exist: '{statistic_id}'. To skip missing recorder entities, set ignore_unknown_entities: true.")
+                errors.append(f"Entity does not exist: '{statistic_id}'. To skip missing recorder entities, set ignore_unknown_entities: true.")
             else:
                 # Validate that import unit matches entity's current unit
                 input_unit = metadata.get("unit_of_measurement")
@@ -438,7 +466,7 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
                     input_display = input_unit if input_unit is not None else "(empty)"
                     entity_display = entity_unit if entity_unit is not None else "(empty)"
 
-                    handle_error(
+                    errors.append(
                         f"Unit mismatch for '{statistic_id}': input file has '{input_display}' but entity has '{entity_display}'. "
                         f"Units must match the entity's current unit_of_measurement."
                     )
@@ -468,11 +496,13 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
                 input_display = input_unit if input_unit is not None else "(empty)"
                 db_display = db_unit if db_unit is not None else "(empty)"
 
-                handle_error(
+                errors.append(
                     f"Unit mismatch for '{statistic_id}': input file has '{input_display}' but statistic_meta has '{db_display}'. Units must match exactly."
                 )
 
             _LOGGER.debug("Unit validation passed for %s: %s", statistic_id, input_unit)
+
+    handle_errors(errors)
 
 
 def check_entity_exists(hass: HomeAssistant, entity_id: Any) -> bool:

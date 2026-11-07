@@ -97,9 +97,15 @@ class TestImportServiceResponse:
                 [{"start": 1}],
             )
         }
+        recorder = MagicMock()
+        recorder.async_add_executor_job = AsyncMock(return_value={})
 
-        with pytest.raises(
-            HomeAssistantError,
-            match=r"Entity does not exist: 'sensor.missing'.*ignore_unknown_entities: true",
+        with (
+            patch("custom_components.import_statistics.import_service.get_instance", return_value=recorder),
+            patch("custom_components.import_statistics.import_service.get_metadata", return_value={}),
+            pytest.raises(
+                HomeAssistantError,
+                match=r"Entity does not exist: 'sensor.missing'.*ignore_unknown_entities: true",
+            ),
         ):
             await validate_entities_and_units(hass, stats)

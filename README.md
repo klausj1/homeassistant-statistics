@@ -237,12 +237,24 @@ Export actions can also return a concise count when a response is requested:
 
 The export response is `{"exported_values": 24}`. For `split_by`, this is the total number of values across the generated files, with each statistic counted once.
 
+When validation fails, import and export responses contain `failed: true` and an `errors` list. Imports validate all available rows and entities before writing; if errors are returned, no statistics are written.
+
+```json
+{
+  "failed": true,
+  "errors": [
+    "Invalid timestamp at row 2: 2022-01-01 00:30:00+00:00. The timestamp must be a full hour.",
+    "Invalid float value in column 'sum' at row 3: invalid. Check the decimal separator."
+  ]
+}
+```
+
 ### Data Validation
 
 The integration performs strict validation on all import data:
 
-- **All rows must be valid** - If any row contains invalid data, the entire import fails
-- **Clear error messages** - The error message will indicate which row failed and why
+- **All rows must be valid** - If any row contains invalid data, the entire import fails without writing data
+- **Aggregated error messages** - The response reports all detected validation errors, including the affected rows
 - **No partial imports** - Either all data is imported successfully, or none of it is
 - **Common validation errors**:
   - Invalid timestamp format or non-full-hour timestamps
