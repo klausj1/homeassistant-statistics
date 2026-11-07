@@ -15,6 +15,8 @@ from custom_components.import_statistics.import_service import (
     _write_skipped_unknown_entities,
 )
 from custom_components.import_statistics.import_service_helper import (
+    CounterDataType,
+    ImportDataClassification,
     ImportDataType,
     _has_populated_columns,
     _validate_and_detect_delta,
@@ -39,8 +41,8 @@ def test_has_populated_columns() -> None:
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        (None, "auto"),
-        (" AUTO ", "auto"),
+        (None, "strict"),
+        (" STRICT ", "strict"),
         ("strict", "strict"),
         ("sum", "sum"),
         ("delta", "delta"),
@@ -55,6 +57,8 @@ def test_validate_counter_mode_rejects_invalid_values() -> None:
     """Unknown and non-string modes fail explicitly."""
     with pytest.raises(HomeAssistantError, match="counter_mode must be one of"):
         validate_counter_mode("something")
+    with pytest.raises(HomeAssistantError, match="counter_mode must be one of"):
+        validate_counter_mode("auto")
     with pytest.raises(HomeAssistantError, match="counter_mode must be a string"):
         validate_counter_mode(1)  # type: ignore[arg-type]
 
@@ -62,22 +66,19 @@ def test_validate_counter_mode_rejects_invalid_values() -> None:
 @pytest.mark.parametrize(
     ("frame", "mode", "expected"),
     [
-        (_counter_dataframe(sum=[10], state=[5]), "auto", "sum"),
-        (_counter_dataframe(delta=[2]), "auto", "delta"),
-        (_counter_dataframe(sum=[None], delta=[2]), "auto", "delta"),
-        (_counter_dataframe(sum=[10]), "strict", "sum"),
-        (_counter_dataframe(delta=[2]), "strict", "delta"),
-        (_counter_dataframe(sum=[10], delta=[2]), "sum", "sum"),
-        (_counter_dataframe(sum=[10], delta=[2]), "delta", "delta"),
+        (_counter_dataframe(sum=[10]), "strict", CounterDataType.SUM_STATE),
+        (_counter_dataframe(delta=[2]), "strict", CounterDataType.DELTA),
+        (_counter_dataframe(sum=[10], delta=[2]), "sum", CounterDataType.SUM_STATE),
+        (_counter_dataframe(sum=[10], delta=[2]), "delta", CounterDataType.DELTA),
     ],
 )
-def test_resolve_counter_mode(frame: pd.DataFrame, mode: str, expected: str) -> None:
+def test_resolve_counter_mode(frame: pd.DataFrame, mode: str, expected: CounterDataType) -> None:
     """Auto and strict modes resolve a single counter representation."""
     assert resolve_counter_mode(frame, mode) == expected
 
 
-def test_resolve_counter_mode_rejects_auto_ambiguity() -> None:
-    """Auto mode requires an explicit selection when both representations have data."""
+def test_resolve_counter_mode_defaults_to_strict() -> None:
+    """The default mode rejects files containing both counter representations."""
     frame = _counter_dataframe(sum=[10], delta=[2])
     with pytest.raises(HomeAssistantError, match=r"counter_mode='sum'.*counter_mode='delta'"):
         resolve_counter_mode(frame)
@@ -95,7 +96,7 @@ def test_resolve_counter_mode_strict_rejects_both_columns() -> None:
     [
         (_counter_dataframe(delta=[2]), "sum"),
         (_counter_dataframe(sum=[10]), "delta"),
-        (_counter_dataframe(sum=[None], delta=[None]), "auto"),
+        (_counter_dataframe(sum=[None], delta=[None]), "strict"),
     ],
 )
 def test_resolve_counter_mode_rejects_missing_selected_data(frame: pd.DataFrame, mode: str) -> None:
@@ -133,6 +134,13 @@ def test_validate_and_detect_delta_classifies_data_types() -> None:
     """MIXED denotes measurement plus counter rows; counter representations remain distinct."""
     measurements = pd.DataFrame({"statistic_id": ["sensor.temp"], "start": ["t"], "unit": ["°C"], "mean": [1], "min": [0], "max": [2], "delta": [None]})
     counter_both = _counter_dataframe(sum=[10], delta=[2])
+    mixed_counter_both = pd.concat(
+        [
+            measurements,
+            _counter_dataframe(sum=[10], delta=[2]),
+        ],
+        ignore_index=True,
+    )
     mixed = pd.DataFrame(
         {
             "statistic_id": ["sensor.temp", "counter.energy"],
@@ -146,9 +154,10 @@ def test_validate_and_detect_delta_classifies_data_types() -> None:
             "delta": [None, None],
         }
     )
-    assert _validate_and_detect_delta(measurements) == ImportDataType.SENSOR
-    assert _validate_and_detect_delta(counter_both) == ImportDataType.COUNTER_BOTH
-    assert _validate_and_detect_delta(mixed) == ImportDataType.MIXED
+    assert _validate_and_detect_delta(measurements) == ImportDataClassification(ImportDataType.SENSOR, None)
+    assert _validate_and_detect_delta(counter_both) == ImportDataClassification(ImportDataType.COUNTER, CounterDataType.BOTH)
+    assert _validate_and_detect_delta(mixed) == ImportDataClassification(ImportDataType.MIXED, CounterDataType.SUM_STATE)
+    assert _validate_and_detect_delta(mixed_counter_both) == ImportDataClassification(ImportDataType.MIXED, CounterDataType.BOTH)
 
 
 def test_validate_and_detect_delta_rejects_no_populated_values() -> None:
@@ -161,8 +170,8 @@ def test_validate_and_detect_delta_rejects_no_populated_values() -> None:
 def test_prepare_counter_dataframe_selects_only_requested_representation() -> None:
     """Counter dataframe selection drops fields from the unselected representation."""
     frame = _counter_dataframe(sum=[10], state=[5], delta=[2])
-    sum_df = _prepare_counter_dataframe(frame, "sum")
-    delta_df = _prepare_counter_dataframe(frame, "delta")
+    sum_df = _prepare_counter_dataframe(frame, CounterDataType.SUM_STATE)
+    delta_df = _prepare_counter_dataframe(frame, CounterDataType.DELTA)
     assert list(sum_df.columns) == ["statistic_id", "unit", "start", "sum", "state"]
     assert list(delta_df.columns) == ["statistic_id", "unit", "start", "delta"]
 
@@ -200,11 +209,11 @@ def test_filter_unknown_recorder_entities_skips_only_missing_recorder_ids(tmp_pa
 @pytest.mark.asyncio
 async def test_process_counter_dataframe_imports_sum_representation() -> None:
     """Counter processing passes only the selected sum representation downstream."""
-    frame = _counter_dataframe(sum=[10], state=[5], delta=[None])
+    frame = _counter_dataframe(sum=[10], state=[5])
     hass = MagicMock()
     hass.async_add_executor_job = AsyncMock(side_effect=lambda fn: fn())
     with patch("custom_components.import_statistics.import_service.handle_dataframe_no_delta", return_value={"counter.energy": "sum"}) as handler:
-        result = await _process_counter_dataframe(hass, frame, "auto")
+        result = await _process_counter_dataframe(hass, frame, "strict")
 
     assert result == {"counter.energy": "sum"}
     selected_df = handler.call_args.args[0]

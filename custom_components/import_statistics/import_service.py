@@ -19,6 +19,8 @@ from custom_components.import_statistics.delta_database_access import (
 from custom_components.import_statistics.helpers import _LOGGER, DeltaReferenceType, handle_error, is_not_in_future
 from custom_components.import_statistics.import_service_delta_helper import handle_dataframe_delta
 from custom_components.import_statistics.import_service_helper import (
+    CounterDataType,
+    ImportDataClassification,
     ImportDataType,
     get_import_status_for_all_statistics,
     handle_dataframe_no_delta,
@@ -209,29 +211,32 @@ class PreparedImportData:
     df: Any
     timezone_id: str
     datetime_format: str
-    data_type: Any
-    counter_mode: str = "auto"
+    classification: ImportDataClassification
+    counter_mode: str = "strict"
     ignore_unknown_entities: bool = False
 
 
-def _prepare_counter_dataframe(df: pd.DataFrame, counter_mode: str) -> pd.DataFrame:
+def _prepare_counter_dataframe(df: pd.DataFrame, counter_type: CounterDataType) -> pd.DataFrame:
     """Select the requested counter representation while preserving sparse rows."""
-    if counter_mode == "sum":
+    if counter_type == CounterDataType.SUM_STATE:
         columns = ["statistic_id", "unit", "start"]
         columns.extend(col for col in ("sum", "state") if col in df.columns)
         return df[columns].copy()
 
-    columns = ["statistic_id", "unit", "start"]
-    if "delta" in df.columns:
-        columns.append("delta")
-    return df[columns].copy()
+    if counter_type == CounterDataType.DELTA:
+        columns = ["statistic_id", "unit", "start"]
+        if "delta" in df.columns:
+            columns.append("delta")
+        return df[columns].copy()
+
+    return handle_error("Counter representation is ambiguous; select either sum/state or delta data.")
 
 
 async def _process_counter_dataframe(hass: HomeAssistant, df: pd.DataFrame, counter_mode: str) -> dict:
     """Convert counter data using the representation selected by counter_mode."""
     selected_mode = resolve_counter_mode(df, counter_mode)
     selected_df = _prepare_counter_dataframe(df, selected_mode)
-    if selected_mode == "delta":
+    if selected_mode == CounterDataType.DELTA:
         references = await prepare_delta_handling(hass, selected_df)
         return await hass.async_add_executor_job(lambda: handle_dataframe_delta(selected_df, references))
     return await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(selected_df))
@@ -249,7 +254,7 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict
         data: Prepared import data containing DataFrame and settings
 
     """
-    if data.data_type == ImportDataType.MIXED:
+    if data.classification.import_type == ImportDataType.MIXED:
         _LOGGER.info("Mixed mode detected, splitting by statistic type")
         sensor_df, counter_df = split_dataframe_by_type(data.df)
         stats = {}
@@ -259,7 +264,7 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict
         if not counter_df.empty:
             _LOGGER.info("Processing counter data (delta conversion may be needed)")
             stats.update(await _process_counter_dataframe(hass, counter_df, data.counter_mode))
-    elif data.data_type in {ImportDataType.COUNTER, ImportDataType.DELTA, ImportDataType.COUNTER_BOTH}:
+    elif data.classification.import_type == ImportDataType.COUNTER:
         _LOGGER.info("Counter mode detected, processing with counter handling (delta conversion may be needed)")
         stats = await _process_counter_dataframe(hass, data.df, data.counter_mode)
     else:
@@ -276,14 +281,14 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 
     hass.states.async_set("import_statistics.import_from_file", file_path)
 
-    counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "auto"))
+    counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "strict"))
     ignore_unknown_entities = validate_ignore_unknown_entities(call.data.get(ATTR_IGNORE_UNKNOWN_ENTITIES, False))
 
     # Extract HA timezone once
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import ...")
-    df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
+    df, timezone_id, datetime_format, classification = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
 
     return await _process_import(
         hass,
@@ -291,7 +296,7 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
             df=df,
             timezone_id=timezone_id,
             datetime_format=datetime_format,
-            data_type=data_type,
+            classification=classification,
             counter_mode=counter_mode,
             ignore_unknown_entities=ignore_unknown_entities,
         ),
@@ -301,14 +306,14 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
     """Handle import_from_json service implementation."""
     _LOGGER.info("Service handle_import_from_json called")
-    counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "auto"))
+    counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "strict"))
     ignore_unknown_entities = validate_ignore_unknown_entities(call.data.get(ATTR_IGNORE_UNKNOWN_ENTITIES, False))
 
     # Extract HA timezone once
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import")
-    df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
+    df, timezone_id, datetime_format, classification = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
 
     return await _process_import(
         hass,
@@ -316,7 +321,7 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
             df=df,
             timezone_id=timezone_id,
             datetime_format=datetime_format,
-            data_type=data_type,
+            classification=classification,
             counter_mode=counter_mode,
             ignore_unknown_entities=ignore_unknown_entities,
         ),

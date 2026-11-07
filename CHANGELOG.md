@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Import usability improvements**: `import_from_file` and `import_from_json` now accept `counter_mode` and `ignore_unknown_entities` to handle sparse mixed exports and skip missing recorder entities deliberately.
-- **Improved sparse export compatibility**: Files exported with `counter_fields: both` can now be imported without rejecting measurement rows simply because the same file also contains counter data in another representation.
+- **Import usability improvements**: `import_from_file` and `import_from_json` now accept `counter_mode` and `ignore_unknown_entities` to handle exports with counter columns sum, state and delta (which was previoulsly forbidden) and skip missing recorder entities deliberately.
+- **Improved sparse export compatibility**: Files exported with `counter_fields: both` can now be imported without rejecting measurement rows simply because the same file also contains counter data in another representation (via the setting `counter_mode`)
 
 ### Bug Fixes
 

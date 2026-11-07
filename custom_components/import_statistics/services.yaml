@@ -10,16 +10,15 @@ import_from_file:
 
     counter_mode:
       required: false
-      default: auto
-      example: "auto"
+      default: strict
+      example: "sum"
       selector:
         select:
           mode: dropdown
           options:
-            - "auto"
+            - "strict"
             - "sum"
             - "delta"
-            - "strict"
 
     ignore_unknown_entities:
       required: false
@@ -78,16 +77,15 @@ import_from_json:
   fields:
     counter_mode:
       required: false
-      default: auto
-      example: "auto"
+      default: strict
+      example: "sum"
       selector:
         select:
           mode: dropdown
           options:
-            - "auto"
+            - "strict"
             - "sum"
             - "delta"
-            - "strict"
 
     ignore_unknown_entities:
       required: false

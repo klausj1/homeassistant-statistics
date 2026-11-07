@@ -1,19 +1,16 @@
 """Unit tests for mixed import functionality (sensor + counter in one file)."""
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 import numpy as np
 import pandas as pd
 import pytest
-from homeassistant.components.recorder.models import StatisticMeanType
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.helpers import are_columns_valid
 from custom_components.import_statistics.import_service_helper import (
+    CounterDataType,
+    ImportDataClassification,
     ImportDataType,
     _validate_and_detect_delta,
-    handle_dataframe_mixed,
     split_dataframe_by_type,
 )
 
@@ -34,7 +31,7 @@ def test_validate_and_detect_delta_returns_mixed() -> None:
         columns=["statistic_id", "start", "unit", "min", "max", "mean", "sum", "state"],
     )
     result = _validate_and_detect_delta(my_df)
-    assert result == ImportDataType.MIXED
+    assert result == ImportDataClassification(ImportDataType.MIXED, CounterDataType.SUM_STATE)
 
 
 def test_validate_and_detect_delta_returns_sensor() -> None:
@@ -46,7 +43,7 @@ def test_validate_and_detect_delta_returns_sensor() -> None:
         columns=["statistic_id", "start", "unit", "min", "max", "mean"],
     )
     result = _validate_and_detect_delta(my_df)
-    assert result == ImportDataType.SENSOR
+    assert result == ImportDataClassification(ImportDataType.SENSOR, None)
 
 
 def test_validate_and_detect_delta_returns_counter() -> None:
@@ -58,11 +55,11 @@ def test_validate_and_detect_delta_returns_counter() -> None:
         columns=["statistic_id", "start", "unit", "sum", "state"],
     )
     result = _validate_and_detect_delta(my_df)
-    assert result == ImportDataType.COUNTER
+    assert result == ImportDataClassification(ImportDataType.COUNTER, CounterDataType.SUM_STATE)
 
 
-def test_validate_and_detect_delta_returns_delta() -> None:
-    """Verify _validate_and_detect_delta() returns ImportDataType.DELTA for delta columns."""
+def test_validate_and_detect_delta_returns_delta_counter_type() -> None:
+    """Verify _validate_and_detect_delta() identifies delta counter data."""
     my_df = pd.DataFrame(
         [
             ["counter.energy", "01.01.2022 00:00", "kWh", 5.0],
@@ -70,7 +67,7 @@ def test_validate_and_detect_delta_returns_delta() -> None:
         columns=["statistic_id", "start", "unit", "delta"],
     )
     result = _validate_and_detect_delta(my_df)
-    assert result == ImportDataType.DELTA
+    assert result == ImportDataClassification(ImportDataType.COUNTER, CounterDataType.DELTA)
 
 
 def test_split_dataframe_by_type_basic() -> None:
@@ -150,55 +147,3 @@ def test_split_dataframe_by_type_single_entity_both_types_error() -> None:
         match=r"has both sensor.*and counter.*data",
     ):
         split_dataframe_by_type(my_df)
-
-
-def test_handle_dataframe_mixed_end_to_end() -> None:
-    """Create a mixed DataFrame with localized timestamps, call handle_dataframe_mixed(), verify results."""
-    tz = ZoneInfo("Europe/Berlin")
-    my_df = pd.DataFrame(
-        [
-            ["sensor.temp", "°C", pd.Timestamp(datetime(2022, 1, 1, 0, 0, tzinfo=tz)), 1.0, 10.0, 5.0, np.nan, np.nan],
-            ["sensor.temp", "°C", pd.Timestamp(datetime(2022, 1, 1, 1, 0, tzinfo=tz)), 2.0, 20.0, 15.0, np.nan, np.nan],
-            ["counter.energy", "kWh", pd.Timestamp(datetime(2022, 1, 1, 0, 0, tzinfo=tz)), np.nan, np.nan, np.nan, 100.0, 50.0],
-            ["counter.energy", "kWh", pd.Timestamp(datetime(2022, 1, 1, 1, 0, tzinfo=tz)), np.nan, np.nan, np.nan, 110.0, 55.0],
-        ],
-        columns=["statistic_id", "unit", "start", "min", "max", "mean", "sum", "state"],
-    )
-
-    stats = handle_dataframe_mixed(my_df)
-
-    # Verify both entities are present
-    assert "sensor.temp" in stats
-    assert "counter.energy" in stats
-
-    # Verify sensor metadata
-    sensor_meta, sensor_stats = stats["sensor.temp"]
-    assert sensor_meta["mean_type"] == StatisticMeanType.ARITHMETIC
-    assert sensor_meta["has_sum"] is False
-    assert sensor_meta["statistic_id"] == "sensor.temp"
-    assert sensor_meta["source"] == "recorder"
-    assert sensor_meta["unit_of_measurement"] == "°C"
-
-    # Verify sensor statistics list
-    assert len(sensor_stats) == 2
-    assert sensor_stats[0]["min"] == 1.0
-    assert sensor_stats[0]["max"] == 10.0
-    assert sensor_stats[0]["mean"] == 5.0
-    assert sensor_stats[1]["min"] == 2.0
-    assert sensor_stats[1]["max"] == 20.0
-    assert sensor_stats[1]["mean"] == 15.0
-
-    # Verify counter metadata
-    counter_meta, counter_stats = stats["counter.energy"]
-    assert counter_meta["mean_type"] == StatisticMeanType.NONE
-    assert counter_meta["has_sum"] is True
-    assert counter_meta["statistic_id"] == "counter.energy"
-    assert counter_meta["source"] == "recorder"
-    assert counter_meta["unit_of_measurement"] == "kWh"
-
-    # Verify counter statistics list
-    assert len(counter_stats) == 2
-    assert counter_stats[0]["sum"] == 100.0
-    assert counter_stats[0]["state"] == 50.0
-    assert counter_stats[1]["sum"] == 110.0
-    assert counter_stats[1]["state"] == 55.0

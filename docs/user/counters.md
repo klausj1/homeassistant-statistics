@@ -7,7 +7,9 @@ There are two types of statistics:
 - measurement type with a state_class `measurement` or `measurement_angle`
 - counter type with a state_class `total` or `total_increasing`
 
-> **Tip:** Since v5.1.0, a single import file can contain both measurement and counter statistics. See [Mixed Import](../../README.md#mixed-import) in the main README for details. Note that the `delta` column cannot be used in mixed files.
+> **Tip:** Since v5.1.0, a single import file can contain both measurement and counter statistics. Since v5.1.4, a single import fail can also contain delta values for counter. See [Mixed Import](../../README.md#mixed-import) in the main README for details.
+>
+> When moving statistics to another Home Assistant database, use `sum`/`state` counters to seed a target without existing counter history. See [Exporting from one Home Assistant database and importing into another](../../README.md#exporting-from-one-home-assistant-database-and-importing-into-another).
 
 Counter statistics (like energy meters) are more complex than measurement statistics. Here's what you need to know:
 

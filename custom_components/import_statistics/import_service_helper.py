@@ -6,6 +6,7 @@ Most helpers do not need a hass object; status helpers use the hass object for d
 
 import datetime as dt
 import zoneinfo
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
@@ -29,13 +30,27 @@ from custom_components.import_statistics.helpers import _LOGGER
 
 
 class ImportDataType(Enum):
-    """Type of import data detected from DataFrame columns."""
+    """Whether an import contains sensor data, counter data, or both."""
 
-    SENSOR = "sensor"  # min/max/mean only
-    COUNTER = "counter"  # sum/state only
-    MIXED = "mixed"  # both sensor and counter entities
-    DELTA = "delta"  # delta column present
-    COUNTER_BOTH = "counter_both"  # both sum/state and delta counter values present
+    SENSOR = "sensor"
+    COUNTER = "counter"
+    MIXED = "mixed"
+
+
+class CounterDataType(Enum):
+    """Counter representation populated in an import."""
+
+    SUM_STATE = "sum_state"
+    DELTA = "delta"
+    BOTH = "both"
+
+
+@dataclass(frozen=True)
+class ImportDataClassification:
+    """Classification of measurement/counter composition and counter representation."""
+
+    import_type: ImportDataType
+    counter_type: CounterDataType | None
 
 
 def _has_populated_columns(df: pd.DataFrame, columns: list[str]) -> bool:
@@ -46,7 +61,7 @@ def _has_populated_columns(df: pd.DataFrame, columns: list[str]) -> bool:
 def validate_counter_mode(counter_mode: str | None) -> str:
     """Normalize and validate the counter_mode parameter."""
     if counter_mode is None:
-        counter_mode = "auto"
+        counter_mode = "strict"
     if not isinstance(counter_mode, str):
         helpers.handle_error(f"counter_mode must be a string, got {type(counter_mode).__name__}")
     normalized = counter_mode.strip().lower()
@@ -70,17 +85,11 @@ def validate_ignore_unknown_entities(ignore_unknown_entities: object) -> bool:
     return helpers.handle_error(f"ignore_unknown_entities must be a boolean, got {ignore_unknown_entities!r}")
 
 
-def resolve_counter_mode(df: pd.DataFrame, counter_mode: str | None = "auto") -> str:
+def resolve_counter_mode(df: pd.DataFrame, counter_mode: str | None = "strict") -> CounterDataType:
     """Resolve the counter representation based on the populated data in the DataFrame."""
     mode = validate_counter_mode(counter_mode)
     has_sum_state = _has_populated_columns(df, ["sum", "state"])
     has_delta = _has_populated_columns(df, ["delta"])
-
-    if mode == "auto" and has_sum_state and has_delta:
-        helpers.handle_error(
-            "Counter data is ambiguous: populated 'sum'/'state' and 'delta' values were found in the same import. "
-            "Use counter_mode='sum' or counter_mode='delta' to select one representation, or remove the conflicting columns."
-        )
 
     if mode == "strict":
         has_sum_columns = "sum" in df.columns or "state" in df.columns
@@ -96,7 +105,7 @@ def resolve_counter_mode(df: pd.DataFrame, counter_mode: str | None = "auto") ->
                 "counter_mode='sum' was selected, but no usable 'sum'/'state' counter data was found in the import. "
                 "Use counter_mode='delta' for delta-based counters or remove the conflicting representation."
             )
-        return "sum"
+        return CounterDataType.SUM_STATE
 
     if mode == "delta":
         if not has_delta:
@@ -104,16 +113,16 @@ def resolve_counter_mode(df: pd.DataFrame, counter_mode: str | None = "auto") ->
                 "counter_mode='delta' was selected, but no usable 'delta' counter data was found in the import. "
                 "Use counter_mode='sum' for sum/state-based counters or remove the conflicting representation."
             )
-        return "delta"
+        return CounterDataType.DELTA
 
     if has_sum_state:
-        return "sum"
+        return CounterDataType.SUM_STATE
     if has_delta:
-        return "delta"
+        return CounterDataType.DELTA
     return helpers.handle_error("No populated counter values found in 'sum', 'state', or 'delta' columns.")
 
 
-def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataType:
+def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataClassification:
     """
     Validate DataFrame columns and detect import data type.
 
@@ -123,7 +132,7 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataType:
 
     Returns:
     -------
-        ImportDataType indicating the type of data in the DataFrame
+        ImportDataClassification describing the data composition
 
     Raises:
     ------
@@ -144,11 +153,22 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataType:
     if not (has_measurement or has_sum_state or has_delta):
         helpers.handle_error("No populated values found in any of the expected columns (min, max, mean, sum, state, delta).")
 
-    if has_measurement:
-        return ImportDataType.MIXED if has_sum_state or has_delta else ImportDataType.SENSOR
-    if has_delta:
-        return ImportDataType.COUNTER_BOTH if has_sum_state else ImportDataType.DELTA
-    return ImportDataType.COUNTER
+    counter_type = None
+    if has_sum_state and has_delta:
+        counter_type = CounterDataType.BOTH
+    elif has_sum_state:
+        counter_type = CounterDataType.SUM_STATE
+    elif has_delta:
+        counter_type = CounterDataType.DELTA
+
+    if has_measurement and counter_type is not None:
+        import_type = ImportDataType.MIXED
+    elif has_measurement:
+        import_type = ImportDataType.SENSOR
+    else:
+        import_type = ImportDataType.COUNTER
+
+    return ImportDataClassification(import_type=import_type, counter_type=counter_type)
 
 
 def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier: str, *, naive_copy: pd.Series | None = None) -> None:
@@ -227,7 +247,7 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
 
     Returns:
     -------
-        Tuple of (df, timezone_identifier, datetime_format, data_type)
+        Tuple of (df, timezone_identifier, datetime_format, classification)
 
     Raises:
     ------
@@ -289,7 +309,7 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
 
     Returns:
     -------
-        Tuple of (df, timezone_identifier, datetime_format, data_type)
+        Tuple of (df, timezone_identifier, datetime_format, classification)
 
     Raises:
     ------
@@ -496,34 +516,6 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
         counter_df = pd.DataFrame()
 
     return sensor_df, counter_df
-
-
-def handle_dataframe_mixed(df: pd.DataFrame) -> dict:
-    """
-    Process a mixed DataFrame containing both sensor and counter statistics.
-
-    Splits the DataFrame by type and processes each part through the existing pipeline.
-
-    Args:
-    ----
-        df: DataFrame with both sensor (min/max/mean) and counter (sum/state) columns
-
-    Returns:
-    -------
-        Dictionary mapping statistic_id to (metadata, statistics_list)
-
-    Raises:
-    ------
-        HomeAssistantError: On validation errors
-
-    """
-    sensor_df, counter_df = split_dataframe_by_type(df)
-    stats: dict = {}
-    if not sensor_df.empty:
-        stats.update(handle_dataframe_no_delta(sensor_df))
-    if not counter_df.empty:
-        stats.update(handle_dataframe_no_delta(counter_df))
-    return stats
 
 
 def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:

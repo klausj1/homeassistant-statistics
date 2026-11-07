@@ -40,7 +40,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert data_type == ImportDataType.SENSOR
+    assert data_type.import_type == ImportDataType.SENSOR
     assert len(df) > 0
     assert "statistic_id" in df.columns
     assert "start" in df.columns
@@ -67,7 +67,7 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert data_type == ImportDataType.SENSOR
+    assert data_type.import_type == ImportDataType.SENSOR
     assert len(df) > 0
 
 

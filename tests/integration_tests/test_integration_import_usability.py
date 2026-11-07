@@ -32,7 +32,7 @@ class TestImportUsability:
 
     @pytest.mark.asyncio
     async def test_export_both_counter_fields_and_import_modes(self) -> None:
-        """Verify mixed exports with both counter forms import via explicit modes and persist."""
+        """Verify strict rejects both counter forms, while sum/delta import and persist."""
         config_dir = Path(__file__).parent.parent.parent / "config"
         suffix = str(time.time_ns())
         counter_id = f"sensor:issue282_roundtrip_{suffix}"
@@ -81,9 +81,9 @@ class TestImportUsability:
                 "timezone_identifier": "Europe/Vienna",
                 "counter_fields": "both",
             }
-            assert await self.ha._call_service(
-                "export_statistics", export_data, ha_url=self.ha.ha_url, token=self.ha.ha_token
-            ), "Failed to export both counter fields"
+            assert await self.ha._call_service("export_statistics", export_data, ha_url=self.ha.ha_url, token=self.ha.ha_token), (
+                "Failed to export both counter fields"
+            )
 
             exported = pd.read_csv(config_dir / export_names[0], sep="\t")
             assert {"min", "max", "mean", "sum", "state", "delta"} <= set(exported.columns)
@@ -98,14 +98,14 @@ class TestImportUsability:
                     "timezone_identifier": "Europe/Vienna",
                     "delimiter": "\t",
                     "decimal": "dot ('.')",
-                    "counter_mode": "auto",
+                    "counter_mode": "strict",
                 },
                 ha_url=self.ha.ha_url,
                 token=self.ha.ha_token,
             )
-            assert status not in (200, 201), f"Auto mode unexpectedly imported ambiguous data: {body}"
-            assert "counter_mode" in body, f"Unexpected auto-mode failure: {body}"
-            assert "ambiguous" in body.lower(), f"Unexpected auto-mode failure: {body}"
+            assert status not in (200, 201), f"Strict mode unexpectedly imported conflicting data: {body}"
+            assert "counter_mode" in body, f"Unexpected strict-mode failure: {body}"
+            assert "conflicting" in body.lower(), f"Unexpected strict-mode failure: {body}"
 
             for mode, export_name in (("sum", export_names[1]), ("delta", export_names[2])):
                 assert await self.ha._call_service(

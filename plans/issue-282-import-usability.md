@@ -19,28 +19,21 @@ services have consistent behavior:
 
 ### `counter_mode`
 
-Default: `auto`. Accepted values: `auto`, `strict`, `sum`, `delta`.
+Default: `strict`. Accepted values: `strict`, `sum`, `delta`.
 
 This option applies only to counter data. It must not change how measurement
 rows (`min`, `max`, `mean`) are imported.
 
 | Value | Behavior |
 | --- | --- |
-| `auto` | Infer the counter representation from populated data. Use `sum`/`state` if those are the only populated counter fields; use `delta` if it is the only populated counter field. If both representations contain data, stop with an actionable ambiguity error. Ignore empty sparse columns when deciding whether counter data conflicts. |
-| `strict` | Preserve strict validation: do not discard conflicting counter data. Reject a file when both counter representations are supplied for counter data, even if a particular row has one representation empty. Measurement fields alone do not cause a counter conflict. |
+| `strict` | Reject a counter import when both counter representation column sets are supplied, even if one is empty in a particular row. Measurement fields alone do not cause a counter conflict. This is the default. |
 | `sum` | Import `sum`/`state` and ignore `delta` for counters. If counter rows are present but contain no usable `sum`/`state` data, report an error rather than silently dropping those counters. |
 | `delta` | Import `delta` and ignore `sum`/`state` for counters. If counter rows are present but contain no usable `delta` data, report an error rather than silently dropping those counters. |
 
-With `auto`, a measurement-only file is imported as measurements, including a
-sparse `delta` column with no counter values. A mixed file with measurements
-and delta counters is also valid when the counter representation is
-unambiguous. In explicit `sum` or `delta` mode, measurement rows are processed
-as usual while the selected representation is applied to counter rows.
-
-If a file contains populated `sum`/`state` and `delta` counter data, `auto`
-must not guess. The error should tell the user to set `counter_mode` to `sum`
-or `delta`, briefly explain the difference, and give the corresponding
-service-call YAML.
+Measurement-only files are imported as measurements regardless of
+`counter_mode`. Mixed files may contain measurements and delta counters;
+measurement rows are processed as usual while the selected representation is
+applied only to counter rows.
 
 ### `ignore_unknown_entities`
 
@@ -58,11 +51,9 @@ partially completed import if a later validation fails.
 
 Suggested service-field descriptions:
 
-- `counter_mode`: “Select which counter representation to import when a file
-  contains `sum`/`state` and `delta`. `auto` (default) uses the only populated
-  representation and reports an error if both are present. `strict` rejects
-  conflicting counter data. `sum` imports `sum`/`state`; `delta` imports
-  `delta`. Measurement rows are unaffected.”
+- `counter_mode`: “Select which counter representation to import. `strict`
+  (default) rejects conflicting counter columns. `sum` imports `sum`/`state`;
+  `delta` imports `delta`. Measurement rows are unaffected.”
 - `ignore_unknown_entities`: “Skip recorder statistics whose entities do not
   exist in Home Assistant. Skipped statistic IDs are included in the service
   response. Defaults to false.”
@@ -91,8 +82,8 @@ Suggested service-field descriptions:
 
 - Keep the export default `counter_fields: both`; do not change existing
   exports or service calls.
-- Document that `both` preserves all counter fields but is ambiguous for
-  `counter_mode: auto` when both counter representations contain data.
+- Document that `both` preserves all counter fields and requires an explicit
+  `counter_mode: sum` or `counter_mode: delta` when importing counter rows.
 - Explain the recommended round trip: export as usual, then choose
   `counter_mode: sum` to import `sum`/`state`, or `counter_mode: delta` to
   import deltas. State clearly that `sum` and `delta` are different
@@ -110,15 +101,14 @@ Suggested service-field descriptions:
 
 Add or update focused tests to cover:
 
-- `auto` imports counter-only `sum`/`state` and delta-only data.
-- `auto` rejects populated `sum`/`state` and `delta` together with an error
-  that names `counter_mode` and the valid choices.
-- Empty sparse counter columns do not cause false ambiguity.
+- `strict` imports counter-only `sum`/`state` and delta-only data.
+- `strict` rejects files that supply both counter representation column sets,
+  even when one representation is empty in a row.
 - Measurement-only data is imported regardless of `counter_mode`, including
   when the file has an empty `delta` column.
-- Mixed measurement and delta-counter data imports correctly in `auto` when
-  counter values are unambiguous, and in explicit `delta` mode when both
-  representations are present.
+- Mixed measurement and delta-counter data imports correctly in strict mode
+  when the file contains only delta counter columns, and in explicit `delta`
+  mode when both representations are present.
 - Explicit `sum` and `delta` select only the requested counter representation
   and report an error if counter data cannot be imported in that mode.
 - `strict` rejects conflicting counter representations without rejecting

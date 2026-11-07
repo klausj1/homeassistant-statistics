@@ -16,7 +16,7 @@ ATTR_COUNTER_FIELDS = "counter_fields"
 ATTR_COUNTER_MODE = "counter_mode"
 ATTR_IGNORE_UNKNOWN_ENTITIES = "ignore_unknown_entities"
 
-VALID_COUNTER_MODES = {"auto", "strict", "sum", "delta"}
+VALID_COUNTER_MODES = {"strict", "sum", "delta"}
 
 TESTFILEPATHS = "tests/testfiles/"
 
