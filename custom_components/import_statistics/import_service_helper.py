@@ -93,9 +93,11 @@ def resolve_counter_mode(df: pd.DataFrame, counter_mode: str | None = "strict") 
     if mode == "strict":
         has_sum_columns = "sum" in df.columns or "state" in df.columns
         if has_sum_columns and "delta" in df.columns:
+            row_numbers = [int(index) + 2 for index in df.index]
             helpers.handle_error(
-                "Counter data is conflicting: both 'sum'/'state' and 'delta' columns were supplied. "
-                "Use counter_mode='sum' or counter_mode='delta' to select one representation, or remove the conflicting columns."
+                "Counter data is conflicting: both 'sum'/'state' and 'delta' columns were supplied "
+                f"at rows {row_numbers}. Use counter_mode='sum' or counter_mode='delta' to select one representation, "
+                "or remove the conflicting columns."
             )
 
     if mode == "sum":
@@ -140,17 +142,29 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataClassification:
     """
     _LOGGER.debug("Columns: %s", df.columns)
 
-    if not helpers.are_columns_valid(df):
-        return helpers.handle_error(
-            "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
-        )
+    column_errors = []
+    try:
+        helpers.are_columns_valid(df)
+    except helpers.AggregatedValidationError as err:
+        row_numbers = [int(index) + 2 for index in df.index]
+        column_errors.extend(f"{error} Source rows: {row_numbers}." for error in err.errors)
+    if not {"statistic_id", "start", "unit"}.issubset(df.columns):
+        helpers.handle_errors(column_errors)
+    df.attrs.setdefault("validation_errors", []).extend(column_errors)
 
     has_measurement = _has_populated_columns(df, ["mean", "min", "max"])
     has_sum_state = _has_populated_columns(df, ["sum", "state"])
     has_delta = _has_populated_columns(df, ["delta"])
 
     if not (has_measurement or has_sum_state or has_delta):
-        helpers.handle_error("No populated values found in any of the expected columns (min, max, mean, sum, state, delta).")
+        errors = [
+            f"Statistic '{statistic_id}' at rows {[int(index) + 2 for index in group.index]} has no populated values in any of "
+            "the expected columns (min, max, mean, sum, state, delta)."
+            for statistic_id, group in df.groupby("statistic_id", sort=False)
+        ]
+        if not errors:
+            errors.append("No populated values found in any of the expected columns (min, max, mean, sum, state, delta).")
+        df.attrs.setdefault("validation_errors", []).extend(errors)
 
     counter_type = None
     if has_sum_state and has_delta:
@@ -160,7 +174,9 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataClassification:
     elif has_delta:
         counter_type = CounterDataType.DELTA
 
-    if has_measurement and counter_type is not None:
+    if not (has_measurement or counter_type is not None):
+        import_type = ImportDataType.SENSOR
+    elif has_measurement and counter_type is not None:
         import_type = ImportDataType.MIXED
     elif has_measurement:
         import_type = ImportDataType.SENSOR
@@ -234,6 +250,39 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
         helpers.handle_error(f"Failed to localize timestamps: {error_msg}")
 
 
+def _parse_import_timestamps(df: pd.DataFrame, datetime_format: str, timezone_identifier: str) -> list[str]:
+    """Parse each timestamp, preserving valid rows and reporting every malformed value."""
+    original_timestamps = df["start"].copy()
+    parsed_timestamps = pd.to_datetime(original_timestamps, format=datetime_format, errors="coerce")
+    invalid_timestamps = parsed_timestamps.isna()
+    errors = [
+        f"Invalid timestamp format at row {index + 2}: {original_timestamps.loc[index]!r}. Expected format: {datetime_format}."
+        for index in invalid_timestamps[invalid_timestamps].index
+    ]
+
+    timezone = zoneinfo.ZoneInfo(timezone_identifier)
+    localized = pd.Series(pd.DatetimeIndex([pd.NaT] * len(parsed_timestamps), tz=timezone), index=parsed_timestamps.index)
+    valid_timestamps = parsed_timestamps.notna()
+    if valid_timestamps.any():
+        valid_parsed = parsed_timestamps.loc[valid_timestamps]
+        probe = valid_parsed.dt.tz_localize(timezone, nonexistent="NaT", ambiguous=True)
+        nonexistent = probe.isna()
+        errors.extend(
+            "Timestamp does not exist due to daylight saving time transition at row "
+            f"{index + 2}: {original_timestamps.loc[index]!r}."
+            for index in nonexistent[nonexistent].index
+        )
+
+        valid_indexes = valid_parsed.index[~nonexistent]
+        if len(valid_indexes):
+            valid_df = pd.DataFrame({"start": parsed_timestamps.loc[valid_indexes]})
+            _localize_timestamps_with_dst_handling(valid_df, timezone_identifier, naive_copy=valid_df["start"].copy())
+            localized.loc[valid_indexes] = valid_df["start"]
+
+    df["start"] = localized
+    return errors
+
+
 def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) -> tuple:
     """
     Load and prepare data from CSV/TSV file for import.
@@ -267,30 +316,18 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
     # Validate file encoding before attempting to read
     helpers.validate_file_encoding(file_path)
 
-    # Parse datetimes during CSV load for performance (avoids parsing 3x later)
+    # Read timestamps as strings so invalid values can be reported individually.
     my_df = pd.read_csv(
         file_path,
         sep=delimiter,
         decimal=decimal,
         engine="python",
         encoding="utf-8",
-        parse_dates=["start"],  # Parse 'start' column as datetime
-        date_format=datetime_format,  # Use user-specified format
+        keep_default_na=False,
+        na_values=[""],
     )
 
-    # Validate that parsing succeeded (pandas returns datetime objects)
-    if not pd.api.types.is_datetime64_any_dtype(my_df["start"]):
-        # Parsing failed - timestamps don't match the format
-        sample_value = my_df["start"].iloc[0] if len(my_df) > 0 else "unknown"
-        helpers.handle_error(
-            f"Invalid timestamp format: {sample_value}. Expected format: {datetime_format}. Please ensure all timestamps match the specified format."
-        )
-
-    # Keep a copy of the naive datetime column for handling ambiguous times
-    start_naive = my_df["start"].copy()
-
-    # Apply timezone with DST handling
-    _localize_timestamps_with_dst_handling(my_df, timezone_identifier, naive_copy=start_naive)
+    my_df.attrs["validation_errors"] = _parse_import_timestamps(my_df, datetime_format, timezone_identifier)
 
     data_type = _validate_and_detect_delta(my_df)
 
@@ -361,23 +398,9 @@ def prepare_json_data_to_import(call: ServiceCall, ha_timezone: str) -> tuple:
 
     my_df = pd.DataFrame(data, columns=columns)
 
-    # Parse datetime strings after DataFrame creation (for JSON imports)
+    # Parse each timestamp after DataFrame creation (for JSON imports).
     try:
-        # Parse timestamps to datetime objects
-        my_df["start"] = pd.to_datetime(my_df["start"], format=datetime_format)
-
-        # Validate that parsing succeeded
-        if not pd.api.types.is_datetime64_any_dtype(my_df["start"]):
-            sample_value = my_df["start"].iloc[0] if len(my_df) > 0 else "unknown"
-            helpers.handle_error(
-                f"Invalid timestamp format: {sample_value}. Expected format: {datetime_format}. Please ensure all timestamps match the specified format."
-            )
-
-        # Keep a copy of the naive datetime column for handling ambiguous times
-        start_naive = my_df["start"].copy()
-
-        # Apply timezone with DST handling
-        _localize_timestamps_with_dst_handling(my_df, timezone_identifier, naive_copy=start_naive)
+        my_df.attrs["validation_errors"] = _parse_import_timestamps(my_df, datetime_format, timezone_identifier)
 
     except HomeAssistantError:
         raise
@@ -458,7 +481,7 @@ def handle_arguments(call: ServiceCall, ha_timezone: str, *, filename: str | Non
     return decimal, timezone_identifier, delimiter, datetime_format
 
 
-def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     """
     Split a mixed DataFrame into sensor and counter DataFrames by statistic_id.
 
@@ -485,23 +508,29 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
 
     sensor_ids = []
     counter_ids = []
+    errors = []
 
     for statistic_id, group in df.groupby("statistic_id", sort=False):
         has_sensor_data = any(col in group.columns and group[col].notna().any() for col in sensor_columns)
         has_counter_data = any(col in group.columns and group[col].notna().any() for col in counter_columns)
+        row_numbers = [index + 2 for index in group.index]
 
         if has_sensor_data and has_counter_data:
-            helpers.handle_error(
-                f"Statistic '{statistic_id}' has both sensor (min/max/mean) and counter (sum/state/delta) data. "
+            errors.append(
+                f"Statistic '{statistic_id}' at rows {row_numbers} has both sensor (min/max/mean) and counter (sum/state/delta) data. "
                 f"A single statistic_id must be either sensor or counter, not both."
             )
+            continue
 
         if has_sensor_data:
             sensor_ids.append(statistic_id)
         elif has_counter_data:
             counter_ids.append(statistic_id)
         else:
-            helpers.handle_error(f"Statistic '{statistic_id}' has no value data in any of the expected columns (min, max, mean, sum, state, delta).")
+            errors.append(
+                f"Statistic '{statistic_id}' at rows {row_numbers} has no value data in any of the expected columns "
+                "(min, max, mean, sum, state, delta)."
+            )
 
     # Build sensor DataFrame with only the relevant columns.
     sensor_df = df[df["statistic_id"].isin(sensor_ids)][["statistic_id", "unit", "start", "min", "max", "mean"]].copy() if sensor_ids else pd.DataFrame()
@@ -514,7 +543,50 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
     else:
         counter_df = pd.DataFrame()
 
+    return sensor_df, counter_df, errors
+
+
+def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split data by statistic type, raising all classification errors together."""
+    sensor_df, counter_df, errors = _split_dataframe_by_type(df)
+    helpers.handle_errors(errors)
     return sensor_df, counter_df
+
+
+def collect_dataframe_validation_errors(df: pd.DataFrame, value_columns: list[str], *, include_units: bool = True) -> list[str]:
+    """Validate timestamps, numeric values, and unit consistency without stopping at the first issue."""
+    errors = []
+    if df.empty:
+        return errors
+
+    newest_dt = df["start"].max()
+    if pd.isna(newest_dt):
+        errors.append("No valid timestamps found in import data")
+    else:
+        errors.extend(_collect_validation_errors(lambda: helpers.is_not_in_future(newest_dt)))
+
+    errors.extend(_collect_validation_errors(lambda: helpers.validate_timestamps_vectorized(df)))
+
+    float_errors = _collect_validation_errors(lambda: helpers.validate_floats_vectorized(df, value_columns))
+    errors.extend(float_errors)
+    if value_columns == ["min", "max", "mean"] and {"min", "max", "mean"}.issubset(df.columns):
+        numeric_values = df[["min", "max", "mean"]].apply(pd.to_numeric, errors="coerce")
+        valid_rows = numeric_values.notna().all(axis=1)
+        if valid_rows.any():
+            errors.extend(_collect_validation_errors(lambda: helpers.validate_min_max_mean_vectorized(numeric_values.loc[valid_rows])))
+
+    if include_units:
+        errors.extend(collect_unit_validation_errors(df))
+    return errors
+
+
+def collect_unit_validation_errors(df: pd.DataFrame) -> list[str]:
+    """Validate all unit values and per-statistic consistency with source row numbers."""
+    errors = []
+    for statistic_id in df["statistic_id"].unique():
+        unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
+        errors.extend(_collect_validation_errors(lambda series=unit_series, sid=statistic_id: helpers.validate_unit_consistency(series, sid)))
+    return errors
 
 
 def _collect_validation_errors(validate: Callable[[], None]) -> list[str]:
@@ -528,33 +600,15 @@ def _collect_validation_errors(validate: Callable[[], None]) -> list[str]:
 
 def _validate_dataframe_for_import(df: pd.DataFrame) -> None:
     """Collect and raise independent row and unit validation errors."""
-    errors = []
-    newest_dt = df["start"].max()
-    if pd.isna(newest_dt):
-        errors.append("No valid timestamps found in import data")
-    else:
-        errors.extend(_collect_validation_errors(lambda: helpers.is_not_in_future(newest_dt)))
-
-    errors.extend(_collect_validation_errors(lambda: helpers.validate_timestamps_vectorized(df)))
-
     if "mean" in df.columns:
-        float_errors = _collect_validation_errors(lambda: helpers.validate_floats_vectorized(df, ["min", "max", "mean"]))
-        errors.extend(float_errors)
-        if not float_errors:
-            errors.extend(_collect_validation_errors(lambda: helpers.validate_min_max_mean_vectorized(df)))
+        value_columns = ["min", "max", "mean"]
     elif "sum" in df.columns:
-        float_columns = ["sum"]
+        value_columns = ["sum"]
         if "state" in df.columns:
-            float_columns.append("state")
-        errors.extend(_collect_validation_errors(lambda: helpers.validate_floats_vectorized(df, float_columns)))
+            value_columns.append("state")
     else:
-        errors.append("Implementation error: neither mean nor sum columns found")
-
-    for statistic_id in df["statistic_id"].unique():
-        unit_series = df.loc[df["statistic_id"] == statistic_id, "unit"]
-        errors.extend(_collect_validation_errors(lambda series=unit_series, sid=statistic_id: helpers.validate_unit_consistency(series, sid)))
-
-    helpers.handle_errors(errors)
+        helpers.handle_error("Implementation error: neither mean nor sum columns found")
+    helpers.handle_errors(collect_dataframe_validation_errors(df, value_columns))
 
 
 def handle_dataframe_no_delta(df: pd.DataFrame) -> dict:

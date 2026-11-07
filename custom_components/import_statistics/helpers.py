@@ -38,6 +38,7 @@ def handle_errors(errors: list[str]) -> None:
     """Log and raise all collected validation errors."""
     if not errors:
         return
+    errors = list(dict.fromkeys(errors))
     handle_error(errors)
 
 
@@ -116,6 +117,8 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
     """
     columns = df.columns
 
+    errors = []
+
     # Check required columns: statistic_id, start, and unit (always required)
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         found_columns_num = len(columns)
@@ -124,7 +127,7 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
         found_columns_str = ", ".join(sorted(found_columns_quoted))
         error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit'"
         error_str += f" (check delimiter). Number of found columns: {found_columns_num}. Found columns: {found_columns_str}"
-        handle_error(error_str)
+        errors.append(error_str)
 
     # Delta may coexist with sparse measurement/counter columns when values are populated
     # only on specific rows. Ambiguity is resolved later using row-level populated data
@@ -140,12 +143,13 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
     if unknown_columns:
         unknown_cols_str = ", ".join(sorted(unknown_columns))
         allowed_cols_str = ", ".join(sorted(allowed_columns))
-        handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
+        errors.append(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
 
     sensor_columns = {"mean", "min", "max"} & set(columns)
     if sensor_columns and sensor_columns != {"mean", "min", "max"}:
-        handle_error("Columns 'mean', 'min', and 'max' must either all be present or all be absent")
+        errors.append("Columns 'mean', 'min', and 'max' must either all be present or all be absent")
 
+    handle_errors(errors)
     return True
 
 
@@ -171,7 +175,7 @@ def handle_error(error_string: str | list[str]) -> NoReturn:
     raise HomeAssistantError(error_string)
 
 
-def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
+def get_unit_from_row(unit_from_row: Any, statistic_id: str, *, row_number: int | None = None) -> str | None:
     """
     Get unit from the input row and normalize it.
 
@@ -181,6 +185,7 @@ def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
     ----
         unit_from_row: The unit from the imported file (could be str, NaN, None)
         statistic_id: The statistic id from the imported file
+        row_number: Optional source row number for error messages
 
     Returns:
     -------
@@ -204,8 +209,9 @@ def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
 
     # Reject invalid string literals that look like empty values
     if unit_str.lower() in ("nan", "none", "null"):
+        row_text = f" at row {row_number}" if row_number is not None else ""
         handle_error(
-            f"Invalid unit value: '{unit_str}'. "
+            f"Invalid unit value{row_text}: '{unit_str}'. "
             f"If you want an empty unit, leave the cell empty. "
             f"The strings 'nan', 'None', and 'null' are not valid units. "
             f"Statistic ID: {statistic_id}."
@@ -233,16 +239,26 @@ def validate_unit_consistency(unit_series: pd.Series, statistic_id: str) -> None
         HomeAssistantError: If more than one distinct normalized unit is found
 
     """
-    unique_raw_units = unit_series.unique()
     normalized_units: set[str | None] = set()
-
-    for raw_unit in unique_raw_units:
-        normalized = get_unit_from_row(raw_unit, statistic_id)
+    units_by_row = []
+    errors = []
+    for index, raw_unit in unit_series.items():
+        try:
+            normalized = get_unit_from_row(raw_unit, statistic_id, row_number=index + 2)
+        except HomeAssistantError as err:
+            errors.extend(err.errors if isinstance(err, AggregatedValidationError) else [str(err)])
+            continue
         normalized_units.add(normalized)
+        units_by_row.append((index + 2, normalized))
 
     if len(normalized_units) > 1:
         display_units = sorted(f"'{u}'" if u is not None else "'(empty)'" for u in normalized_units)
-        handle_error(f"Inconsistent units for '{statistic_id}': found {display_units}. All rows for the same statistic_id must have the same unit.")
+        row_numbers = sorted(row for row, _unit in units_by_row)
+        errors.append(
+            f"Inconsistent units for '{statistic_id}' at rows {row_numbers}: found {display_units}. "
+            "All rows for the same statistic_id must have the same unit."
+        )
+    handle_errors(errors)
 
 
 # Build reverse mapping: converter class -> unit_class string (module-level, computed once)
@@ -613,7 +629,7 @@ def validate_timestamps_vectorized(df: pd.DataFrame) -> None:
     """
     # Check if any timestamp has non-zero minutes or seconds
     start_series: pd.Series[pd.Timestamp] = df["start"]  # type: ignore[assignment]
-    invalid_times = (start_series.dt.minute != 0) | (start_series.dt.second != 0)
+    invalid_times = start_series.notna() & ((start_series.dt.minute != 0) | (start_series.dt.second != 0))
 
     if invalid_times.any():
         errors = [

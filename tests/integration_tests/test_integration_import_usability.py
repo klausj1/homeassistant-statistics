@@ -1,6 +1,7 @@
 """Real Home Assistant integration tests for import usability."""
 # ruff: noqa: SLF001
 
+import json
 import time
 from pathlib import Path
 from typing import Any
@@ -103,9 +104,12 @@ class TestImportUsability:
                 ha_url=self.ha.ha_url,
                 token=self.ha.ha_token,
             )
-            assert status not in (200, 201), f"Strict mode unexpectedly imported conflicting data: {body}"
-            assert "counter_mode" in body, f"Unexpected strict-mode failure: {body}"
-            assert "conflicting" in body.lower(), f"Unexpected strict-mode failure: {body}"
+            assert status in (200, 201), f"Strict-mode service call failed: {body}"
+            strict_response = json.loads(body)["service_response"]
+            assert strict_response["failed"] is True, f"Strict mode unexpectedly imported conflicting data: {strict_response}"
+            strict_errors = "\n".join(strict_response["errors"])
+            assert "counter_mode" in strict_errors, f"Unexpected strict-mode failure: {strict_response}"
+            assert "conflicting" in strict_errors.lower(), f"Unexpected strict-mode failure: {strict_response}"
 
             for mode, export_name in (("sum", export_names[1]), ("delta", export_names[2])):
                 assert await self.ha._call_service(
@@ -173,8 +177,12 @@ class TestImportUsability:
                 ha_url=self.ha.ha_url,
                 token=self.ha.ha_token,
             )
-            assert status not in (200, 201), f"Missing recorder entity unexpectedly imported: {body}"
-            assert "sensor.issue282_missing" in body, f"Unexpected missing-entity failure: {body}"
+            assert status in (200, 201), f"Import service call failed: {body}"
+            import_response = json.loads(body)["service_response"]
+            assert import_response["failed"] is True, f"Missing recorder entity unexpectedly imported: {import_response}"
+            assert any("sensor.issue282_missing" in error for error in import_response["errors"]), (
+                f"Unexpected missing-entity failure: {import_response}"
+            )
 
             no_partial_import_status, no_partial_import_body = await self.ha._call_service_with_response(
                 "export_statistics",
@@ -188,7 +196,9 @@ class TestImportUsability:
                 ha_url=self.ha.ha_url,
                 token=self.ha.ha_token,
             )
-            assert no_partial_import_status not in (200, 201), f"Failed import partially wrote valid rows: {no_partial_import_body}"
+            assert no_partial_import_status in (200, 201), f"Export service call failed: {no_partial_import_body}"
+            no_partial_import_response = json.loads(no_partial_import_body)["service_response"]
+            assert no_partial_import_response["failed"] is True, f"Failed import partially wrote valid rows: {no_partial_import_response}"
 
             assert await self.ha._call_service(
                 "import_from_file",

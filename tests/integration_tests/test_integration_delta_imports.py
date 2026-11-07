@@ -266,7 +266,7 @@ class TestIntegrationAll:
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                f"{ha_url}/api/services/{DOMAIN}/{service_name}",
+                f"{ha_url}/api/services/{DOMAIN}/{service_name}?return_response",
                 json=data,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30),

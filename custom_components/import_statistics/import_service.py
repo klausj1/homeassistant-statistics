@@ -21,6 +21,8 @@ from custom_components.import_statistics.helpers import (
     _LOGGER,
     AggregatedValidationError,
     DeltaReferenceType,
+    get_source,
+    get_unit_from_row,
     handle_error,
     handle_errors,
     is_not_in_future,
@@ -30,6 +32,9 @@ from custom_components.import_statistics.import_service_helper import (
     CounterDataType,
     ImportDataClassification,
     ImportDataType,
+    _split_dataframe_by_type,
+    collect_dataframe_validation_errors,
+    collect_unit_validation_errors,
     handle_dataframe_no_delta,
     prepare_data_to_import,
     prepare_json_data_to_import,
@@ -159,19 +164,27 @@ async def prepare_delta_handling(
 
     # Step 1: Extract oldest/newest timestamps from df per statistic_id
     import_ranges = {}
+    errors = []
 
     for statistic_id in df["statistic_id"].unique():
         group = df[df["statistic_id"] == statistic_id]
+        row_numbers = [int(index) + 2 for index in group.index]
 
         # Use vectorized min/max on datetime column (no parsing needed!)
         oldest_dt = group["start"].min()
         newest_dt = group["start"].max()
 
         if pd.isna(oldest_dt) or pd.isna(newest_dt):
-            handle_error(f"No valid timestamps found for statistic_id {statistic_id}")
+            errors.append(f"No valid timestamps found for statistic_id {statistic_id} at rows {row_numbers}.")
+            continue
 
         # Validate that newest timestamp is not too recent
-        is_not_in_future(newest_dt)
+        try:
+            is_not_in_future(newest_dt)
+        except HomeAssistantError as err:
+            row_message = f"Statistic '{statistic_id}' at rows {row_numbers}: "
+            errors.extend(f"{row_message}{message}" for message in _validation_errors_from_exception(err))
+            continue
 
         # Convert to UTC for database query
         oldest_dt_utc = oldest_dt.astimezone(dt.UTC)
@@ -189,8 +202,11 @@ async def prepare_delta_handling(
             newest_dt_utc,
         )
 
+    handle_errors(errors)
+
     # Step 2: For each statistic_id, fetch database records and validate time ranges
     references = {}
+    errors = []
 
     for statistic_id, import_range in import_ranges.items():
         t_oldest_import = import_range["oldest_import"]
@@ -201,11 +217,15 @@ async def prepare_delta_handling(
         ref_data, error_msg = await _process_delta_references_for_statistic(hass, statistic_id, t_oldest_import, t_newest_import)
 
         if error_msg:
-            handle_error(error_msg)
+            row_numbers = [int(index) + 2 for index in df.index[df["statistic_id"] == statistic_id]]
+            errors.append(f"{error_msg} Imported rows: {row_numbers}.")
+            continue
 
         _LOGGER.debug("Reference data for %s found: %s", statistic_id, ref_data)
 
         references[statistic_id] = ref_data
+
+    handle_errors(errors)
 
     _LOGGER.info("Delta handling preparation complete: %d statistics", len(references))
     return references
@@ -249,6 +269,128 @@ async def _process_counter_dataframe(hass: HomeAssistant, df: pd.DataFrame, coun
     return await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(selected_df))
 
 
+def _validation_errors_from_exception(error: HomeAssistantError) -> list[str]:
+    """Return all messages carried by a validation exception."""
+    return error.errors if isinstance(error, AggregatedValidationError) else [str(error)]
+
+
+async def _validate_dataframe_entities(hass: HomeAssistant, df: pd.DataFrame, *, ignore_unknown_entities: bool) -> list[str]:
+    """Validate each statistic's entity and stored unit independently of row processing."""
+    validation_stats = {}
+    errors = []
+    row_numbers = {}
+    for statistic_id in df["statistic_id"].unique():
+        statistic_rows = df.loc[df["statistic_id"] == statistic_id]
+        rows = [int(index) + 2 for index in statistic_rows.index]
+        row_numbers[statistic_id] = rows
+        try:
+            source = get_source(statistic_id)
+        except HomeAssistantError as err:
+            errors.extend(f"{error} Rows: {rows}." for error in _validation_errors_from_exception(err))
+            continue
+        try:
+            unit = get_unit_from_row(statistic_rows["unit"].iloc[0], statistic_id, row_number=rows[0])
+        except HomeAssistantError as err:
+            errors.extend(_validation_errors_from_exception(err))
+            unit = None
+        validation_stats[statistic_id] = (
+            {"statistic_id": statistic_id, "source": source, "unit_of_measurement": unit},
+            [],
+        )
+
+    if ignore_unknown_entities:
+        validation_stats = {
+            statistic_id: stat
+            for statistic_id, stat in validation_stats.items()
+            if stat[0]["source"] != "recorder" or hass.states.get(statistic_id) is not None
+        }
+    if validation_stats:
+        try:
+            await validate_entities_and_units(hass, validation_stats, row_numbers=row_numbers)
+        except HomeAssistantError as err:
+            errors.extend(_validation_errors_from_exception(err))
+    return errors
+
+
+def _validate_local_import_data(data: PreparedImportData) -> list[str]:  # noqa: PLR0912
+    """Collect all row-level validation errors before processing or database writes."""
+    df = data.df
+    errors = list(df.attrs.get("validation_errors", []))
+    errors.extend(collect_unit_validation_errors(df))
+
+    if data.classification.import_type == ImportDataType.MIXED:
+        sensor_df, counter_df, split_errors = _split_dataframe_by_type(df)
+        errors.extend(split_errors)
+    elif data.classification.import_type == ImportDataType.SENSOR:
+        sensor_df, counter_df = df, pd.DataFrame()
+    else:
+        sensor_df, counter_df = pd.DataFrame(), df
+
+    if not sensor_df.empty:
+        errors.extend(collect_dataframe_validation_errors(sensor_df, ["min", "max", "mean"], include_units=False))
+
+    if not counter_df.empty:
+        for statistic_id in counter_df["statistic_id"].unique():
+            statistic_df = counter_df[counter_df["statistic_id"] == statistic_id]
+            try:
+                selected_mode = resolve_counter_mode(statistic_df, data.counter_mode)
+            except HomeAssistantError as err:
+                errors.extend(_validation_errors_from_exception(err))
+                selected_mode = None
+
+            if selected_mode == CounterDataType.SUM_STATE:
+                value_columns = [column for column in ("sum", "state") if column in statistic_df.columns]
+                value_df = statistic_df[statistic_df[value_columns].notna().any(axis=1)]
+                errors.extend(collect_dataframe_validation_errors(value_df, value_columns, include_units=False))
+            elif selected_mode == CounterDataType.DELTA:
+                delta_df = statistic_df[statistic_df["delta"].notna()]
+                errors.extend(collect_dataframe_validation_errors(delta_df, ["delta"], include_units=False))
+            else:
+                if {"sum", "state"} & set(statistic_df.columns):
+                    sum_columns = [column for column in ("sum", "state") if column in statistic_df.columns]
+                    sum_df = statistic_df[statistic_df[sum_columns].notna().any(axis=1)]
+                    if sum_columns:
+                        errors.extend(collect_dataframe_validation_errors(sum_df, sum_columns, include_units=False))
+                if "delta" in statistic_df.columns:
+                    delta_df = statistic_df[statistic_df["delta"].notna()]
+                    errors.extend(collect_dataframe_validation_errors(delta_df, ["delta"], include_units=False))
+    return errors
+
+
+async def _build_import_statistics(hass: HomeAssistant, data: PreparedImportData) -> tuple[dict, list[str]]:
+    """Process each statistic type independently and collect processing errors."""
+    errors = []
+    stats = {}
+    if data.classification.import_type == ImportDataType.MIXED:
+        _LOGGER.info("Mixed mode detected, splitting by statistic type")
+        sensor_df, counter_df = split_dataframe_by_type(data.df)
+        if not sensor_df.empty:
+            _LOGGER.info("Processing sensor data (no delta conversion needed)")
+            try:
+                stats.update(await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(sensor_df)))
+            except HomeAssistantError as err:
+                errors.extend(_validation_errors_from_exception(err))
+        if not counter_df.empty:
+            _LOGGER.info("Processing counter data (delta conversion may be needed)")
+            try:
+                stats.update(await _process_counter_dataframe(hass, counter_df, data.counter_mode))
+            except HomeAssistantError as err:
+                errors.extend(_validation_errors_from_exception(err))
+    elif data.classification.import_type == ImportDataType.COUNTER:
+        _LOGGER.info("Counter mode detected, processing with counter handling (delta conversion may be needed)")
+        try:
+            stats = await _process_counter_dataframe(hass, data.df, data.counter_mode)
+        except HomeAssistantError as err:
+            errors.extend(_validation_errors_from_exception(err))
+    else:
+        _LOGGER.info("Measurement-only mode detected, processing directly")
+        try:
+            stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df))
+        except HomeAssistantError as err:
+            errors.extend(_validation_errors_from_exception(err))
+    return stats, errors
+
+
 async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict:
     """
     Process import after DataFrame is prepared.
@@ -261,24 +403,12 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict
         data: Prepared import data containing DataFrame and settings
 
     """
-    if data.classification.import_type == ImportDataType.MIXED:
-        _LOGGER.info("Mixed mode detected, splitting by statistic type")
-        sensor_df, counter_df = split_dataframe_by_type(data.df)
-        stats = {}
-        if not sensor_df.empty:
-            _LOGGER.info("Processing sensor data (no delta conversion needed)")
-            stats.update(await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(sensor_df)))
-        if not counter_df.empty:
-            _LOGGER.info("Processing counter data (delta conversion may be needed)")
-            stats.update(await _process_counter_dataframe(hass, counter_df, data.counter_mode))
-    elif data.classification.import_type == ImportDataType.COUNTER:
-        _LOGGER.info("Counter mode detected, processing with counter handling (delta conversion may be needed)")
-        stats = await _process_counter_dataframe(hass, data.df, data.counter_mode)
-    else:
-        _LOGGER.info("Measurement-only mode detected, processing directly")
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df))
-
-    return await import_stats(hass, stats, ignore_unknown_entities=data.ignore_unknown_entities)
+    errors = _validate_local_import_data(data)
+    errors.extend(await _validate_dataframe_entities(hass, data.df, ignore_unknown_entities=data.ignore_unknown_entities))
+    handle_errors(errors)
+    stats, processing_errors = await _build_import_statistics(hass, data)
+    handle_errors(processing_errors)
+    return await import_stats(hass, stats, ignore_unknown_entities=data.ignore_unknown_entities, validate_entities=False)
 
 
 async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
@@ -382,7 +512,7 @@ def _filter_unknown_recorder_entities(hass: HomeAssistant, stats: dict) -> tuple
     return filtered_stats, skipped_ids
 
 
-async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entities: bool = False) -> dict:
+async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entities: bool = False, validate_entities: bool = True) -> dict:
     """Import statistics into Home Assistant and wait for recorder to commit."""
     skipped_ids: list[str] = []
     skipped_value_count = 0
@@ -391,8 +521,9 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
         stats, skipped_ids = _filter_unknown_recorder_entities(hass, stats)
         skipped_value_count = sum(value_counts[statistic_id] for statistic_id in skipped_ids)
 
-    _LOGGER.info("Validating entities and units")
-    await validate_entities_and_units(hass, stats)
+    if validate_entities:
+        _LOGGER.info("Validating entities and units")
+        await validate_entities_and_units(hass, stats)
 
     _LOGGER.info("Calling hass import methods")
     for stat in stats.values():
@@ -424,7 +555,7 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
     return response
 
 
-async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
+async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_numbers: dict[str, list[int]] | None = None) -> None:
     """
     Validate that entities exist and units match both entity state and statistic_meta.
 
@@ -437,8 +568,18 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
     ------
         HomeAssistantError: If entity doesn't exist or unit doesn't match
 
+    Keyword Args:
+    ------------
+        row_numbers: Source row numbers for each imported statistic.
+
     """
     errors = []
+    row_numbers = row_numbers or {}
+
+    def row_context(statistic_id: str) -> str:
+        """Format source row numbers for a statistic-specific validation message."""
+        rows = row_numbers.get(statistic_id)
+        return f" at rows {rows}" if rows else ""
 
     # Collect all statistic_ids to query metadata
     statistic_ids = set()
@@ -451,7 +592,10 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
         if metadata["source"] == "recorder":
             entity_state = hass.states.get(statistic_id)
             if entity_state is None:
-                errors.append(f"Entity does not exist: '{statistic_id}'. To skip missing recorder entities, set ignore_unknown_entities: true.")
+                errors.append(
+                    f"Entity does not exist: '{statistic_id}'{row_context(statistic_id)}. "
+                    "To skip missing recorder entities, set ignore_unknown_entities: true."
+                )
             else:
                 # Validate that import unit matches entity's current unit
                 input_unit = metadata.get("unit_of_measurement")
@@ -467,7 +611,8 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
                     entity_display = entity_unit if entity_unit is not None else "(empty)"
 
                     errors.append(
-                        f"Unit mismatch for '{statistic_id}': input file has '{input_display}' but entity has '{entity_display}'. "
+                        f"Unit mismatch for '{statistic_id}'{row_context(statistic_id)}: "
+                        f"input file has '{input_display}' but entity has '{entity_display}'. "
                         f"Units must match the entity's current unit_of_measurement."
                     )
 
@@ -497,7 +642,8 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
                 db_display = db_unit if db_unit is not None else "(empty)"
 
                 errors.append(
-                    f"Unit mismatch for '{statistic_id}': input file has '{input_display}' but statistic_meta has '{db_display}'. Units must match exactly."
+                    f"Unit mismatch for '{statistic_id}'{row_context(statistic_id)}: "
+                    f"input file has '{input_display}' but statistic_meta has '{db_display}'. Units must match exactly."
                 )
 
             _LOGGER.debug("Unit validation passed for %s: %s", statistic_id, input_unit)

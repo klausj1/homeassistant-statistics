@@ -160,11 +160,12 @@ def test_validate_and_detect_delta_classifies_data_types() -> None:
     assert _validate_and_detect_delta(mixed_counter_both) == ImportDataClassification(ImportDataType.MIXED, CounterDataType.BOTH)
 
 
-def test_validate_and_detect_delta_rejects_no_populated_values() -> None:
-    """Sparse schema columns without any data are not classified as an import type."""
+def test_validate_and_detect_delta_collects_no_populated_values_error() -> None:
+    """Collect the empty-data error without stopping classification."""
     frame = pd.DataFrame(columns=["statistic_id", "start", "unit", "min", "max", "mean", "sum", "state", "delta"])
-    with pytest.raises(HomeAssistantError, match="No populated values"):
-        _validate_and_detect_delta(frame)
+    classification = _validate_and_detect_delta(frame)
+    assert classification == ImportDataClassification(ImportDataType.SENSOR, None)
+    assert any("No populated values" in error for error in frame.attrs["validation_errors"])
 
 
 def test_prepare_counter_dataframe_selects_only_requested_representation() -> None:

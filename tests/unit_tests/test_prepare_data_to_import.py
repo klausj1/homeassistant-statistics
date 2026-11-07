@@ -135,12 +135,12 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
         call = ServiceCall("domain_name", "service_name", data, data)
         ha_timezone = "UTC"
 
-        # Call the function - should raise an error due to unknown columns
-        with pytest.raises(
-            HomeAssistantError,
-            match=re.escape("Unknown columns in file: comments, unknown_field."),
-        ):
-            prepare_data_to_import(file_path, call, ha_timezone)
+        # Column errors are collected for the service response.
+        df, _timezone_id, _datetime_format, _data_type = prepare_data_to_import(file_path, call, ha_timezone)
+        assert any(
+            "Unknown columns in file: comments, unknown_field." in error and "Source rows: [2]" in error
+            for error in df.attrs["validation_errors"]
+        )
 
 
 def test_prepare_data_to_import_rejects_unsupported_extension() -> None:
