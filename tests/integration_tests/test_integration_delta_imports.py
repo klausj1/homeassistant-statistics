@@ -255,6 +255,26 @@ class TestIntegrationAll:
             return False
 
     @staticmethod
+    async def _call_service_with_response(
+        service_name: str,
+        data: dict[str, Any],
+        ha_url: str = "http://localhost:8123",
+        token: str = "",
+    ) -> tuple[int, str]:
+        """Call a Home Assistant service and return its HTTP status and response body."""
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{ha_url}/api/services/{DOMAIN}/{service_name}",
+                json=data,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as response,
+        ):
+            return response.status, await response.text()
+
+    @staticmethod
     def _compare_tsv_files_strict(actual_path: Path, expected_path: Path, tolerance: float = 0.01) -> bool:
         """Compare two TSV files for equality with numeric tolerance (strict mode - raises on mismatch)."""
         with actual_path.open(encoding="utf-8-sig") as f:

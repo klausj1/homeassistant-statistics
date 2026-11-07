@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [5.4.0] - Import usability and sparse counter handling
+
+### Added
+
+- **Import usability improvements**: `import_from_file` and `import_from_json` now accept `counter_mode` and `ignore_unknown_entities` to handle sparse mixed exports and skip missing recorder entities deliberately.
+- **Improved sparse export compatibility**: Files exported with `counter_fields: both` can now be imported without rejecting measurement rows simply because the same file also contains counter data in another representation.
+
+### Bug Fixes
+
+- **Counter ambiguity handling**: Ambiguous `sum`/`state` + `delta` inputs now stop with clear guidance instead of silently guessing.
+- **Unknown recorder entities**: Missing recorder entities can be skipped intentionally and listed in the service response with a generated CSV log file.
+
 ## [5.3.0] - Import service response and validation improvements
 
 ### Added

@@ -15,6 +15,14 @@
                     "description": "Filename relative to config directory on the home assistant server (e.g., 'import.tsv' or 'import.csv'). Supported extensions: .csv, .tsv",
                     "name": "filename"
                 },
+                "counter_mode": {
+                    "description": "Select which counter representation to import when a file contains 'sum'/'state' and 'delta'. 'auto' (default) uses the only populated representation and reports an error if both are present. 'strict' rejects conflicting counter data. 'sum' imports 'sum'/'state'; 'delta' imports 'delta'. Measurement rows are unaffected.",
+                    "name": "counter_mode"
+                },
+                "ignore_unknown_entities": {
+                    "description": "Skip entities that do not exist in Home Assistant. Skipped statistic IDs are included in the service response.",
+                    "name": "ignore_unknown_entities"
+                },
                 "timezone_identifier": {
                     "description": "Timezone identifier (check {pytz_url}). If not specified, uses Home Assistant's configured timezone",
                     "name": "timezone_identifier"
@@ -28,7 +36,17 @@
         },
         "import_from_json": {
             "description": "Imports long term statistic values (1h) from a JSON payload. See {json_example_url} for an example of the expected JSON structure.",
-            "name": "Import statistics from JSON"
+            "name": "Import statistics from JSON",
+            "fields": {
+                "counter_mode": {
+                    "description": "Select which counter representation to import when a file contains 'sum'/'state' and 'delta'. 'auto' (default) uses the only populated representation and reports an error if both are present. 'strict' rejects conflicting counter data. 'sum' imports 'sum'/'state'; 'delta' imports 'delta'. Measurement rows are unaffected.",
+                    "name": "counter_mode"
+                },
+                "ignore_unknown_entities": {
+                    "description": "Skip entities that do not exist in Home Assistant. Skipped statistic IDs are included in the service response.",
+                    "name": "ignore_unknown_entities"
+                }
+            }
         },
         "export_inventory": {
             "name": "Export Statistics Inventory",

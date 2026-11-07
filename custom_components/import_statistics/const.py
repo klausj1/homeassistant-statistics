@@ -13,6 +13,10 @@ ATTR_ENTITIES = "entities"
 ATTR_DELTA = "delta"
 ATTR_SPLIT_BY = "split_by"
 ATTR_COUNTER_FIELDS = "counter_fields"
+ATTR_COUNTER_MODE = "counter_mode"
+ATTR_IGNORE_UNKNOWN_ENTITIES = "ignore_unknown_entities"
+
+VALID_COUNTER_MODES = {"auto", "strict", "sum", "delta"}
 
 TESTFILEPATHS = "tests/testfiles/"
 

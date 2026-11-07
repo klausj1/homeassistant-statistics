@@ -100,59 +100,34 @@ def test_are_columns_valid_delta_with_unit() -> None:
     assert are_columns_valid(my_df)
 
 
-def test_are_columns_valid_delta_plus_sum_error() -> None:
-    """Test that delta + sum columns raises error."""
+def test_are_columns_valid_delta_plus_sum_allowed() -> None:
+    """Sparse export files may include both delta and sum columns before row-level validation."""
     my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "sum"])
-
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
-    ):
-        are_columns_valid(my_df)
+    assert are_columns_valid(my_df)
 
 
-def test_are_columns_valid_delta_plus_state_error() -> None:
-    """Test that delta + state columns raises error."""
+def test_are_columns_valid_delta_plus_state_allowed() -> None:
+    """Sparse export files may include both delta and state columns before row-level validation."""
     my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "state"])
-
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
-    ):
-        are_columns_valid(my_df)
+    assert are_columns_valid(my_df)
 
 
-def test_are_columns_valid_delta_plus_mean_error() -> None:
-    """Test that delta + mean columns raises error."""
-    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "mean"])
-
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
-    ):
-        are_columns_valid(my_df)
+def test_are_columns_valid_delta_plus_sensor_columns_allowed() -> None:
+    """Sparse export files may include both delta and complete measurement columns before row-level validation."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "mean", "min", "max"])
+    assert are_columns_valid(my_df)
 
 
-def test_are_columns_valid_delta_plus_min_error() -> None:
-    """Test that delta + min columns raises error."""
-    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "min"])
-
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
-    ):
-        are_columns_valid(my_df)
+def test_are_columns_valid_delta_plus_sensor_columns_allowed_2() -> None:
+    """The same rule applies when the sensor side is represented in a different column order."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "min", "max", "mean", "delta"])
+    assert are_columns_valid(my_df)
 
 
-def test_are_columns_valid_delta_plus_max_error() -> None:
-    """Test that delta + max columns raises error."""
-    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "delta", "max"])
-
-    with pytest.raises(
-        HomeAssistantError,
-        match=re.escape("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns"),
-    ):
-        are_columns_valid(my_df)
+def test_are_columns_valid_delta_plus_sensor_columns_allowed_3() -> None:
+    """Measurement and counter exports may share the same sparse file schema."""
+    my_df = pd.DataFrame(columns=["statistic_id", "start", "unit", "mean", "min", "max", "sum", "state", "delta"])
+    assert are_columns_valid(my_df)
 
 
 def test_are_columns_valid_delta_missing_unit() -> None:

@@ -22,6 +22,7 @@ from custom_components.import_statistics.const import (
     ATTR_DELIMITER,
     ATTR_TIMEZONE_IDENTIFIER,
     DATETIME_DEFAULT_FORMAT,
+    VALID_COUNTER_MODES,
 )
 from custom_components.import_statistics.delta_database_access import _get_newest_db_statistic
 from custom_components.import_statistics.helpers import _LOGGER
@@ -34,6 +35,82 @@ class ImportDataType(Enum):
     COUNTER = "counter"  # sum/state only
     MIXED = "mixed"  # both sensor and counter entities
     DELTA = "delta"  # delta column present
+    COUNTER_BOTH = "counter_both"  # both sum/state and delta counter values present
+
+
+def _has_populated_columns(df: pd.DataFrame, columns: list[str]) -> bool:
+    """Return True when any of the supplied columns has a populated value."""
+    return any(column in df.columns and df[column].notna().any() for column in columns)
+
+
+def validate_counter_mode(counter_mode: str | None) -> str:
+    """Normalize and validate the counter_mode parameter."""
+    if counter_mode is None:
+        counter_mode = "auto"
+    if not isinstance(counter_mode, str):
+        helpers.handle_error(f"counter_mode must be a string, got {type(counter_mode).__name__}")
+    normalized = counter_mode.strip().lower()
+    if normalized not in VALID_COUNTER_MODES:
+        helpers.handle_error(f"counter_mode must be one of {sorted(VALID_COUNTER_MODES)}, got {counter_mode!r}")
+    return normalized
+
+
+def validate_ignore_unknown_entities(ignore_unknown_entities: object) -> bool:
+    """Normalize and validate the ignore_unknown_entities service parameter."""
+    if isinstance(ignore_unknown_entities, bool):
+        return ignore_unknown_entities
+    if isinstance(ignore_unknown_entities, int) and ignore_unknown_entities in {0, 1}:
+        return bool(ignore_unknown_entities)
+    if isinstance(ignore_unknown_entities, str):
+        normalized = ignore_unknown_entities.strip().lower()
+        if normalized in {"true", "yes", "on", "1"}:
+            return True
+        if normalized in {"false", "no", "off", "0"}:
+            return False
+    return helpers.handle_error(f"ignore_unknown_entities must be a boolean, got {ignore_unknown_entities!r}")
+
+
+def resolve_counter_mode(df: pd.DataFrame, counter_mode: str | None = "auto") -> str:
+    """Resolve the counter representation based on the populated data in the DataFrame."""
+    mode = validate_counter_mode(counter_mode)
+    has_sum_state = _has_populated_columns(df, ["sum", "state"])
+    has_delta = _has_populated_columns(df, ["delta"])
+
+    if mode == "auto" and has_sum_state and has_delta:
+        helpers.handle_error(
+            "Counter data is ambiguous: populated 'sum'/'state' and 'delta' values were found in the same import. "
+            "Use counter_mode='sum' or counter_mode='delta' to select one representation, or remove the conflicting columns."
+        )
+
+    if mode == "strict":
+        has_sum_columns = "sum" in df.columns or "state" in df.columns
+        if has_sum_columns and "delta" in df.columns:
+            helpers.handle_error(
+                "Counter data is conflicting: both 'sum'/'state' and 'delta' columns were supplied. "
+                "Use counter_mode='sum' or counter_mode='delta' to select one representation, or remove the conflicting columns."
+            )
+
+    if mode == "sum":
+        if not has_sum_state:
+            helpers.handle_error(
+                "counter_mode='sum' was selected, but no usable 'sum'/'state' counter data was found in the import. "
+                "Use counter_mode='delta' for delta-based counters or remove the conflicting representation."
+            )
+        return "sum"
+
+    if mode == "delta":
+        if not has_delta:
+            helpers.handle_error(
+                "counter_mode='delta' was selected, but no usable 'delta' counter data was found in the import. "
+                "Use counter_mode='sum' for sum/state-based counters or remove the conflicting representation."
+            )
+        return "delta"
+
+    if has_sum_state:
+        return "sum"
+    if has_delta:
+        return "delta"
+    return helpers.handle_error("No populated counter values found in 'sum', 'state', or 'delta' columns.")
 
 
 def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataType:
@@ -50,27 +127,27 @@ def _validate_and_detect_delta(df: "pd.DataFrame") -> ImportDataType:
 
     Raises:
     ------
-        HomeAssistantError: If column validation fails
+        HomeAssistantError: If column validation fails or no value data is populated
 
     """
     _LOGGER.debug("Columns: %s", df.columns)
 
     if not helpers.are_columns_valid(df):
-        helpers.handle_error(
+        return helpers.handle_error(
             "Implementation error. helpers.are_columns_valid returned false, this should never happen, because helpers.are_columns_valid throws an exception!"
         )
 
-    columns = df.columns
-    if "delta" in columns:
-        return ImportDataType.DELTA
+    has_measurement = _has_populated_columns(df, ["mean", "min", "max"])
+    has_sum_state = _has_populated_columns(df, ["sum", "state"])
+    has_delta = _has_populated_columns(df, ["delta"])
 
-    has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
-    has_sum_state = "sum" in columns or "state" in columns
+    if not (has_measurement or has_sum_state or has_delta):
+        helpers.handle_error("No populated values found in any of the expected columns (min, max, mean, sum, state, delta).")
 
-    if has_mean_min_max and has_sum_state:
-        return ImportDataType.MIXED
-    if has_mean_min_max:
-        return ImportDataType.SENSOR
+    if has_measurement:
+        return ImportDataType.MIXED if has_sum_state or has_delta else ImportDataType.SENSOR
+    if has_delta:
+        return ImportDataType.COUNTER_BOTH if has_sum_state else ImportDataType.DELTA
     return ImportDataType.COUNTER
 
 
@@ -377,7 +454,7 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
     -------
         Tuple of (sensor_df, counter_df) with only the relevant columns for each type.
         sensor_df columns: [statistic_id, unit, start, min, max, mean]
-        counter_df columns: [statistic_id, unit, start, sum] (+ state if present in original)
+        counter_df columns: [statistic_id, unit, start, sum, state, delta] as available
 
     Raises:
     ------
@@ -385,7 +462,7 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
 
     """
     sensor_columns = {"min", "max", "mean"}
-    counter_columns = {"sum", "state"}
+    counter_columns = {"sum", "state", "delta"}
 
     sensor_ids = []
     counter_ids = []
@@ -396,7 +473,7 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
 
         if has_sensor_data and has_counter_data:
             helpers.handle_error(
-                f"Statistic '{statistic_id}' has both sensor (min/max/mean) and counter (sum/state) data. "
+                f"Statistic '{statistic_id}' has both sensor (min/max/mean) and counter (sum/state/delta) data. "
                 f"A single statistic_id must be either sensor or counter, not both."
             )
 
@@ -405,16 +482,15 @@ def split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
         elif has_counter_data:
             counter_ids.append(statistic_id)
         else:
-            helpers.handle_error(f"Statistic '{statistic_id}' has no value data in any of the expected columns (min, max, mean, sum, state).")
+            helpers.handle_error(f"Statistic '{statistic_id}' has no value data in any of the expected columns (min, max, mean, sum, state, delta).")
 
-    # Build sensor DataFrame with only sensor columns
+    # Build sensor DataFrame with only the relevant columns.
     sensor_df = df[df["statistic_id"].isin(sensor_ids)][["statistic_id", "unit", "start", "min", "max", "mean"]].copy() if sensor_ids else pd.DataFrame()
 
-    # Build counter DataFrame with only counter columns
+    # Build counter DataFrame with the available counter columns.
     if counter_ids:
-        counter_cols = ["statistic_id", "unit", "start", "sum"]
-        if "state" in df.columns:
-            counter_cols.append("state")
+        counter_cols = ["statistic_id", "unit", "start"]
+        counter_cols.extend(col for col in ("sum", "state", "delta") if col in df.columns)
         counter_df = df[df["statistic_id"].isin(counter_ids)][counter_cols].copy()
     else:
         counter_df = pd.DataFrame()

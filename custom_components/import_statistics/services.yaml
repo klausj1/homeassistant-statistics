@@ -8,6 +8,25 @@ import_from_file:
       selector:
         text:
 
+    counter_mode:
+      required: false
+      default: auto
+      example: "auto"
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - "auto"
+            - "sum"
+            - "delta"
+            - "strict"
+
+    ignore_unknown_entities:
+      required: false
+      default: false
+      selector:
+        boolean:
+
     define_import_format:
       collapsed: false
       fields:
@@ -54,6 +73,27 @@ import_from_file:
           example: "Europe/Vienna"
           selector:
             text:
+
+import_from_json:
+  fields:
+    counter_mode:
+      required: false
+      default: auto
+      example: "auto"
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - "auto"
+            - "sum"
+            - "delta"
+            - "strict"
+
+    ignore_unknown_entities:
+      required: false
+      default: false
+      selector:
+        boolean:
 
 export_statistics:
   fields:

@@ -2,6 +2,7 @@
 
 import datetime as dt
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -9,7 +10,7 @@ from homeassistant.components.recorder.statistics import async_add_external_stat
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.recorder import get_instance
 
-from custom_components.import_statistics.const import ATTR_FILENAME
+from custom_components.import_statistics.const import ATTR_COUNTER_MODE, ATTR_FILENAME, ATTR_IGNORE_UNKNOWN_ENTITIES
 from custom_components.import_statistics.delta_database_access import (
     _get_newest_db_statistic,
     _get_reference_at_or_after_timestamp,
@@ -20,10 +21,13 @@ from custom_components.import_statistics.import_service_delta_helper import hand
 from custom_components.import_statistics.import_service_helper import (
     ImportDataType,
     get_import_status_for_all_statistics,
-    handle_dataframe_mixed,
     handle_dataframe_no_delta,
     prepare_data_to_import,
     prepare_json_data_to_import,
+    resolve_counter_mode,
+    split_dataframe_by_type,
+    validate_counter_mode,
+    validate_ignore_unknown_entities,
 )
 
 
@@ -206,6 +210,31 @@ class PreparedImportData:
     timezone_id: str
     datetime_format: str
     data_type: Any
+    counter_mode: str = "auto"
+    ignore_unknown_entities: bool = False
+
+
+def _prepare_counter_dataframe(df: pd.DataFrame, counter_mode: str) -> pd.DataFrame:
+    """Select the requested counter representation while preserving sparse rows."""
+    if counter_mode == "sum":
+        columns = ["statistic_id", "unit", "start"]
+        columns.extend(col for col in ("sum", "state") if col in df.columns)
+        return df[columns].copy()
+
+    columns = ["statistic_id", "unit", "start"]
+    if "delta" in df.columns:
+        columns.append("delta")
+    return df[columns].copy()
+
+
+async def _process_counter_dataframe(hass: HomeAssistant, df: pd.DataFrame, counter_mode: str) -> dict:
+    """Convert counter data using the representation selected by counter_mode."""
+    selected_mode = resolve_counter_mode(df, counter_mode)
+    selected_df = _prepare_counter_dataframe(df, selected_mode)
+    if selected_mode == "delta":
+        references = await prepare_delta_handling(hass, selected_df)
+        return await hass.async_add_executor_job(lambda: handle_dataframe_delta(selected_df, references))
+    return await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(selected_df))
 
 
 async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict:
@@ -220,18 +249,24 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict
         data: Prepared import data containing DataFrame and settings
 
     """
-    if data.data_type == ImportDataType.DELTA:
-        _LOGGER.info("Delta mode detected, fetching references from database")
-        references = await prepare_delta_handling(hass, data.df)
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_delta(data.df, references))
-    elif data.data_type == ImportDataType.MIXED:
+    if data.data_type == ImportDataType.MIXED:
         _LOGGER.info("Mixed mode detected, splitting by statistic type")
-        stats = await hass.async_add_executor_job(lambda: handle_dataframe_mixed(data.df))
+        sensor_df, counter_df = split_dataframe_by_type(data.df)
+        stats = {}
+        if not sensor_df.empty:
+            _LOGGER.info("Processing sensor data (no delta conversion needed)")
+            stats.update(await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(sensor_df)))
+        if not counter_df.empty:
+            _LOGGER.info("Processing counter data (delta conversion may be needed)")
+            stats.update(await _process_counter_dataframe(hass, counter_df, data.counter_mode))
+    elif data.data_type in {ImportDataType.COUNTER, ImportDataType.DELTA, ImportDataType.COUNTER_BOTH}:
+        _LOGGER.info("Counter mode detected, processing with counter handling (delta conversion may be needed)")
+        stats = await _process_counter_dataframe(hass, data.df, data.counter_mode)
     else:
-        _LOGGER.info("Non-delta mode, processing directly")
+        _LOGGER.info("Measurement-only mode detected, processing directly")
         stats = await hass.async_add_executor_job(lambda: handle_dataframe_no_delta(data.df))
 
-    return await import_stats(hass, stats)
+    return await import_stats(hass, stats, ignore_unknown_entities=data.ignore_unknown_entities)
 
 
 async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
@@ -241,18 +276,33 @@ async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -
 
     hass.states.async_set("import_statistics.import_from_file", file_path)
 
+    counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "auto"))
+    ignore_unknown_entities = validate_ignore_unknown_entities(call.data.get(ATTR_IGNORE_UNKNOWN_ENTITIES, False))
+
     # Extract HA timezone once
     ha_timezone = hass.config.time_zone
 
     _LOGGER.info("Preparing data for import ...")
     df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_data_to_import(file_path, call, ha_timezone))
 
-    return await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
+    return await _process_import(
+        hass,
+        PreparedImportData(
+            df=df,
+            timezone_id=timezone_id,
+            datetime_format=datetime_format,
+            data_type=data_type,
+            counter_mode=counter_mode,
+            ignore_unknown_entities=ignore_unknown_entities,
+        ),
+    )
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
     """Handle import_from_json service implementation."""
     _LOGGER.info("Service handle_import_from_json called")
+    counter_mode = validate_counter_mode(call.data.get(ATTR_COUNTER_MODE, "auto"))
+    ignore_unknown_entities = validate_ignore_unknown_entities(call.data.get(ATTR_IGNORE_UNKNOWN_ENTITIES, False))
 
     # Extract HA timezone once
     ha_timezone = hass.config.time_zone
@@ -260,11 +310,54 @@ async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -
     _LOGGER.info("Preparing data for import")
     df, timezone_id, datetime_format, data_type = await hass.async_add_executor_job(lambda: prepare_json_data_to_import(call, ha_timezone))
 
-    return await _process_import(hass, PreparedImportData(df, timezone_id, datetime_format, data_type))
+    return await _process_import(
+        hass,
+        PreparedImportData(
+            df=df,
+            timezone_id=timezone_id,
+            datetime_format=datetime_format,
+            data_type=data_type,
+            counter_mode=counter_mode,
+            ignore_unknown_entities=ignore_unknown_entities,
+        ),
+    )
 
 
-async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
+def _write_skipped_unknown_entities(config_dir: str, skipped_ids: list[str]) -> Path:
+    """Write skipped recorder statistic IDs to an automatically named CSV file."""
+    timestamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d_%H%M%S_%f")
+    skipped_path = Path(config_dir) / f"skipped_unknown_entities_{timestamp}.csv"
+    pd.DataFrame({"statistic_id": skipped_ids}).to_csv(skipped_path, index=False)
+    _LOGGER.info("Wrote skipped unknown recorder entities to %s", skipped_path)
+    return skipped_path
+
+
+def _filter_unknown_recorder_entities(hass: HomeAssistant, stats: dict) -> tuple[dict, list[str]]:
+    """Remove missing recorder entities before validation or writing statistics."""
+    filtered_stats = {}
+    skipped_ids: list[str] = []
+    for statistic_id, stat in stats.items():
+        metadata = stat[0]
+        # External statistics do not correspond to Home Assistant entities.
+        if metadata.get("source") == "recorder" and hass.states.get(statistic_id) is None:
+            skipped_ids.append(statistic_id)
+            _LOGGER.warning("Skipping recorder statistic '%s' because its entity is missing in Home Assistant.", statistic_id)
+            continue
+        filtered_stats[statistic_id] = stat
+
+    if skipped_ids:
+        # Record skipped IDs explicitly; validation errors for retained data still abort the import.
+        _write_skipped_unknown_entities(hass.config.config_dir, skipped_ids)
+
+    return filtered_stats, skipped_ids
+
+
+async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entities: bool = False) -> dict:
     """Import statistics into Home Assistant and wait for recorder to commit."""
+    skipped_ids: list[str] = []
+    if ignore_unknown_entities:
+        stats, skipped_ids = _filter_unknown_recorder_entities(hass, stats)
+
     _LOGGER.info("Validating entities and units")
     await validate_entities_and_units(hass, stats)
 
@@ -292,7 +385,10 @@ async def import_stats(hass: HomeAssistant, stats: dict) -> dict:
     await get_instance(hass).async_block_till_done()
     _LOGGER.info("Finished importing data - all statistics committed to database")
 
-    return {"results": results}
+    response = {"results": results}
+    if skipped_ids:
+        response["skipped"] = skipped_ids
+    return response
 
 
 async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:

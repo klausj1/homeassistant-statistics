@@ -6,7 +6,7 @@ import logging
 import zoneinfo
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import pandas as pd
 import voluptuous as vol
@@ -101,9 +101,6 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
     columns = df.columns
 
     # Check required columns: statistic_id, start, and unit (always required)
-    # Determine if this is delta or non-delta data first
-    has_delta = "delta" in columns
-
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         found_columns_num = len(columns)
         # embrace each column name with quotes for clarity
@@ -113,15 +110,14 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
         error_str += f" (check delimiter). Number of found columns: {found_columns_num}. Found columns: {found_columns_str}"
         handle_error(error_str)
 
-    # Check for value column requirements and incompatible combinations
-    has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
+    # Delta may coexist with sparse measurement/counter columns when values are populated
+    # only on specific rows. Ambiguity is resolved later using row-level populated data
+    # and the selected counter_mode.
 
-    # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
-    if has_delta and ("sum" in columns or "state" in columns or has_mean_min_max):
-        handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns")
-
-    # Define allowed columns based on data type - unit is always allowed
-    allowed_columns = {"statistic_id", "start", "unit", "delta"} if has_delta else {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state"}
+    # Define allowed columns based on the full export/import schema. Sparse mixed files
+    # intentionally include both measurement and counter columns, and they are validated
+    # at the row-data level instead of by column names alone.
+    allowed_columns = {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state", "delta"}
 
     # Check for unknown columns
     unknown_columns = set(columns) - allowed_columns
@@ -137,7 +133,7 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
     return True
 
 
-def handle_error(error_string: str) -> None:
+def handle_error(error_string: str) -> NoReturn:
     """
     Handle an error by logging a warning and raising a HomeAssistantError.
 
