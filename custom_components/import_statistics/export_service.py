@@ -497,5 +497,5 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
         )
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
-    _LOGGER.info("Export completed successfully")
+    _LOGGER.info("Export completed successfully - %d statistic values exported", exported_values)
     return {"exported_values": exported_values}

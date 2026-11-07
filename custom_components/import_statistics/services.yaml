@@ -21,8 +21,7 @@ import_from_file:
             - "delta"
 
     ignore_unknown_entities:
-      required: false
-      default: false
+      required: true
       selector:
         boolean:
 
@@ -88,8 +87,7 @@ import_from_json:
             - "delta"
 
     ignore_unknown_entities:
-      required: false
-      default: false
+      required: true
       selector:
         boolean:
 

@@ -387,9 +387,11 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
     # Wait for the recorder to process all queued statistics and commit to database
     _LOGGER.info("Waiting for recorder to commit imported statistics to database")
     await get_instance(hass).async_block_till_done()
-    _LOGGER.info("Finished importing data - all statistics committed to database")
 
-    response = {"imported_values": sum(len(stat[1]) for stat in stats.values())}
+    imported_value_count = sum(len(stat[1]) for stat in stats.values())
+    _LOGGER.info("Finished importing data - %d statistic values imported and committed to database", imported_value_count)
+
+    response = {"imported_values": imported_value_count}
     if ignore_unknown_entities:
         response["skipped_values"] = skipped_value_count
         response["skipped_statistics"] = skipped_ids

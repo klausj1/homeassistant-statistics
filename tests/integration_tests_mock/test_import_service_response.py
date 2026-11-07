@@ -1,5 +1,6 @@
 """Mock integration tests for the import statistics service response."""
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,8 +15,9 @@ class TestImportServiceResponse:
     """Test that imports return concise imported/skipped value counts."""
 
     @pytest.mark.asyncio
-    async def test_import_stats_returns_imported_value_count_only(self) -> None:
+    async def test_import_stats_returns_imported_value_count_only(self, caplog: pytest.LogCaptureFixture) -> None:
         """Return a single count instead of per-statistic status objects."""
+        caplog.set_level(logging.INFO, logger="custom_components.import_statistics.import_service")
         hass = MagicMock()
         stats = {
             "custom:energy": (
@@ -36,6 +38,7 @@ class TestImportServiceResponse:
 
         assert result == {"imported_values": 2}
         assert mock_add.called
+        assert "2 statistic values imported" in caplog.text
 
     @pytest.mark.asyncio
     async def test_import_stats_counts_skipped_values_when_ignoring_unknown_entities(self, tmp_path: Path) -> None:

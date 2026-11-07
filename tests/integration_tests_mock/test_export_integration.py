@@ -1,6 +1,7 @@
 """Integration tests for export statistics feature."""
 
 import json
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -54,8 +55,9 @@ class TestExportIntegration:
         return "\n".join(line.rstrip() for line in lines)
 
     @pytest.mark.asyncio
-    async def test_export_sensor_statistics_tsv(self) -> None:
+    async def test_export_sensor_statistics_tsv(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test exporting sensor statistics to TSV format."""
+        caplog.set_level(logging.INFO, logger="custom_components.import_statistics.export_service")
         with tempfile.TemporaryDirectory() as tmpdir:
             hass = MagicMock()
             hass.config = MagicMock()
@@ -118,6 +120,7 @@ class TestExportIntegration:
                 response = await service_handler(call)
 
             assert response == {"exported_values": 4}
+            assert "4 statistic values exported" in caplog.text
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_sensor_data.tsv"
