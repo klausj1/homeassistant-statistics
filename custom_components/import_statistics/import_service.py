@@ -22,7 +22,6 @@ from custom_components.import_statistics.import_service_helper import (
     CounterDataType,
     ImportDataClassification,
     ImportDataType,
-    get_import_status_for_all_statistics,
     handle_dataframe_no_delta,
     prepare_data_to_import,
     prepare_json_data_to_import,
@@ -360,14 +359,14 @@ def _filter_unknown_recorder_entities(hass: HomeAssistant, stats: dict) -> tuple
 async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entities: bool = False) -> dict:
     """Import statistics into Home Assistant and wait for recorder to commit."""
     skipped_ids: list[str] = []
+    skipped_value_count = 0
     if ignore_unknown_entities:
+        value_counts = {statistic_id: len(stat[1]) for statistic_id, stat in stats.items()}
         stats, skipped_ids = _filter_unknown_recorder_entities(hass, stats)
+        skipped_value_count = sum(value_counts[statistic_id] for statistic_id in skipped_ids)
 
     _LOGGER.info("Validating entities and units")
     await validate_entities_and_units(hass, stats)
-
-    # Determine the import status for each statistic before writing
-    results = await get_import_status_for_all_statistics(hass, stats)
 
     _LOGGER.info("Calling hass import methods")
     for stat in stats.values():
@@ -390,9 +389,10 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
     await get_instance(hass).async_block_till_done()
     _LOGGER.info("Finished importing data - all statistics committed to database")
 
-    response = {"results": results}
-    if skipped_ids:
-        response["skipped"] = skipped_ids
+    response = {"imported_values": sum(len(stat[1]) for stat in stats.values())}
+    if ignore_unknown_entities:
+        response["skipped_values"] = skipped_value_count
+        response["skipped_statistics"] = skipped_ids
     return response
 
 
@@ -421,7 +421,7 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict) -> None:
         if metadata["source"] == "recorder":
             entity_state = hass.states.get(statistic_id)
             if entity_state is None:
-                handle_error(f"Entity does not exist: '{statistic_id}'")
+                handle_error(f"Entity does not exist: '{statistic_id}'. To skip missing recorder entities, set ignore_unknown_entities: true.")
             else:
                 # Validate that import unit matches entity's current unit
                 input_unit = metadata.get("unit_of_measurement")
@@ -494,7 +494,9 @@ def check_entity_exists(hass: HomeAssistant, entity_id: Any) -> bool:
     entity_exists = hass.states.get(entity_id) is not None
 
     if not entity_exists:
-        handle_error(f"Entity does not exist: '{entity_id}'")
+        error = "Entity does not exist: '{entity_id}'. "
+        error += "To skip missing entities, set ignore_unknown_entities: true. Or import as external statistics (including a ':' instead of a '.')."
+        handle_error(error.format(entity_id=entity_id))
         return False
 
     return True

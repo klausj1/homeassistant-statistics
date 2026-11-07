@@ -115,7 +115,9 @@ class TestExportIntegration:
                 # Return tuple: (statistics_dict, units_dict)
                 mock_units = {"sensor.temperature": "°C", "sensor.humidity": "%"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                await service_handler(call)
+                response = await service_handler(call)
+
+            assert response == {"exported_values": 4}
 
             # Verify file was created
             export_file = Path(tmpdir) / "export_sensor_data.tsv"
@@ -174,7 +176,9 @@ class TestExportIntegration:
             with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 mock_units = {"sensor.temperature": "°C", "counter.energy_consumed": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                await service_handler(call)
+                response = await service_handler(call)
+
+            assert response == {"exported_values": 2}
 
             measurements_file = Path(tmpdir) / "export_split_measurements.tsv"
             counters_file = Path(tmpdir) / "export_split_counters.tsv"
@@ -237,7 +241,9 @@ class TestExportIntegration:
             with patch("custom_components.import_statistics.export_service.get_statistics_from_recorder") as mock_get_stats:
                 mock_units = {"sensor.temperature": "°C", "counter.energy_consumed": "kWh"}
                 mock_get_stats.return_value = (mock_statistics, mock_units)
-                await service_handler(call)
+                response = await service_handler(call)
+
+            assert response == {"exported_values": 2}
 
             measurements_file = Path(tmpdir) / "export_split_measurements.json"
             counters_file = Path(tmpdir) / "export_split_counters.json"

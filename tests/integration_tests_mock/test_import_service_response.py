@@ -1,32 +1,31 @@
 """Mock integration tests for the import statistics service response."""
 
-import datetime as dt
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.import_statistics.import_service import import_stats
+from custom_components.import_statistics.import_service import check_entity_exists, import_stats, validate_entities_and_units
 
 
 class TestImportServiceResponse:
-    """Test that import_stats returns the correct status per statistic."""
+    """Test that imports return concise imported/skipped value counts."""
 
     @pytest.mark.asyncio
-    async def test_import_stats_returns_new_data_status(self) -> None:
-        """Test that a newer import is reported as 'new data'."""
+    async def test_import_stats_returns_imported_value_count_only(self) -> None:
+        """Return a single count instead of per-statistic status objects."""
         hass = MagicMock()
-        metadata = {"statistic_id": "custom:energy", "source": "custom"}
-        import_start = dt.datetime(2025, 1, 2, 12, 0, tzinfo=dt.UTC)
-        db_start = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
-        statistics = [{"start": import_start, "sum": 10.0}]
-        stats = {"custom:energy": (metadata, statistics)}
+        stats = {
+            "custom:energy": (
+                {"statistic_id": "custom:energy", "source": "custom"},
+                [{"start": 1}, {"start": 2}],
+            )
+        }
 
         with (
             patch("custom_components.import_statistics.import_service.validate_entities_and_units", new=AsyncMock()),
-            patch(
-                "custom_components.import_statistics.import_service_helper._get_newest_db_statistic",
-                new=AsyncMock(return_value={"start": db_start}),
-            ),
             patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
             patch(
                 "custom_components.import_statistics.import_service.get_instance",
@@ -35,36 +34,69 @@ class TestImportServiceResponse:
         ):
             result = await import_stats(hass, stats)
 
-        assert result["results"]["custom:energy"]["status"] == "new data"
-        assert result["results"]["custom:energy"]["newest_import_start"] == "2025-01-02T12:00:00+00:00"
-        assert result["results"]["custom:energy"]["newest_db_start"] == "2025-01-01T12:00:00+00:00"
+        assert result == {"imported_values": 2}
         assert mock_add.called
 
     @pytest.mark.asyncio
-    async def test_import_stats_returns_existing_data_status(self) -> None:
-        """Test that an older/equal import is reported as 'existing data'."""
-        hass = MagicMock()
-        metadata = {"statistic_id": "custom:energy", "source": "custom"}
-        import_start = dt.datetime(2025, 1, 1, 10, 0, tzinfo=dt.UTC)
-        db_start = dt.datetime(2025, 1, 1, 12, 0, tzinfo=dt.UTC)
-        statistics = [{"start": import_start, "sum": 10.0}]
-        stats = {"custom:energy": (metadata, statistics)}
+    async def test_import_stats_counts_skipped_values_when_ignoring_unknown_entities(self, tmp_path: Path) -> None:
+        """Report skipped row count and statistic IDs when missing entities are ignored."""
+        hass = SimpleNamespace(
+            config=SimpleNamespace(config_dir=str(tmp_path)),
+            states=MagicMock(),
+        )
+        hass.states.get.return_value = None
+        stats = {
+            "sensor.missing": (
+                {"statistic_id": "sensor.missing", "source": "recorder"},
+                [{"start": 1}, {"start": 2}, {"start": 3}],
+            ),
+            "custom:energy": (
+                {"statistic_id": "custom:energy", "source": "custom"},
+                [{"start": 1}, {"start": 2}],
+            ),
+        }
 
         with (
             patch("custom_components.import_statistics.import_service.validate_entities_and_units", new=AsyncMock()),
-            patch(
-                "custom_components.import_statistics.import_service_helper._get_newest_db_statistic",
-                new=AsyncMock(return_value={"start": db_start}),
-            ),
-            patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
+            patch("custom_components.import_statistics.import_service.async_add_external_statistics"),
             patch(
                 "custom_components.import_statistics.import_service.get_instance",
                 return_value=MagicMock(async_block_till_done=AsyncMock()),
             ),
         ):
-            result = await import_stats(hass, stats)
+            result = await import_stats(hass, stats, ignore_unknown_entities=True)
 
-        assert result["results"]["custom:energy"]["status"] == "existing data"
-        assert result["results"]["custom:energy"]["newest_import_start"] == "2025-01-01T10:00:00+00:00"
-        assert result["results"]["custom:energy"]["newest_db_start"] == "2025-01-01T12:00:00+00:00"
-        assert mock_add.called
+        assert result == {
+            "imported_values": 2,
+            "skipped_values": 3,
+            "skipped_statistics": ["sensor.missing"],
+        }
+
+    def test_check_entity_exists_suggests_ignore_unknown_entities(self) -> None:
+        """Missing recorder entities explain how to skip them."""
+        hass = MagicMock()
+        hass.states.get.return_value = None
+
+        with pytest.raises(
+            HomeAssistantError,
+            match=r"Entity does not exist: 'sensor.missing'.*ignore_unknown_entities: true",
+        ):
+            check_entity_exists(hass, "sensor.missing")
+
+    @pytest.mark.asyncio
+    async def test_entity_validation_suggests_ignore_unknown_entities(self) -> None:
+        """Entity validation errors tell users how to skip missing recorder entities."""
+        hass = MagicMock()
+        hass.states.get.return_value = None
+        stats = {
+            "sensor.missing": (
+                {"statistic_id": "sensor.missing", "source": "recorder"},
+                [{"start": 1}],
+            )
+        }
+
+        with pytest.raises(
+            HomeAssistantError,
+            match=r"Entity does not exist: 'sensor.missing'.*ignore_unknown_entities: true",
+        ):
+            await validate_entities_and_units(hass, stats)

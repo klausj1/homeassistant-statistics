@@ -298,10 +298,10 @@ async def _export_split_file(  # noqa: PLR0913, PLR0917
     delimiter: str,
     decimal_separator: str,
     counter_fields: str,
-) -> None:
+) -> int:
     """Export a single split file (measurement or counter)."""
     if not stats_dict:
-        return
+        return 0
 
     output_filename = _filename_with_suffix(filename, suffix)
     file_path = helpers.validate_filename(output_filename, hass.config.config_dir)
@@ -309,18 +309,19 @@ async def _export_split_file(  # noqa: PLR0913, PLR0917
     if filename.lower().endswith(".json"):
         json_data = await hass.async_add_executor_job(lambda: prepare_export_json(stats_dict, timezone_identifier, datetime_format, units_dict))
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
-    else:
-        columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(
-                stats_dict,
-                timezone_identifier,
-                datetime_format,
-                decimal_separator=decimal_separator,
-                units_dict=units_dict,
-                counter_fields=counter_fields,
-            )
+        return sum(len(entity["values"]) for entity in json_data)
+    columns, rows = await hass.async_add_executor_job(
+        lambda: prepare_export_data(
+            stats_dict,
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            units_dict=units_dict,
+            counter_fields=counter_fields,
         )
-        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    )
+    await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    return len(rows)
 
 
 async def _export_split_statistics(  # noqa: PLR0913, PLR0917
@@ -334,15 +335,16 @@ async def _export_split_statistics(  # noqa: PLR0913, PLR0917
     decimal_separator: str,
     delimiter: str,
     counter_fields: str,
-) -> None:
+) -> int:
     """Export statistics split by type."""
     measurement_stats, counter_stats, measurement_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
 
     write_measurements = split_by in {"measurement", "both"}
     write_counters = split_by in {"counter", "both"}
 
+    exported_values = 0
     if write_measurements:
-        await _export_split_file(
+        exported_values += await _export_split_file(
             hass,
             filename,
             measurement_stats,
@@ -356,7 +358,7 @@ async def _export_split_statistics(  # noqa: PLR0913, PLR0917
         )
 
     if write_counters:
-        await _export_split_file(
+        exported_values += await _export_split_file(
             hass,
             filename,
             counter_stats,
@@ -368,6 +370,7 @@ async def _export_split_statistics(  # noqa: PLR0913, PLR0917
             delimiter=delimiter,
             counter_fields=counter_fields,
         )
+    return exported_values
 
 
 async def _export_single_file(  # noqa: PLR0913, PLR0917
@@ -380,27 +383,28 @@ async def _export_single_file(  # noqa: PLR0913, PLR0917
     decimal_separator: str,
     delimiter: str,
     counter_fields: str,
-) -> None:
+) -> int:
     """Export all statistics to a single file."""
     file_path = helpers.validate_filename(filename, hass.config.config_dir)
     if filename.lower().endswith(".json"):
         json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
-    else:
-        columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(
-                statistics_dict,
-                timezone_identifier,
-                datetime_format,
-                decimal_separator=decimal_separator,
-                units_dict=units_dict,
-                counter_fields=counter_fields,
-            )
+        return sum(len(entity["values"]) for entity in json_data)
+    columns, rows = await hass.async_add_executor_job(
+        lambda: prepare_export_data(
+            statistics_dict,
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            units_dict=units_dict,
+            counter_fields=counter_fields,
         )
-        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    )
+    await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    return len(rows)
 
 
-async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> dict[str, int]:
     """Handle export_statistics service implementation."""
     # Validate and extract parameters
     filename, entities_input, start_time_str, end_time_str, split_by, counter_fields = _validate_service_parameters(call)
@@ -460,7 +464,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
 
     # Export based on split_by parameter
     if split_by != "none":
-        await _export_split_statistics(
+        exported_values = await _export_split_statistics(
             hass,
             filename,
             statistics_dict,
@@ -473,7 +477,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
             counter_fields=counter_fields,
         )
     else:
-        await _export_single_file(
+        exported_values = await _export_single_file(
             hass,
             filename,
             statistics_dict,
@@ -487,3 +491,4 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
     _LOGGER.info("Export completed successfully")
+    return {"exported_values": exported_values}
