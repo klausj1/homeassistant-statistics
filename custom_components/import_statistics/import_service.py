@@ -1,9 +1,10 @@
 """Import statistics functionality."""
 
 import datetime as dt
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import pandas as pd
 from homeassistant.components.recorder.statistics import async_add_external_statistics, async_import_statistics, get_metadata
@@ -274,6 +275,34 @@ def _validation_errors_from_exception(error: HomeAssistantError) -> list[str]:
     return error.errors if isinstance(error, AggregatedValidationError) else [str(error)]
 
 
+async def _raise_import_error(hass: HomeAssistant, error: HomeAssistantError) -> NoReturn:
+    """Raise the first import error and write additional errors to the config directory."""
+    errors = list(dict.fromkeys(_validation_errors_from_exception(error)))
+    if not errors:
+        raise error
+
+    message = errors[0]
+    if len(errors) > 1:
+        row_pattern = re.compile(r"\b(?:source\s+|imported\s+)?rows?\s*:?\s*\[?(\d+(?:\s*,\s*\d+)*)\]?", re.IGNORECASE)
+        log_lines = []
+        for validation_error in errors:
+            row_numbers = {int(row_number) for match in row_pattern.finditer(validation_error) for row_number in match.group(1).split(",")}
+            if row_numbers:
+                log_lines.extend(f"{row_number}: {validation_error}" for row_number in sorted(row_numbers))
+            else:
+                log_lines.append(f"1: {validation_error}")
+
+        log_path = Path(hass.config.config_dir) / "import_errors.log"
+        try:
+            await hass.async_add_executor_job(lambda: log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8"))
+        except OSError as write_error:
+            message += f"\nAdditional validation errors could not be written to {log_path}: {write_error}"
+        else:
+            message += "\nAdditional validation errors are listed in import_errors.log in the Home Assistant config folder."
+
+    raise HomeAssistantError(message) from None
+
+
 async def _validate_dataframe_entities(hass: HomeAssistant, df: pd.DataFrame, *, ignore_unknown_entities: bool) -> list[str]:
     """Validate each statistic's entity and stored unit independently of row processing."""
     validation_stats = {}
@@ -412,12 +441,11 @@ async def _process_import(hass: HomeAssistant, data: PreparedImportData) -> dict
 
 
 async def handle_import_from_file_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
-    """Handle a file import and return validation failures as a service response."""
+    """Handle a file import and raise validation failures."""
     try:
         return await _handle_import_from_file(hass, call)
     except HomeAssistantError as err:
-        errors = err.errors if isinstance(err, AggregatedValidationError) else [str(err)]
-        return {"failed": True, "errors": errors}
+        await _raise_import_error(hass, err)
 
 
 async def _handle_import_from_file(hass: HomeAssistant, call: ServiceCall) -> dict:
@@ -450,12 +478,11 @@ async def _handle_import_from_file(hass: HomeAssistant, call: ServiceCall) -> di
 
 
 async def handle_import_from_json_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
-    """Handle a JSON import and return validation failures as a service response."""
+    """Handle a JSON import and raise validation failures."""
     try:
         return await _handle_import_from_json(hass, call)
     except HomeAssistantError as err:
-        errors = err.errors if isinstance(err, AggregatedValidationError) else [str(err)]
-        return {"failed": True, "errors": errors}
+        await _raise_import_error(hass, err)
 
 
 async def _handle_import_from_json(hass: HomeAssistant, call: ServiceCall) -> dict:
@@ -593,8 +620,7 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_n
             entity_state = hass.states.get(statistic_id)
             if entity_state is None:
                 errors.append(
-                    f"Entity does not exist: '{statistic_id}'{row_context(statistic_id)}. "
-                    "To skip missing recorder entities, set ignore_unknown_entities: true."
+                    f"Entity does not exist: '{statistic_id}'{row_context(statistic_id)}. To skip missing recorder entities, set ignore_unknown_entities: true."
                 )
             else:
                 # Validate that import unit matches entity's current unit

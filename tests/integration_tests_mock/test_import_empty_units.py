@@ -14,7 +14,13 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from tests.conftest import create_mock_recorder_instance, create_mock_states_with_unit, get_service_handler, mock_async_add_executor_job
+from tests.conftest import (
+    call_service_expect_error,
+    create_mock_recorder_instance,
+    create_mock_states_with_unit,
+    get_service_handler,
+    mock_async_add_executor_job,
+)
 
 
 class TestImportEmptyUnits:
@@ -129,9 +135,10 @@ class TestImportEmptyUnits:
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
             ):
-                response = await import_handler(call)
-            assert response["failed"] is True
-            assert any("Unit mismatch" in error and "(empty)" in error and "°C" in error for error in response["errors"])
+                error = await call_service_expect_error(import_handler, call)
+            assert "Unit mismatch" in str(error)
+            assert "(empty)" in str(error)
+            assert "°C" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_unit_fails_when_database_empty(self) -> None:
@@ -181,9 +188,10 @@ class TestImportEmptyUnits:
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
             ):
-                response = await import_handler(call)
-            assert response["failed"] is True
-            assert any("Unit mismatch" in error and "°C" in error and "(empty)" in error for error in response["errors"])
+                error = await call_service_expect_error(import_handler, call)
+            assert "Unit mismatch" in str(error)
+            assert "°C" in str(error)
+            assert "(empty)" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_new_statistic_with_empty_unit(self) -> None:

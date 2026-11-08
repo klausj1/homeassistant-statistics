@@ -2,6 +2,7 @@
 
 import csv
 import io
+import re
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -12,6 +13,7 @@ from homeassistant.core import ServiceCall
 from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_DELIMITER, ATTR_FILENAME, ATTR_TIMEZONE_IDENTIFIER
 from tests.conftest import (
+    call_service_expect_error,
     create_mock_entity_state,
     create_mock_recorder_instance,
     create_mock_states_with_unit,
@@ -74,16 +76,18 @@ async def test_import_returns_all_errors_without_writing(import_type: str) -> No
             patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
         ):
-            response = await handler(call)
+            error = await call_service_expect_error(handler, call)
 
-        assert response["failed"] is True
+        log_text = (Path(tmpdir) / "import_errors.log").read_text(encoding="utf-8")
+        assert str(error).splitlines()[0]
         if import_type == "file":
-            assert len(response["errors"]) == 4
-            assert any("Invalid timestamp" in error for error in response["errors"])
-            assert any("Invalid float value" in error for error in response["errors"])
+            assert "Invalid timestamp" in str(error)
+            assert "Invalid float value" in log_text
         else:
-            assert len(response["errors"]) == 2
-            assert all("Invalid timestamp" in error for error in response["errors"])
+            assert "Invalid timestamp" in str(error)
+            assert log_text.count("Invalid timestamp") == 2
+        assert "import_errors.log" in str(error)
+        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
         mock_add.assert_not_called()
 
@@ -153,13 +157,14 @@ async def test_import_combines_malformed_timestamp_and_missing_entity_errors() -
             patch("custom_components.import_statistics.import_service.get_metadata", return_value={}),
             patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
         ):
-            response = await get_service_handler(hass, "import_from_file")(call)
+            error = await call_service_expect_error(get_service_handler(hass, "import_from_file"), call)
 
-        assert response["failed"] is True
-        assert len(response["errors"]) == 3
-        assert any("07.11k2026 17:00" in error for error in response["errors"])
-        assert any("sensor.missing_a" in error for error in response["errors"])
-        assert any("sensor.missing_b" in error for error in response["errors"])
+        log_text = (Path(tmpdir) / "import_errors.log").read_text(encoding="utf-8")
+        assert "07.11k2026 17:00" in str(error)
+        assert "import_errors.log" in str(error)
+        assert "sensor.missing_a" in log_text
+        assert "sensor.missing_b" in log_text
+        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
 
 
@@ -203,13 +208,16 @@ async def test_import_combines_inconsistent_units_and_missing_entity_errors() ->
             patch("custom_components.import_statistics.import_service.get_metadata", return_value={}),
             patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
         ):
-            response = await get_service_handler(hass, "import_from_file")(call)
+            error = await call_service_expect_error(get_service_handler(hass, "import_from_file"), call)
 
-        assert response["failed"] is True
-        assert len(response["errors"]) == 3
-        assert any("Inconsistent units" in error and "sensor.missing_a" in error for error in response["errors"])
-        assert any("Entity does not exist" in error and "sensor.missing_a" in error for error in response["errors"])
-        assert any("Entity does not exist" in error and "sensor.missing_b" in error for error in response["errors"])
+        log_text = (Path(tmpdir) / "import_errors.log").read_text(encoding="utf-8")
+        assert "Inconsistent units" in str(error)
+        assert "import_errors.log" in str(error)
+        assert "Inconsistent units" in log_text
+        assert "sensor.missing_a" in log_text
+        assert "Entity does not exist" in log_text
+        assert "sensor.missing_b" in log_text
+        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
 
 
@@ -314,25 +322,26 @@ async def test_import_response_contains_all_validation_error_types_with_rows() -
             patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
             patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
         ):
-            response = await get_service_handler(hass, "import_from_file")(call)
+            error = await call_service_expect_error(get_service_handler(hass, "import_from_file"), call)
 
-        errors = response["errors"]
-        assert response["failed"] is True
-        assert sum("Invalid timestamp format" in error for error in errors) >= 2
-        assert sum("daylight saving time transition" in error for error in errors) >= 2
-        assert sum("Invalid timestamp at row" in error for error in errors) >= 2
-        assert sum("Invalid float value" in error for error in errors) >= 2
-        assert sum("Invalid values at row" in error for error in errors) >= 2
-        assert sum("Inconsistent units" in error for error in errors) >= 2
-        assert sum("Entity does not exist" in error for error in errors) >= 2
-        assert sum("entity has" in error for error in errors) >= 2
-        assert sum("statistic_meta has" in error for error in errors) >= 2
-        assert sum("Invalid unit value" in error for error in errors) >= 2
-        assert sum("Statistic_id" in error or "Invalid statistic_id" in error for error in errors) >= 2
-        assert sum("both sensor" in error for error in errors) >= 2
-        assert sum("Counter data is conflicting" in error for error in errors) >= 2
-        assert sum("no value data" in error for error in errors) >= 2
-        assert all("row" in error.lower() for error in errors), errors
+        log_text = (Path(tmpdir) / "import_errors.log").read_text(encoding="utf-8")
+        assert "Invalid timestamp format" in str(error)
+        assert "import_errors.log" in str(error)
+        assert log_text.count("Invalid timestamp format") >= 2
+        assert log_text.count("daylight saving time transition") >= 2
+        assert log_text.count("Invalid timestamp at row") >= 2
+        assert log_text.count("Invalid float value") >= 2
+        assert log_text.count("Invalid values at row") >= 2
+        assert log_text.count("Inconsistent units") >= 2
+        assert log_text.count("Entity does not exist") >= 2
+        assert log_text.count("entity has") >= 2
+        assert log_text.count("statistic_meta has") >= 2
+        assert log_text.count("Invalid unit value") >= 2
+        assert log_text.count("Statistic_id") + log_text.count("Invalid statistic_id") >= 2
+        assert log_text.count("both sensor") >= 2
+        assert log_text.count("Counter data is conflicting") >= 2
+        assert log_text.count("no value data") >= 2
+        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines()), log_text
         mock_import.assert_not_called()
         mock_add.assert_not_called()
 
@@ -373,12 +382,12 @@ async def test_import_reports_column_and_entity_errors_with_rows() -> None:
             patch("custom_components.import_statistics.import_service.get_metadata", return_value={}),
             patch("custom_components.import_statistics.import_service.async_import_statistics") as mock_import,
         ):
-            response = await get_service_handler(hass, "import_from_file")(call)
+            error = await call_service_expect_error(get_service_handler(hass, "import_from_file"), call)
 
-        errors = response["errors"]
-        assert response["failed"] is True
-        assert any("unknown_a, unknown_b" in error and "Source rows: [2, 3]" in error for error in errors), errors
-        assert any("Columns 'mean', 'min', and 'max'" in error and "Source rows: [2, 3]" in error for error in errors)
-        assert sum("Entity does not exist" in error and "rows [" in error for error in errors) == 2
-        assert all("row" in error.lower() for error in errors)
+        log_text = (Path(tmpdir) / "import_errors.log").read_text(encoding="utf-8")
+        assert "Unknown columns in file" in str(error)
+        assert "unknown_a, unknown_b" in log_text
+        assert "Columns 'mean', 'min', and 'max'" in log_text
+        assert log_text.count("Entity does not exist") == 2
+        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
