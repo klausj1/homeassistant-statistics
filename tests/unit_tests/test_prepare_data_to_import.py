@@ -209,3 +209,27 @@ def test_prepare_data_to_import_infers_delimiter_from_tsv_extension() -> None:
         df, _timezone_id, _datetime_format, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
         assert "statistic_id" in df.columns
         assert len(df) == 1
+
+
+def test_prepare_data_to_import_mismatched_delimiter_reports_missing_columns() -> None:
+    """Test that a delimiter mismatch is reported instead of crashing while parsing timestamps."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        Path(file_path).write_text(
+            "statistic_id\tunit\tstart\tmin\tmax\tmean\n"
+            "sensor.temperature\t°C\t26.01.2024 00:00\t20.1\t25.5\t22.8\n",
+            encoding="utf-8",
+        )
+
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_DELIMITER: ",",
+        }
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        with pytest.raises(
+            HomeAssistantError,
+            match=re.escape("The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"),
+        ):
+            prepare_data_to_import(file_path, call, "UTC")

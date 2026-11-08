@@ -326,6 +326,9 @@ def prepare_data_to_import(file_path: str, call: ServiceCall, ha_timezone: str) 
         na_values=[""],
     )
 
+    if not {"statistic_id", "start", "unit"}.issubset(my_df.columns):
+        helpers.are_columns_valid(my_df)
+
     my_df.attrs["validation_errors"] = _parse_import_timestamps(my_df, datetime_format, timezone_identifier)
 
     data_type = _validate_and_detect_delta(my_df)
