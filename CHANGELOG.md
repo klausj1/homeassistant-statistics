@@ -8,18 +8,16 @@ All notable changes to this project will be documented in this file.
 
 - **Import usability improvements**: `import_from_file` and `import_from_json` now accept `counter_mode` and `ignore_unknown_entities` to handle exports with counter columns sum, state and delta (which was previously forbidden) and skip missing recorder entities deliberately.
 - **Improved sparse export compatibility**: Files exported with `counter_fields: both` can now be imported without rejecting measurement rows simply because the same file also contains counter data in another representation (via the setting `counter_mode`)
--- **Service response**: Export and import now return the number os exported/imported statistics, and in case of `ignore_unknown_entities`=true also the ignored entities
-- **Aggregated import validation errors**: Import actions raise an exception containing the first validation error. When multiple errors are found, all errors are written as plain text with source row numbers to `import_errors.log` in the config folder. Failed imports do not write statistics to the database. Export validation errors remain available in the service response.
-- **Import status summary**: Import responses include counts of statistics with `new_data`, `existing_data`, and `no_data`, alongside skipped statistic IDs when `ignore_unknown_entities` is enabled.
+-- **Service response**: Export and import now return the number of exported/imported statistics, and in case of `ignore_unknown_entities`=true also the ignored entities
+- **Aggregated import validation errors**: Import actions raise an exception containing the first validation error. When multiple errors are found, all errors are written as plain text with source row numbers to `import_errors.log` in the config folder. Failed imports do not write statistics to the database.
 
 ### Changes
 
-- -- **Import Service Answer**: The long answer with all the imported statistics has been removed.
+- -- **Import Service Answer**: The long answer with all the imported statistics  and their state `new_data`, `existing_data`, and `no_data` has been removed. Instead, only a summary of the states is returned.
 
 ### Bug Fixes
 
 - **Counter ambiguity response**: Ambiguous `sum`/`state` + `delta` inputs now stop with clear guidance instead of silently guessing.
-- **Unknown recorder entities**: Missing recorder entities can be skipped intentionally and listed in the service response with a generated CSV log file.
 
 ## [5.3.0] - Import service response and validation improvements
 

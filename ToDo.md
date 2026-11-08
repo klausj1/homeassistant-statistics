@@ -2,13 +2,21 @@
 
 ## Now
 
+Review AI changes between main and the branch collect_errors. "Only" code and test code is left, the rest has been reviewed already.
+
+Afterwards improve the names of the service response
+
+imported_values: 20
+new_data: 0
+existing_data: 4
+no_data: 0
+
 ## Bugs
 
 Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the unit matches
 
 ## Unsorted backlog
 
-- Collect errors, and exit only after complete checking is done
 - Create a performance test for import and export, which measures the total performance, and writes the INFO traces and the duration to somewhere (run pytest -s to see the output)
 - Support webserver, so that its not necessary to upload import file and download export file
 - Align the keys in the json with yaml (breaking change, or make it compatible)
