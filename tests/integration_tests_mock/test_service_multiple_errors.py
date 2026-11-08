@@ -87,7 +87,7 @@ async def test_import_returns_all_errors_without_writing(import_type: str) -> No
             assert "Invalid timestamp" in str(error)
             assert log_text.count("Invalid timestamp") == 2
         assert "import_errors.log" in str(error)
-        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
+        assert all(re.match(r"^\d+(?:, \d+)*:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
         mock_add.assert_not_called()
 
@@ -164,7 +164,7 @@ async def test_import_combines_malformed_timestamp_and_missing_entity_errors() -
         assert "import_errors.log" in str(error)
         assert "sensor.missing_a" in log_text
         assert "sensor.missing_b" in log_text
-        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
+        assert all(re.match(r"^\d+(?:, \d+)*:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
 
 
@@ -217,7 +217,7 @@ async def test_import_combines_inconsistent_units_and_missing_entity_errors() ->
         assert "sensor.missing_a" in log_text
         assert "Entity does not exist" in log_text
         assert "sensor.missing_b" in log_text
-        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
+        assert all(re.match(r"^\d+(?:, \d+)*:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()
 
 
@@ -341,7 +341,7 @@ async def test_import_response_contains_all_validation_error_types_with_rows() -
         assert log_text.count("both sensor") >= 2
         assert log_text.count("Counter data is conflicting") >= 2
         assert log_text.count("no value data") >= 2
-        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines()), log_text
+        assert all(re.match(r"^\d+(?:, \d+)*:", line) for line in log_text.splitlines()), log_text
         mock_import.assert_not_called()
         mock_add.assert_not_called()
 
@@ -389,5 +389,5 @@ async def test_import_reports_column_and_entity_errors_with_rows() -> None:
         assert "unknown_a, unknown_b" in log_text
         assert "Columns 'mean', 'min', and 'max'" in log_text
         assert log_text.count("Entity does not exist") == 2
-        assert all(re.match(r"^\d+:", line) for line in log_text.splitlines())
+        assert all(re.match(r"^\d+(?:, \d+)*:", line) for line in log_text.splitlines())
         mock_import.assert_not_called()

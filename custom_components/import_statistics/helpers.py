@@ -255,8 +255,7 @@ def validate_unit_consistency(unit_series: pd.Series, statistic_id: str) -> None
         display_units = sorted(f"'{u}'" if u is not None else "'(empty)'" for u in normalized_units)
         row_numbers = sorted(row for row, _unit in units_by_row)
         errors.append(
-            f"Inconsistent units for '{statistic_id}' at rows {row_numbers}: found {display_units}. "
-            "All rows for the same statistic_id must have the same unit."
+            f"Inconsistent units for '{statistic_id}' at rows {row_numbers}: found {display_units}. All rows for the same statistic_id must have the same unit."
         )
     handle_errors(errors)
 
@@ -633,8 +632,7 @@ def validate_timestamps_vectorized(df: pd.DataFrame) -> None:
 
     if invalid_times.any():
         errors = [
-            f"Invalid timestamp at row {idx + 2}: {df.loc[idx, 'start']}. The timestamp must be a full hour."
-            for idx in invalid_times[invalid_times].index
+            f"Invalid timestamp at row {idx + 2}: {df.loc[idx, 'start']}. The timestamp must be a full hour." for idx in invalid_times[invalid_times].index
         ]
         handle_errors(errors)
 
@@ -661,8 +659,7 @@ def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
         for idx, value in df[col].items():
             if pd.isna(value):
                 errors.append(
-                    f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. "
-                    "Check for missing or empty values in your data."
+                    f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. Check for missing or empty values in your data."
                 )
                 continue
             try:
@@ -672,8 +669,7 @@ def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
             else:
                 if pd.isna(numeric_value):
                     errors.append(
-                        f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. "
-                        "Check for missing or empty values in your data."
+                        f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. Check for missing or empty values in your data."
                     )
     handle_errors(errors)
 
@@ -698,8 +694,5 @@ def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
         errors = []
         for idx in invalid_mmm[invalid_mmm].index:
             row = df.loc[idx]
-            errors.append(
-                f"Invalid values at row {idx + 2}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, "
-                "mean must be between min and max."
-            )
+            errors.append(f"Invalid values at row {idx + 2}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, mean must be between min and max.")
         handle_errors(errors)

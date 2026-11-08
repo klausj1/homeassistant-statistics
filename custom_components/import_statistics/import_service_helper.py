@@ -268,8 +268,7 @@ def _parse_import_timestamps(df: pd.DataFrame, datetime_format: str, timezone_id
         probe = valid_parsed.dt.tz_localize(timezone, nonexistent="NaT", ambiguous=True)
         nonexistent = probe.isna()
         errors.extend(
-            "Timestamp does not exist due to daylight saving time transition at row "
-            f"{index + 2}: {original_timestamps.loc[index]!r}."
+            f"Timestamp does not exist due to daylight saving time transition at row {index + 2}: {original_timestamps.loc[index]!r}."
             for index in nonexistent[nonexistent].index
         )
 
@@ -528,8 +527,7 @@ def _split_dataframe_by_type(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFra
             counter_ids.append(statistic_id)
         else:
             errors.append(
-                f"Statistic '{statistic_id}' at rows {row_numbers} has no value data in any of the expected columns "
-                "(min, max, mean, sum, state, delta)."
+                f"Statistic '{statistic_id}' at rows {row_numbers} has no value data in any of the expected columns (min, max, mean, sum, state, delta)."
             )
 
     # Build sensor DataFrame with only the relevant columns.

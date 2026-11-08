@@ -284,16 +284,17 @@ async def _raise_import_error(hass: HomeAssistant, error: HomeAssistantError) ->
     message = errors[0]
     if len(errors) > 1:
         row_pattern = re.compile(r"\b(?:source\s+|imported\s+)?rows?\s*:?\s*\[?(\d+(?:\s*,\s*\d+)*)\]?", re.IGNORECASE)
-        log_lines = []
-        for validation_error in errors:
-            row_numbers = {int(row_number) for match in row_pattern.finditer(validation_error) for row_number in match.group(1).split(",")}
+        ordered_log_lines = []
+        for error_order, validation_error in enumerate(errors):
+            row_numbers = sorted({int(row_number) for match in row_pattern.finditer(validation_error) for row_number in match.group(1).split(",")})
             if row_numbers:
-                log_lines.extend(f"{row_number}: {validation_error}" for row_number in sorted(row_numbers))
+                ordered_log_lines.append((row_numbers[0], error_order, f"{', '.join(map(str, row_numbers))}: {validation_error}"))
             else:
-                log_lines.append(f"1: {validation_error}")
+                ordered_log_lines.append((float("inf"), error_order, f"No source row: {validation_error}"))
 
         log_path = Path(hass.config.config_dir) / "import_errors.log"
         try:
+            log_lines = [line for _, _, line in sorted(ordered_log_lines)]
             await hass.async_add_executor_job(lambda: log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8"))
         except OSError as write_error:
             message += f"\nAdditional validation errors could not be written to {log_path}: {write_error}"
@@ -308,6 +309,7 @@ async def _validate_dataframe_entities(hass: HomeAssistant, df: pd.DataFrame, *,
     validation_stats = {}
     errors = []
     row_numbers = {}
+    unit_rows = {}
     for statistic_id in df["statistic_id"].unique():
         statistic_rows = df.loc[df["statistic_id"] == statistic_id]
         rows = [int(index) + 2 for index in statistic_rows.index]
@@ -317,11 +319,17 @@ async def _validate_dataframe_entities(hass: HomeAssistant, df: pd.DataFrame, *,
         except HomeAssistantError as err:
             errors.extend(f"{error} Rows: {rows}." for error in _validation_errors_from_exception(err))
             continue
-        try:
-            unit = get_unit_from_row(statistic_rows["unit"].iloc[0], statistic_id, row_number=rows[0])
-        except HomeAssistantError as err:
-            errors.extend(_validation_errors_from_exception(err))
-            unit = None
+        units_and_rows: dict[str | None, list[int]] = {}
+        for index, raw_unit in statistic_rows["unit"].items():
+            row_number = int(index) + 2
+            try:
+                unit = get_unit_from_row(raw_unit, statistic_id, row_number=row_number)
+            except HomeAssistantError as err:
+                errors.extend(_validation_errors_from_exception(err))
+                continue
+            units_and_rows.setdefault(unit, []).append(row_number)
+        unit_rows[statistic_id] = list(units_and_rows.items())
+        unit = next(iter(units_and_rows), None)
         validation_stats[statistic_id] = (
             {"statistic_id": statistic_id, "source": source, "unit_of_measurement": unit},
             [],
@@ -335,7 +343,7 @@ async def _validate_dataframe_entities(hass: HomeAssistant, df: pd.DataFrame, *,
         }
     if validation_stats:
         try:
-            await validate_entities_and_units(hass, validation_stats, row_numbers=row_numbers)
+            await validate_entities_and_units(hass, validation_stats, row_numbers=row_numbers, unit_rows=unit_rows)
         except HomeAssistantError as err:
             errors.extend(_validation_errors_from_exception(err))
     return errors
@@ -605,7 +613,13 @@ async def _get_import_status_counts(hass: HomeAssistant, stats: dict) -> dict[st
     return status_counts
 
 
-async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_numbers: dict[str, list[int]] | None = None) -> None:
+async def validate_entities_and_units(
+    hass: HomeAssistant,
+    stats: dict,
+    *,
+    row_numbers: dict[str, list[int]] | None = None,
+    unit_rows: dict[str, list[tuple[str | None, list[int]]]] | None = None,
+) -> None:
     """
     Validate that entities exist and units match both entity state and statistic_meta.
 
@@ -621,6 +635,7 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_n
     Keyword Args:
     ------------
         row_numbers: Source row numbers for each imported statistic.
+        unit_rows: Normalized input units paired with the source rows containing each unit.
 
     """
     errors = []
@@ -630,6 +645,20 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_n
         """Format source row numbers for a statistic-specific validation message."""
         rows = row_numbers.get(statistic_id)
         return f" at rows {rows}" if rows else ""
+
+    def units_for_statistic(statistic_id: str, metadata: dict) -> list[tuple[str | None, list[int] | None]]:
+        """Return each distinct normalized input unit and the rows where it occurs."""
+        if unit_rows is not None and statistic_id in unit_rows:
+            return [(unit, rows) for unit, rows in unit_rows[statistic_id]]
+        return [(metadata.get("unit_of_measurement"), row_numbers.get(statistic_id))]
+
+    def unit_row_context(rows: list[int] | None) -> str:
+        """Format source rows specific to one input unit value."""
+        if not rows:
+            return ""
+        if len(rows) == 1:
+            return f" at row {rows[0]}"
+        return f" at rows {rows}"
 
     # Collect all statistic_ids to query metadata
     statistic_ids = set()
@@ -646,24 +675,22 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_n
                     f"Entity does not exist: '{statistic_id}'{row_context(statistic_id)}. To skip missing recorder entities, set ignore_unknown_entities: true."
                 )
             else:
-                # Validate that import unit matches entity's current unit
-                input_unit = metadata.get("unit_of_measurement")
                 entity_unit = entity_state.attributes.get("unit_of_measurement")
 
                 # Normalize entity_unit (convert empty string to None)
                 if entity_unit == "":
                     entity_unit = None
 
-                # Compare import unit with entity's current unit
-                if input_unit != entity_unit:
-                    input_display = input_unit if input_unit is not None else "(empty)"
-                    entity_display = entity_unit if entity_unit is not None else "(empty)"
+                for input_unit, input_rows in units_for_statistic(statistic_id, metadata):
+                    if input_unit != entity_unit:
+                        input_display = input_unit if input_unit is not None else "(empty)"
+                        entity_display = entity_unit if entity_unit is not None else "(empty)"
 
-                    errors.append(
-                        f"Unit mismatch for '{statistic_id}'{row_context(statistic_id)}: "
-                        f"input file has '{input_display}' but entity has '{entity_display}'. "
-                        f"Units must match the entity's current unit_of_measurement."
-                    )
+                        errors.append(
+                            f"Unit mismatch for '{statistic_id}'{unit_row_context(input_rows) or row_context(statistic_id)}: "
+                            f"input file has '{input_display}' but entity has '{entity_display}'. "
+                            f"Units must match the entity's current unit_of_measurement."
+                        )
 
     # Get existing metadata from database
     recorder_instance = get_instance(hass)
@@ -676,26 +703,23 @@ async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_n
     for stat in stats.values():
         metadata = stat[0]
         statistic_id = metadata["statistic_id"]
-        input_unit = metadata.get("unit_of_measurement")  # Don't default to ""
 
         # Check if this statistic already exists in the database
         if statistic_id in existing_metadata:
             _metadata_id, existing_meta = existing_metadata[statistic_id]
             db_unit = existing_meta.get("unit_of_measurement")  # Don't default to ""
 
-            # Both units should already be normalized (None or non-empty string)
-            # Compare directly - None == None is True, "kWh" == "kWh" is True
-            if input_unit != db_unit:
-                # Format units for error message
-                input_display = input_unit if input_unit is not None else "(empty)"
-                db_display = db_unit if db_unit is not None else "(empty)"
+            for input_unit, input_rows in units_for_statistic(statistic_id, metadata):
+                if input_unit != db_unit:
+                    input_display = input_unit if input_unit is not None else "(empty)"
+                    db_display = db_unit if db_unit is not None else "(empty)"
 
-                errors.append(
-                    f"Unit mismatch for '{statistic_id}'{row_context(statistic_id)}: "
-                    f"input file has '{input_display}' but statistic_meta has '{db_display}'. Units must match exactly."
-                )
+                    errors.append(
+                        f"Unit mismatch for '{statistic_id}'{unit_row_context(input_rows) or row_context(statistic_id)}: "
+                        f"input file has '{input_display}' but statistic_meta has '{db_display}'. Units must match exactly."
+                    )
 
-            _LOGGER.debug("Unit validation passed for %s: %s", statistic_id, input_unit)
+                _LOGGER.debug("Unit validation passed for %s: %s", statistic_id, input_unit)
 
     handle_errors(errors)
 

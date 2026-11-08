@@ -275,9 +275,7 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     # Type narrowing
     filename: str = filename_raw if isinstance(filename_raw, str) else ""
     entities_input: list[str] | None = (
-        None
-        if not isinstance(entities_input_raw, list)
-        else ([entity for entity in entities_input_raw if isinstance(entity, str)] or None)
+        None if not isinstance(entities_input_raw, list) else ([entity for entity in entities_input_raw if isinstance(entity, str)] or None)
     )
     start_time_str: str | None = start_time_str_raw if isinstance(start_time_str_raw, str) else None
     end_time_str: str | None = end_time_str_raw if isinstance(end_time_str_raw, str) else None
