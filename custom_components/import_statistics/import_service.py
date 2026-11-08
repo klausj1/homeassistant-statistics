@@ -552,6 +552,9 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
         _LOGGER.info("Validating entities and units")
         await validate_entities_and_units(hass, stats)
 
+    _LOGGER.info("Calculate import status counts (new, existing, no data)")
+    status_counts = await _get_import_status_counts(hass, stats)
+
     _LOGGER.info("Calling hass import methods")
     for stat in stats.values():
         metadata = stat[0]
@@ -575,11 +578,31 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
     imported_value_count = sum(len(stat[1]) for stat in stats.values())
     _LOGGER.info("Finished importing data - %d statistic values imported and committed to database", imported_value_count)
 
-    response = {"imported_values": imported_value_count}
+    response = {"imported_values": imported_value_count, **status_counts}
     if ignore_unknown_entities:
         response["skipped_values"] = skipped_value_count
         response["skipped_statistics"] = skipped_ids
     return response
+
+
+async def _get_import_status_counts(hass: HomeAssistant, stats: dict) -> dict[str, int]:
+    """Count imported statistics by whether their data is new, existing, or empty."""
+    status_counts = {"new_data": 0, "existing_data": 0, "no_data": 0}
+    for metadata, statistics in stats.values():
+        if not statistics:
+            status_counts["no_data"] += 1
+            continue
+
+        statistic_id = metadata["statistic_id"]
+        newest_import_start = max(statistic["start"].astimezone(dt.UTC) for statistic in statistics)
+        newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
+        newest_db_start = newest_db_record["start"] if newest_db_record else None
+        if newest_db_start is None or newest_import_start > newest_db_start:
+            status_counts["new_data"] += 1
+        else:
+            status_counts["existing_data"] += 1
+
+    return status_counts
 
 
 async def validate_entities_and_units(hass: HomeAssistant, stats: dict, *, row_numbers: dict[str, list[int]] | None = None) -> None:

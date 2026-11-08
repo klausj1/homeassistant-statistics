@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - **Improved sparse export compatibility**: Files exported with `counter_fields: both` can now be imported without rejecting measurement rows simply because the same file also contains counter data in another representation (via the setting `counter_mode`)
 -- **Service response**: Export and import now return the number os exported/imported statistics, and in case of `ignore_unknown_entities`=true also the ignored entities
 - **Aggregated import validation errors**: Import actions raise an exception containing the first validation error. When multiple errors are found, all errors are written as plain text with source row numbers to `import_errors.log` in the config folder. Failed imports do not write statistics to the database. Export validation errors remain available in the service response.
+- **Import status summary**: Import responses include counts of statistics with `new_data`, `existing_data`, and `no_data`, alongside skipped statistic IDs when `ignore_unknown_entities` is enabled.
 
 ### Changes
 

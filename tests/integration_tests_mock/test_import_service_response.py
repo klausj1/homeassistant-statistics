@@ -1,5 +1,6 @@
 """Mock integration tests for the import statistics service response."""
 
+import datetime as dt
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,23 +13,37 @@ from custom_components.import_statistics.import_service import check_entity_exis
 
 
 class TestImportServiceResponse:
-    """Test that imports return concise imported/skipped value counts."""
+    """Test that imports return concise status counts and skipped value counts."""
 
     @pytest.mark.asyncio
-    async def test_import_stats_returns_imported_value_count_only(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Return a single count instead of per-statistic status objects."""
+    async def test_import_stats_returns_imported_value_and_status_counts(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Return aggregate status counts rather than per-statistic status objects."""
         caplog.set_level(logging.INFO, logger="custom_components.import_statistics.import_service")
         hass = MagicMock()
         stats = {
-            "custom:energy": (
-                {"statistic_id": "custom:energy", "source": "custom"},
-                [{"start": 1}, {"start": 2}],
-            )
+            "custom:new": (
+                {"statistic_id": "custom:new", "source": "custom"},
+                [{"start": dt.datetime(2024, 1, 3, tzinfo=dt.UTC)}],
+            ),
+            "custom:existing": (
+                {"statistic_id": "custom:existing", "source": "custom"},
+                [{"start": dt.datetime(2024, 1, 2, tzinfo=dt.UTC)}],
+            ),
+            "custom:empty": ({"statistic_id": "custom:empty", "source": "custom"}, []),
         }
 
         with (
             patch("custom_components.import_statistics.import_service.validate_entities_and_units", new=AsyncMock()),
             patch("custom_components.import_statistics.import_service.async_add_external_statistics") as mock_add,
+            patch(
+                "custom_components.import_statistics.import_service._get_newest_db_statistic",
+                new=AsyncMock(
+                    side_effect=lambda _hass, statistic_id: {
+                        "custom:new": {"start": dt.datetime(2024, 1, 2, tzinfo=dt.UTC)},
+                        "custom:existing": {"start": dt.datetime(2024, 1, 2, tzinfo=dt.UTC)},
+                    }.get(statistic_id)
+                ),
+            ),
             patch(
                 "custom_components.import_statistics.import_service.get_instance",
                 return_value=MagicMock(async_block_till_done=AsyncMock()),
@@ -36,7 +51,12 @@ class TestImportServiceResponse:
         ):
             result = await import_stats(hass, stats)
 
-        assert result == {"imported_values": 2}
+        assert result == {
+            "imported_values": 2,
+            "new_data": 1,
+            "existing_data": 1,
+            "no_data": 1,
+        }
         assert mock_add.called
         assert "2 statistic values imported" in caplog.text
 
@@ -51,17 +71,18 @@ class TestImportServiceResponse:
         stats = {
             "sensor.missing": (
                 {"statistic_id": "sensor.missing", "source": "recorder"},
-                [{"start": 1}, {"start": 2}, {"start": 3}],
+                [{"start": dt.datetime(2024, 1, 1, tzinfo=dt.UTC)}] * 3,
             ),
             "custom:energy": (
                 {"statistic_id": "custom:energy", "source": "custom"},
-                [{"start": 1}, {"start": 2}],
+                [{"start": dt.datetime(2024, 1, 1, tzinfo=dt.UTC)}] * 2,
             ),
         }
 
         with (
             patch("custom_components.import_statistics.import_service.validate_entities_and_units", new=AsyncMock()),
             patch("custom_components.import_statistics.import_service.async_add_external_statistics"),
+            patch("custom_components.import_statistics.import_service._get_newest_db_statistic", new=AsyncMock(return_value=None)),
             patch(
                 "custom_components.import_statistics.import_service.get_instance",
                 return_value=MagicMock(async_block_till_done=AsyncMock()),
@@ -71,6 +92,9 @@ class TestImportServiceResponse:
 
         assert result == {
             "imported_values": 2,
+            "new_data": 1,
+            "existing_data": 0,
+            "no_data": 0,
             "skipped_values": 3,
             "skipped_statistics": ["sensor.missing"],
         }

@@ -221,13 +221,16 @@ Only these columns are accepted (unknown columns cause an error):
 
 ### Service Responses
 
-Import actions return the number of hourly statistic records submitted successfully. If `ignore_unknown_entities: true` is enabled, the response also includes the skipped record count and the IDs of skipped statistics.
+Import actions return the number of hourly statistic records submitted successfully, along with counts of statistics by import status: `new_data`, `existing_data`, and `no_data`. If `ignore_unknown_entities: true` is enabled, the response also includes the skipped record count and the IDs of skipped statistics.
 
 Import response:
 
 ```json
 {
   "imported_values": 24,
+  "new_data": 2,
+  "existing_data": 1,
+  "no_data": 0,
   "skipped_values": 3,
   "skipped_statistics": ["sensor.retired_meter"]
 }
