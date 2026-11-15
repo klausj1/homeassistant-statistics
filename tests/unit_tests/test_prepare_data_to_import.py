@@ -240,8 +240,7 @@ def test_prepare_data_to_import_invalid_datetime_format() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         file_path = str(Path(temp_dir) / "test.tsv")
         Path(file_path).write_text(
-            "statistic_id\tstart\tunit\tmin\tmax\tmean\n"
-            "sensor.temperature\t26.01.2024 00:00\t°C\t20.1\t25.5\t22.8\n",
+            "statistic_id\tstart\tunit\tmin\tmax\tmean\nsensor.temperature\t26.01.2024 00:00\t°C\t20.1\t25.5\t22.8\n",
             encoding="utf-8",
         )
         data = {
@@ -261,8 +260,7 @@ def test_prepare_data_to_import_invalid_delimiter() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         file_path = str(Path(temp_dir) / "test.tsv")
         Path(file_path).write_text(
-            "statistic_id\tstart\tunit\tsum\tstate\n"
-            "counter.example\t26.01.2024 00:00\tkWh\t20.1\t20.1\n",
+            "statistic_id\tstart\tunit\tsum\tstate\ncounter.example\t26.01.2024 00:00\tkWh\t20.1\t20.1\n",
             encoding="utf-8",
         )
         data = {
