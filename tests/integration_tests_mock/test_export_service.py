@@ -594,9 +594,8 @@ class TestHandleExportStatistics:
 
                 mock_get_stats.side_effect = async_mock
 
-                response = await service_handler(call)
-                assert response["failed"] is True
-                assert any(error_msg in error for error in response["errors"])
+                with pytest.raises(HomeAssistantError, match=error_msg):
+                    await service_handler(call)
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_split_both_writes_two_files(self) -> None:
@@ -693,9 +692,8 @@ class TestHandleExportStatistics:
 
                 mock_get_stats.side_effect = async_mock
 
-                response = await service_handler(call)
-                assert response["failed"] is True
-                assert any(error_msg in error for error in response["errors"])
+                with pytest.raises(HomeAssistantError, match=error_msg):
+                    await service_handler(call)
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_file_path_construction(self) -> None:
@@ -936,9 +934,8 @@ class TestHandleExportStatistics:
                 },
             )
 
-            response = await service_handler(call)
-            assert response["failed"] is True
-            assert any("Unsupported filename extension" in error for error in response["errors"])
+            with pytest.raises(HomeAssistantError, match="Unsupported filename extension"):
+                await service_handler(call)
 
     @pytest.mark.asyncio
     async def test_handle_export_statistics_multiple_entities(self) -> None:
@@ -1278,6 +1275,5 @@ class TestHandleExportStatistics:
                 mock_get_stats.side_effect = async_mock
                 mock_write.side_effect = HomeAssistantError("Permission denied")
 
-                response = await service_handler(call)
-                assert response["failed"] is True
-                assert any("Permission denied" in error for error in response["errors"])
+                with pytest.raises(HomeAssistantError, match="Permission denied"):
+                    await service_handler(call)

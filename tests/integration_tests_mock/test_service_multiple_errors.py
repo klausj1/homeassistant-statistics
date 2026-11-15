@@ -11,7 +11,7 @@ import pytest
 from homeassistant.core import ServiceCall
 
 from custom_components.import_statistics import async_setup
-from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_DELIMITER, ATTR_FILENAME, ATTR_TIMEZONE_IDENTIFIER
+from custom_components.import_statistics.const import ATTR_DECIMAL, ATTR_DELIMITER, ATTR_ENTITIES, ATTR_FILENAME, ATTR_TIMEZONE_IDENTIFIER
 from tests.conftest import (
     call_service_expect_error,
     create_mock_entity_state,
@@ -94,28 +94,91 @@ async def test_import_returns_all_errors_without_writing(import_type: str) -> No
 
 @pytest.mark.asyncio
 async def test_export_returns_all_time_errors() -> None:
-    """Invalid start and end times are both returned in the export response."""
-    hass = MagicMock()
-    hass.config.time_zone = "UTC"
-    await async_setup(hass, {})
-    call = ServiceCall(
-        hass,
-        "import_statistics",
-        "export_statistics",
-        {
-            ATTR_FILENAME: "export.tsv",
-            ATTR_TIMEZONE_IDENTIFIER: "UTC",
-            "start_time": "invalid start",
-            "end_time": "invalid end",
-        },
-    )
-    handler = get_service_handler(hass, "export_statistics")
+    """Raise the first invalid time and log all time errors."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hass = MagicMock()
+        hass.config.config_dir = tmpdir
+        hass.config.time_zone = "UTC"
+        hass.async_add_executor_job = mock_async_add_executor_job
+        await async_setup(hass, {})
+        call = ServiceCall(
+            hass,
+            "import_statistics",
+            "export_statistics",
+            {
+                ATTR_FILENAME: "export.tsv",
+                ATTR_TIMEZONE_IDENTIFIER: "UTC",
+                "start_time": "invalid start",
+                "end_time": "invalid end",
+            },
+        )
+        handler = get_service_handler(hass, "export_statistics")
 
-    response = await handler(call)
+        error = await call_service_expect_error(handler, call)
 
-    assert response["failed"] is True
-    assert len(response["errors"]) == 2
-    assert all("Invalid datetime format" in error for error in response["errors"])
+        assert "Invalid datetime format" in str(error)
+        assert "export_errors.log" in str(error)
+        log_text = (Path(tmpdir) / "export_errors.log").read_text(encoding="utf-8")
+        assert log_text.count("Invalid datetime format") == 2
+
+
+@pytest.mark.asyncio
+async def test_export_rejects_entities_that_are_not_a_list() -> None:
+    """Raise for invalid entity selectors instead of returning a success response."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hass = MagicMock()
+        hass.config.config_dir = tmpdir
+        hass.config.time_zone = "UTC"
+        await async_setup(hass, {})
+        call = ServiceCall(
+            hass,
+            "import_statistics",
+            "export_statistics",
+            {ATTR_FILENAME: "export.tsv", ATTR_ENTITIES: "sensor.temperature"},
+        )
+
+        error = await call_service_expect_error(get_service_handler(hass, "export_statistics"), call)
+
+        assert "entities must be a list" in str(error)
+
+
+@pytest.mark.asyncio
+async def test_export_reports_all_missing_entities() -> None:
+    """Report every missing entity and include the export error log hint."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hass = MagicMock()
+        hass.config.config_dir = tmpdir
+        hass.config.time_zone = "UTC"
+        hass.async_add_executor_job = mock_async_add_executor_job
+        await async_setup(hass, {})
+        call = ServiceCall(
+            hass,
+            "import_statistics",
+            "export_statistics",
+            {
+                ATTR_FILENAME: "export.tsv",
+                ATTR_ENTITIES: ["sensor.existing", "sensor.missing_a", "sensor.missing_b"],
+                "start_time": "2024-01-26 12:00:00",
+                "end_time": "2024-01-26 13:00:00",
+                ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            },
+        )
+        recorder = create_mock_recorder_instance()
+
+        with (
+            patch("custom_components.import_statistics.export_service.get_instance", return_value=recorder),
+            patch("custom_components.import_statistics.export_service.list_statistic_ids", return_value=[{"statistic_id": "sensor.existing"}]),
+            patch("custom_components.import_statistics.export_service.get_metadata", return_value={}),
+            patch("custom_components.import_statistics.export_service.statistics_during_period", return_value={}),
+        ):
+            error = await call_service_expect_error(get_service_handler(hass, "export_statistics"), call)
+
+        assert str(error).startswith("Statistic ID sensor.missing_a not found")
+        assert "sensor.missing_b" not in str(error)
+        assert "export_errors.log" in str(error)
+        log_text = (Path(tmpdir) / "export_errors.log").read_text(encoding="utf-8")
+        assert "sensor.missing_a" in log_text
+        assert "sensor.missing_b" in log_text
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ import datetime as dt
 import fnmatch
 import zoneinfo
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NoReturn, cast
 
 import pytz
 from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
@@ -99,6 +99,7 @@ async def _get_statistic_ids(hass: HomeAssistant, entities_input: list[str] | No
     all_statistic_ids = [stat["statistic_id"] for stat in all_stats]
 
     statistic_ids: list[str] = []
+    missing_errors: list[str] = []
     for entry in entities_input:
         if "*" in entry:
             matched_ids = [sid for sid in all_statistic_ids if fnmatch.fnmatchcase(sid, entry)]
@@ -108,10 +109,11 @@ async def _get_statistic_ids(hass: HomeAssistant, entities_input: list[str] | No
             continue
 
         if entry not in all_statistic_ids:
-            _LOGGER.warning("Statistic ID %s not found", entry)
+            missing_errors.append(f"Statistic ID {entry} not found")
             continue
         statistic_ids.append(entry)
 
+    helpers.handle_errors(missing_errors)
     statistic_ids = list(dict.fromkeys(statistic_ids))
 
     if not statistic_ids:
@@ -424,13 +426,31 @@ async def _export_single_file(  # noqa: PLR0913, PLR0917
     return len(rows)
 
 
+async def _raise_export_error(hass: HomeAssistant, error: HomeAssistantError) -> NoReturn:
+    """Raise the first export error and write additional errors to the config directory."""
+    errors = list(dict.fromkeys(error.errors if isinstance(error, helpers.AggregatedValidationError) else [str(error)]))
+    if not errors:
+        raise error
+
+    message = errors[0]
+    if len(errors) > 1:
+        log_path = Path(hass.config.config_dir) / "export_errors.log"
+        try:
+            await hass.async_add_executor_job(lambda: log_path.write_text("\n".join(errors) + "\n", encoding="utf-8"))
+        except OSError as write_error:
+            message += f"\nAdditional validation errors could not be written to {log_path}: {write_error}"
+        else:
+            message += "\nAdditional validation errors are listed in export_errors.log in the Home Assistant config folder."
+
+    raise HomeAssistantError(message) from None
+
+
 async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
-    """Handle an export and return validation failures as a service response."""
+    """Handle an export and raise validation failures."""
     try:
         return await _handle_export_statistics(hass, call)
     except HomeAssistantError as err:
-        errors = err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)]
-        return {"failed": True, "errors": errors}
+        await _raise_export_error(hass, err)
 
 
 async def _handle_export_statistics(hass: HomeAssistant, call: ServiceCall) -> dict[str, int]:

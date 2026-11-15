@@ -1,7 +1,6 @@
 """Real Home Assistant integration tests for import usability."""
 # ruff: noqa: SLF001
 
-import json
 import time
 from pathlib import Path
 from typing import Any
@@ -189,9 +188,8 @@ class TestImportUsability:
                 ha_url=self.ha.ha_url,
                 token=self.ha.ha_token,
             )
-            assert no_partial_import_status in (200, 201), f"Export service call failed: {no_partial_import_body}"
-            no_partial_import_response = json.loads(no_partial_import_body)["service_response"]
-            assert no_partial_import_response["failed"] is True, f"Failed import partially wrote valid rows: {no_partial_import_response}"
+            assert no_partial_import_status not in (200, 201), f"Failed import partially wrote valid rows: {no_partial_import_body}"
+            assert "No statistics found" in no_partial_import_body, f"Unexpected export failure: {no_partial_import_body}"
 
             assert await self.ha._call_service(
                 "import_from_file",
@@ -210,7 +208,7 @@ class TestImportUsability:
                 "export_statistics",
                 {
                     "filename": export_name,
-                    "entities": ["sensor.mixed_test_temp", "sensor.issue282_missing"],
+                    "entities": ["sensor.mixed_test_temp"],
                     "start_time": "2024-01-16 01:00:00",
                     "end_time": "2024-01-16 01:00:00",
                     "timezone_identifier": "Europe/Vienna",

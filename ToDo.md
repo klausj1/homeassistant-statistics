@@ -2,14 +2,31 @@
 
 ## Now
 
-Review AI changes between main and the branch collect_errors. "Only" code and test code is left, the rest has been reviewed already.
+Check:
+
+- Explain _validate_local_import_data, why is it so complex for counters, does this make sense?
+
+Bugs:
+
+fix: align export error handling to import
+
+- For export, the change that on failures an error should be returned, with the first errors as exception text, and if there are multiple errors, the exception text should also contain a hint to the file export_errors.log (similar to import). Test with the error "entities must be a list" (which currently returns OK). Also test with more not existing entities (which currently only return the first not existing entity, fix this)
+- Import from file with wrong datetime_format (datetime_format: "%d.%m.%Y %H:%xxxMsss") leads to exception instead of an error. Add a test which finds the bug, then fix
+- Import from file with wrong delimiter (delimiter: x) leads to exception. Add a test which finds the bug, then fix
+- Add Unit tests for these methods. If they find bugs, fix the bugs: _parse_import_timestamps, collect_dataframe_validation_errors, _collect_validation_errors, _validate_dataframe_for_import, _validation_errors_from_exception, _validate_local_import_data
+
+Manual Tests:
+
+- Export, make multiple errors (wrong time, no list, split_by, validCounterFieldValues)
+- JSON export with and without errors
 
 Afterwards improve the names of the service response
 
-imported_values: 20
-new_data: 0
-existing_data: 4
-no_data: 0
+imported_values -> imported_rows
+
+new_data -> entities_with_new_data
+existing_data -> entities_with_existing_data
+no_data -> entities_without_any_data
 
 ## Bugs
 
@@ -20,6 +37,7 @@ Unit can be empty: Remove get_unit_from_row. Later on its checked anyhow if the 
 - Create a performance test for import and export, which measures the total performance, and writes the INFO traces and the duration to somewhere (run pytest -s to see the output)
 - Support webserver, so that its not necessary to upload import file and download export file
 - Align the keys in the json with yaml (breaking change, or make it compatible)
+- skip unknown entities also for export
 
 ## Export
 

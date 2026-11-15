@@ -216,8 +216,7 @@ def test_prepare_data_to_import_mismatched_delimiter_reports_missing_columns() -
     with tempfile.TemporaryDirectory() as temp_dir:
         file_path = str(Path(temp_dir) / "test.tsv")
         Path(file_path).write_text(
-            "statistic_id\tunit\tstart\tmin\tmax\tmean\n"
-            "sensor.temperature\t°C\t26.01.2024 00:00\t20.1\t25.5\t22.8\n",
+            "statistic_id\tunit\tstart\tmin\tmax\tmean\nsensor.temperature\t°C\t26.01.2024 00:00\t20.1\t25.5\t22.8\n",
             encoding="utf-8",
         )
 
