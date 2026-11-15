@@ -197,8 +197,8 @@ class TestPrepareDataDstHandling:
             call = ServiceCall("domain_name", "service_name", data, data)
             ha_timezone = "UTC"
 
-            with pytest.raises(HomeAssistantError, match="daylight saving time transition"):
-                prepare_data_to_import(file_path, call, ha_timezone)
+            df, _timezone_id, _datetime_format, _data_type = prepare_data_to_import(file_path, call, ha_timezone)
+            assert any("daylight saving time transition" in error for error in df.attrs["validation_errors"])
 
 
 class TestPrepareJsonDstHandling:
@@ -227,5 +227,5 @@ class TestPrepareJsonDstHandling:
         call = ServiceCall("domain_name", "service_name", data, data)
         ha_timezone = "UTC"
 
-        with pytest.raises(HomeAssistantError, match="daylight saving time transition"):
-            prepare_json_data_to_import(call, ha_timezone)
+        df, _timezone_id, _datetime_format, _data_type = prepare_json_data_to_import(call, ha_timezone)
+        assert any("daylight saving time transition" in error for error in df.attrs["validation_errors"])

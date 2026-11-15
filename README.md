@@ -11,7 +11,7 @@ A Home Assistant custom integration to import and export long-term statistics fr
 
 ## Quick Links
 
-- [Installation](#installation) | [Importing](#importing-statistics) | [Mixed Import](#mixed-import) | [Exporting](#exporting-statistics) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
+- [Installation](#installation) | [Importing](#importing-statistics) | [Mixed Import](#mixed-import) | [Exporting](#exporting-statistics) | [Transfer to another HA database](#exporting-from-one-home-assistant-database-and-importing-into-another) | [Inventory](#exporting-statistics-inventory) | [Troubleshooting Tips](./docs/user/troubleshooting-tips.md)
 - [Counter Statistics Explained](./docs/user/counters.md#understanding-counter-statistics-sumstate) | [Delta Import](./docs/user/counters.md#delta-import) | [Inventory Categories](./docs/user/export_inventory_categories.md)
 - [Debug Logging Guide](./docs/user/debug-logging.md) - How to enable debug logs for troubleshooting
 
@@ -69,7 +69,7 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
 
 ### Settings Description
 
-> The settings are only valid for CSV/TSV import, not for JSON. See [Import from JSON](#import-from-json).
+> `filename`, `delimiter`, `decimal`, and `datetime_format` are file-format settings for CSV/TSV imports. JSON input uses the structure described in [Import from JSON](#import-from-json). `timezone_identifier`, `counter_mode`, and `ignore_unknown_entities` can be used with either format.
 
 - **`filename` (required)**
   - Input file name (relative to Home Assistant config directory).
@@ -90,6 +90,13 @@ Import your statistics from CSV, TSV, or JSON files to populate or update Home A
 - **`timezone_identifier` (optional)**
   - Defaults to Home Assistant's configured timezone if omitted. Typically can be left empty.
   - Timezone identifier (check pytz timezones or <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>).
+- **`counter_mode` (optional, default: `strict`)**
+  - `strict`: reject counter imports when both `sum`/`state` and `delta` columns are supplied. This is the default.
+  - `sum`: import counter values from `sum`/`state`, ignoring `delta`.
+  - `delta`: import counter values from `delta`, ignoring `sum`/`state`.
+  - This setting affects counter rows only; measurement rows are imported normally. Use `sum` or `delta` when importing an export that contains both counter representations.
+- **`ignore_unknown_entities` (optional, default: `false`)**
+  - When `true`, skip recorder statistics whose entities do not exist on this Home Assistant instance. The skipped statistic IDs are included in the action response and written to a CSV report. This does not create missing entities.
 
 > **Important:** Input files **must** contain a `unit` column with the unit of measurement for each statistic. For existing statistics, the unit in the input file must match the unit already stored in Home Assistant's database, otherwise the import will fail with an error.
 >
@@ -164,7 +171,7 @@ Your file can contain one or both types of statistics:
 
 - **Measurements (state_class == measurement or measurement_angle)** (temperature, humidity, direction, etc.): columns `min`, `max`, `mean`
 - **Counters (state_class == total or total_increasing)** (energy, water meters, etc.): columns `sum`, `state` (or `delta`)
-- **Mixed files**: A single file can contain both measurement and counter rows (see [Mixed Import](#mixed-import) below). However, delta cannot be mixed with measurements.
+- **Mixed files**: A single file can contain both measurement and counter rows (see [Mixed Import](#mixed-import) below), including delta counters.
 
 > **Before importing counters, make sure to read** [Understanding counter statistics in Home Assistant](./docs/user/counters.md)
 > For importing counters, it is **recommended to use the import with the delta column** instead of importing sum/state, see [Delta Import](./docs/user/counters.md#delta-import)
@@ -186,7 +193,7 @@ Only these columns are accepted (unknown columns cause an error):
 | `unit`               | Sometimes         | Required for external statistics                     |
 | `min`, `max`, `mean` | For measurements  | Can coexist with counter columns in mixed files      |
 | `sum`, `state`       | For counters      | Can coexist with measurement columns in mixed files  |
-| `delta`              | For counters      | Alternative to sum/state; cannot be used in mixed files |
+| `delta`              | For counters      | Alternative to sum/state; select `counter_mode: delta` when both representations are present |
 
 #### Statistic ID Format
 
@@ -212,85 +219,37 @@ Only these columns are accepted (unknown columns cause an error):
 
 > If importing does not work and you do not get an error directly in the GUI, but there is an error in the Home Assistant logs, then this is a bug. This happens if the integration misses some checks, which lead to import errors later. Please create an issue.
 
-### Service Response
+### Service Responses
 
-`import_from_file` and `import_from_json` can optionally return an import `status` for each statistic. To receive a response, set `response_variable` in your automation or script.
+Import actions return the number of hourly statistic records submitted successfully, along with counts of statistics by import status: `entities_with_new_data`, `entities_with_existing_data` and `entities_without_any_data`. If `ignore_unknown_entities: true` is enabled, the response also includes the skipped row count and the IDs of skipped entities.
 
-```yaml
-- action: import_statistics.import_from_file
-  data:
-    filename: my_statistics.csv
-    delimiter: ","
-    decimal: "."
-    datetime_format: "%Y-%m-%d %H:%M"
-  response_variable: import_result
-```
-
-The response is a JSON-serializable dict:
+Import response:
 
 ```json
 {
-  "results": {
-    "sensor:imported_energy": {
-      "statistic_id": "sensor:imported_energy",
-      "status": "<see below>",
-      "newest_import_start": "2026-08-17T23:00:00+00:00",
-      "newest_db_start": "2026-08-16T23:00:00+00:00"
-    }
-  }
+  "imported_rows": 24,
+  "entities_with_new_data": 2,
+  "entities_with_existing_data": 1,
+  "entities_without_any_data": 0,
+  "skipped_values": 3,
+  "skipped_statistics": ["sensor.retired_meter"]
 }
 ```
 
-> **Note:** The response includes a `status` field for each statistic. The possible values are:
->
-> - `new data` — the newest start timestamp in the import is newer than the newest timestamp in the database.
-> - `existing data` — the import only overwrites existing timestamps or adds older/equal timestamps (still saved, but no new timestamp is added).
-> - `no data` — no rows were provided for this statistic, so nothing is imported.
->
+Export actions can also return a concise count when a response is requested:
 
-Use the response in any action. This example creates a persistent notification if no newer data was found in the import:
+The export response is `{"exported_values": 24}`. For `split_by`, this is the total number of values across the generated files, with each statistic counted once.
 
-```yaml
-- choose:
-    - conditions:
-        - condition: template
-          value_template: >-
-            {{ import_result.results['sensor:imported_energy'].status != 'new data' }}
-      sequence:
-        - service: persistent_notification.create
-          data:
-            title: "No new data"
-            message: "No new data for sensor:imported_energy!"
-```
+When import validation fails, the action raises an error containing the first validation error. If multiple errors are found, all errors are written as plain text to `import_errors.log` in the Home Assistant config folder; each logged message starts with its source row number. Imports validate available rows and entities before writing, so a failed import does not write statistics.
 
-You can also list all statistics that had no new data in a single notification:
-
-```yaml
-- service: persistent_notification.create
-  data:
-    title: "Statistics without new data"
-    message: >
-      {% set no_new_ids = [] %}
-      {% for info in import_result.results.values() %}
-        {% if info.status != 'new data' %}
-          {% set no_new_ids = no_new_ids + [info.statistic_id] %}
-        {% endif %}
-      {% endfor %}
-      {% if no_new_ids %}
-        No new data for: {{ no_new_ids | join(', ') }}
-      {% else %}
-        All imported statistics contain new data.
-      {% endif %}
-```
-
-> **Note:** The response variable is only populated when the action is called with `response_variable`. Without it the action behaves as before and returns no response.
+Export validation failures are returned as `failed: true` with an `errors` list.
 
 ### Data Validation
 
 The integration performs strict validation on all import data:
 
-- **All rows must be valid** - If any row contains invalid data, the entire import fails
-- **Clear error messages** - The error message will indicate which row failed and why
+- **All rows must be valid** - If any row contains invalid data, the entire import fails without writing data
+- **Aggregated error messages** - The raised error reports the first validation error; when more errors are found, `import_errors.log` lists them all with source row numbers
 - **No partial imports** - Either all data is imported successfully, or none of it is
 - **Common validation errors**:
   - Invalid timestamp format or non-full-hour timestamps
@@ -375,7 +334,7 @@ Since v5.1.0, a single file can contain **both measurement and counter statistic
 - Each `statistic_id` must be consistently one type — a single entity cannot have measurement values in some rows and counter values in others
 - Measurement rows provide `min`, `max`, `mean` and leave `sum`/`state` empty
 - Counter rows provide `sum`/`state` and leave `min`/`max`/`mean` empty
-- The `delta` column **cannot** be used in mixed files — delta files must contain only delta data
+- Measurement and counter rows can coexist, including when counter rows use `delta`
 - No new service parameters are needed; the same `import_from_file` and `import_from_json` actions work as before
 
 #### Mixed CSV/TSV Example
@@ -419,7 +378,7 @@ sensor.energy	01.01.2024 01:00	kWh			105.2	105.2
 }
 ```
 
-> In JSON format, the top-level object contains `timezone_identifier` and an `entities` array. Each entity object specifies its own fields — sensor entities use `mean`/`min`/`max`, counter entities use `sum`/`state`.
+> In JSON format, the top-level object contains `timezone_identifier` and an `entities` array. Each entity object specifies its own fields — sensor entities use `mean`/`min`/`max`, counter entities use `sum`/`state` or `delta`. Use `counter_mode` when both counter representations are supplied.
 
 ---
 
@@ -573,7 +532,54 @@ The exported file contains:
 | -------------------- | ----------------------- |
 | `min`, `max`, `mean` | `sum`, `state`, `delta` |
 
-> **Note:** You can export measurements and counters together. The exported file can be re-imported directly as long as the delta-column is not exported — mixed files with both measurement and counter data are supported since v5.1.0.
+> **Note:** You can export measurements and counters together, including all counter fields. When both `sum`/`state` and `delta` are present, set `counter_mode` to `sum` or `delta` on import; the default `strict` mode rejects this conflict. See [transferring statistics to another Home Assistant database](#exporting-from-one-home-assistant-database-and-importing-into-another).
+
+---
+
+## Exporting from One Home Assistant Database and Importing into Another
+
+Use this workflow to migrate or copy long-term statistics between Home Assistant instances. The target instance must have the recorder entities for imported internal statistic IDs. If some source entities do not exist on the target, `ignore_unknown_entities: true` skips those recorder statistics; it does not create the entities.
+
+For a target database without existing counter history, export `sum`/`state` and import with `counter_mode: sum`. These are absolute counter values and do not require a reference record in the target database. This is especially important when the target is new: importing deltas requires an existing target-side statistic to anchor the conversion.
+
+### Export from the source instance
+
+```yaml
+action: import_statistics.export_statistics
+data:
+  filename: statistics_for_migration.tsv
+  split_by: both
+  counter_fields: sum
+  delimiter: \t
+  decimal: "."
+```
+
+This writes one mixed file with the measurement and counter rows. To create separate measurement and counter files instead, add `split_by: both`; the output files use `_measurements` and `_counters` suffixes. To preserve both counter representations, use `counter_fields: both`; then explicitly choose `sum` or `delta` when importing because the default `strict` mode rejects both representations in one counter import.
+
+Copy the exported files into the target instance's Home Assistant config directory.
+
+### Import on the target instance
+
+Import each file using `import_from_file`. For a combined mixed file, the same setting applies to its counter rows; measurement rows are unaffected.
+
+```yaml
+action: import_statistics.import_from_file
+data:
+  filename: statistics_for_migration.tsv
+  counter_mode: sum
+  delimiter: \t
+  decimal: "."
+```
+
+`counter_mode: sum` imports the counters' `sum`/`state` columns and ignores `delta`; the measurement rows in the same file are still imported. You can omit `counter_mode` here because `strict` is the default and this export contains only one counter representation.
+
+If some recorder entities are intentionally absent on the target, add:
+
+```yaml
+  ignore_unknown_entities: true
+```
+
+The skipped statistic IDs are reported in the action response and written to a generated CSV file in the config folder. If you choose `counter_mode: delta` instead, the target database must already contain a suitable statistic reference for every imported counter. See [Delta Import](./docs/user/counters.md#delta-import) for the reference requirements.
 
 ---
 

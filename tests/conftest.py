@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 
 
 def create_mock_recorder_instance() -> MagicMock:
@@ -90,6 +91,13 @@ def get_service_handler(hass: MagicMock, service_name: str) -> Callable[..., Any
             return call[0][2]
     msg = f"Service handler '{service_name}' not found in registered services"
     raise ValueError(msg)
+
+
+async def call_service_expect_error(handler: Callable[..., Any], call: Any) -> HomeAssistantError:
+    """Call a service handler and return its Home Assistant validation error."""
+    with pytest.raises(HomeAssistantError) as error:
+        await handler(call)
+    return error.value
 
 
 def pytest_configure(config: Any) -> None:

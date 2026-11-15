@@ -133,6 +133,20 @@ def test_handle_arguments_delimiter_tab_literal() -> None:
     assert datetime_format == DATETIME_DEFAULT_FORMAT
 
 
+def test_handle_arguments_pipe_delimiter() -> None:
+    """Test that the pipe delimiter is accepted."""
+    data = {
+        ATTR_DECIMAL: ",",
+        ATTR_TIMEZONE_IDENTIFIER: "Europe/London",
+        ATTR_DELIMITER: "|",
+    }
+
+    call = ServiceCall("domain_name", "service_name", data, data)
+    _decimal, _timezone_identifier, delimiter, _datetime_format = handle_arguments(call, "UTC", filename="data.tsv")
+
+    assert delimiter == "|"
+
+
 def test_handle_arguments_delimiter_invalid_two_chars() -> None:
     """Test the handle_arguments function with invalid 2-character delimiter."""
     data = {

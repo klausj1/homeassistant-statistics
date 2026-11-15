@@ -8,6 +8,8 @@ from homeassistant.components.recorder.models import StatisticMeanType
 
 from custom_components.import_statistics.const import DATETIME_DEFAULT_FORMAT
 from custom_components.import_statistics.import_service_helper import (
+    CounterDataType,
+    ImportDataClassification,
     ImportDataType,
     _validate_and_detect_delta,
     handle_dataframe_no_delta,
@@ -401,4 +403,4 @@ def test_handle_dataframe_mean_sum() -> None:
     )
 
     result = _validate_and_detect_delta(my_df)
-    assert result == ImportDataType.MIXED
+    assert result == ImportDataClassification(ImportDataType.MIXED, CounterDataType.SUM_STATE)

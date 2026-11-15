@@ -20,6 +20,7 @@ config/*
 !config/*.csv
 !config/test_*
 config/test_*/export_*.tsv
+config/skipped*
 
 **/dcz*
 

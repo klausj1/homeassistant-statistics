@@ -4,11 +4,12 @@ import datetime as dt
 import fnmatch
 import zoneinfo
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NoReturn, cast
 
 import pytz
 from homeassistant.components.recorder.statistics import get_metadata, list_statistic_ids, statistics_during_period
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.recorder import get_instance
 
 if TYPE_CHECKING:
@@ -98,6 +99,7 @@ async def _get_statistic_ids(hass: HomeAssistant, entities_input: list[str] | No
     all_statistic_ids = [stat["statistic_id"] for stat in all_stats]
 
     statistic_ids: list[str] = []
+    missing_errors: list[str] = []
     for entry in entities_input:
         if "*" in entry:
             matched_ids = [sid for sid in all_statistic_ids if fnmatch.fnmatchcase(sid, entry)]
@@ -107,10 +109,11 @@ async def _get_statistic_ids(hass: HomeAssistant, entities_input: list[str] | No
             continue
 
         if entry not in all_statistic_ids:
-            _LOGGER.warning("Statistic ID %s not found", entry)
+            missing_errors.append(f"Statistic ID {entry} not found")
             continue
         statistic_ids.append(entry)
 
+    helpers.handle_errors(missing_errors)
     statistic_ids = list(dict.fromkeys(statistic_ids))
 
     if not statistic_ids:
@@ -184,8 +187,18 @@ async def get_statistics_from_recorder(
         helpers.handle_error(f"Invalid timezone_identifier: {timezone_identifier!r}")
 
     # Parse and validate time strings
-    start_dt = _parse_and_validate_time(start_time_str, tz, "start_time")
-    end_dt = _parse_and_validate_time(end_time_str, tz, "end_time")
+    time_errors = []
+    try:
+        start_dt = _parse_and_validate_time(start_time_str, tz, "start_time")
+    except HomeAssistantError as err:
+        time_errors.extend(err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)])
+        start_dt = None
+    try:
+        end_dt = _parse_and_validate_time(end_time_str, tz, "end_time")
+    except HomeAssistantError as err:
+        time_errors.extend(err.errors if isinstance(err, helpers.AggregatedValidationError) else [str(err)])
+        end_dt = None
+    helpers.handle_errors(time_errors)
 
     # Get recorder instance
     recorder_instance = get_instance(hass)
@@ -241,27 +254,35 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
     split_by_raw = call.data.get(ATTR_SPLIT_BY, "none")
     counter_fields_raw = call.data.get(ATTR_COUNTER_FIELDS, "both")
 
+    errors = []
     # Validate required parameters
     if not filename_raw or not isinstance(filename_raw, str):
-        helpers.handle_error("filename is required and must be a string")
+        errors.append("filename is required and must be a string")
     if entities_input_raw is not None and not isinstance(entities_input_raw, list):
-        helpers.handle_error("entities must be a list")
+        errors.append("entities must be a list")
+    if isinstance(entities_input_raw, list):
+        if any(entity is not None and not isinstance(entity, str) for entity in entities_input_raw):
+            errors.append("entities must contain only statistic ID strings")
+        if any(entity is None for entity in entities_input_raw) and any(entity is not None for entity in entities_input_raw):
+            errors.append("entities must not mix null values with statistic IDs")
     if start_time_str_raw is not None and not isinstance(start_time_str_raw, str):
-        helpers.handle_error("start_time must be a string")
+        errors.append("start_time must be a string")
     if end_time_str_raw is not None and not isinstance(end_time_str_raw, str):
-        helpers.handle_error("end_time must be a string")
+        errors.append("end_time must be a string")
     if split_by_raw is not None and not isinstance(split_by_raw, str):
-        helpers.handle_error("split_by must be a string")
+        errors.append("split_by must be a string")
     if counter_fields_raw is not None and not isinstance(counter_fields_raw, str):
-        helpers.handle_error("counter_fields must be a string")
+        errors.append("counter_fields must be a string")
 
     # Type narrowing
-    filename: str = cast("str", filename_raw)
-    entities_input: list[str] | None = None if entities_input_raw is None else cast("list[str]", entities_input_raw)
-    start_time_str: str | None = None if start_time_str_raw is None else cast("str", start_time_str_raw)
-    end_time_str: str | None = None if end_time_str_raw is None else cast("str", end_time_str_raw)
-    split_by: str = "none" if split_by_raw is None else cast("str", split_by_raw)
-    counter_fields: str = "both" if counter_fields_raw is None else cast("str", counter_fields_raw)
+    filename: str = filename_raw if isinstance(filename_raw, str) else ""
+    entities_input: list[str] | None = (
+        None if not isinstance(entities_input_raw, list) else ([entity for entity in entities_input_raw if isinstance(entity, str)] or None)
+    )
+    start_time_str: str | None = start_time_str_raw if isinstance(start_time_str_raw, str) else None
+    end_time_str: str | None = end_time_str_raw if isinstance(end_time_str_raw, str) else None
+    split_by: str = split_by_raw if isinstance(split_by_raw, str) else "none"
+    counter_fields: str = counter_fields_raw if isinstance(counter_fields_raw, str) else "both"
 
     # Backwards compatible rename: 'sensor' -> 'measurement'
     if split_by == "sensor":
@@ -269,12 +290,13 @@ def _validate_service_parameters(call: ServiceCall) -> tuple[str, list[str] | No
 
     valid_split_values = {"none", "measurement", "counter", "both"}
     if split_by not in valid_split_values:
-        helpers.handle_error(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
+        errors.append(f"split_by must be one of {sorted(valid_split_values)}, got {split_by!r}")
 
     valid_counter_field_values = {"both", "sum", "delta"}
     if counter_fields not in valid_counter_field_values:
-        helpers.handle_error(f"counter_fields must be one of {sorted(valid_counter_field_values)}, got {counter_fields!r}")
+        errors.append(f"counter_fields must be one of {sorted(valid_counter_field_values)}, got {counter_fields!r}")
 
+    helpers.handle_errors(errors)
     return filename, entities_input, start_time_str, end_time_str, split_by, counter_fields
 
 
@@ -298,10 +320,10 @@ async def _export_split_file(  # noqa: PLR0913, PLR0917
     delimiter: str,
     decimal_separator: str,
     counter_fields: str,
-) -> None:
+) -> int:
     """Export a single split file (measurement or counter)."""
     if not stats_dict:
-        return
+        return 0
 
     output_filename = _filename_with_suffix(filename, suffix)
     file_path = helpers.validate_filename(output_filename, hass.config.config_dir)
@@ -309,18 +331,19 @@ async def _export_split_file(  # noqa: PLR0913, PLR0917
     if filename.lower().endswith(".json"):
         json_data = await hass.async_add_executor_job(lambda: prepare_export_json(stats_dict, timezone_identifier, datetime_format, units_dict))
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
-    else:
-        columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(
-                stats_dict,
-                timezone_identifier,
-                datetime_format,
-                decimal_separator=decimal_separator,
-                units_dict=units_dict,
-                counter_fields=counter_fields,
-            )
+        return sum(len(entity["values"]) for entity in json_data)
+    columns, rows = await hass.async_add_executor_job(
+        lambda: prepare_export_data(
+            stats_dict,
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            units_dict=units_dict,
+            counter_fields=counter_fields,
         )
-        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    )
+    await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    return len(rows)
 
 
 async def _export_split_statistics(  # noqa: PLR0913, PLR0917
@@ -334,15 +357,16 @@ async def _export_split_statistics(  # noqa: PLR0913, PLR0917
     decimal_separator: str,
     delimiter: str,
     counter_fields: str,
-) -> None:
+) -> int:
     """Export statistics split by type."""
     measurement_stats, counter_stats, measurement_units, counter_units = split_statistics_by_type(statistics_dict, units_dict=units_dict)
 
     write_measurements = split_by in {"measurement", "both"}
     write_counters = split_by in {"counter", "both"}
 
+    exported_values = 0
     if write_measurements:
-        await _export_split_file(
+        exported_values += await _export_split_file(
             hass,
             filename,
             measurement_stats,
@@ -356,7 +380,7 @@ async def _export_split_statistics(  # noqa: PLR0913, PLR0917
         )
 
     if write_counters:
-        await _export_split_file(
+        exported_values += await _export_split_file(
             hass,
             filename,
             counter_stats,
@@ -368,6 +392,7 @@ async def _export_split_statistics(  # noqa: PLR0913, PLR0917
             delimiter=delimiter,
             counter_fields=counter_fields,
         )
+    return exported_values
 
 
 async def _export_single_file(  # noqa: PLR0913, PLR0917
@@ -380,27 +405,55 @@ async def _export_single_file(  # noqa: PLR0913, PLR0917
     decimal_separator: str,
     delimiter: str,
     counter_fields: str,
-) -> None:
+) -> int:
     """Export all statistics to a single file."""
     file_path = helpers.validate_filename(filename, hass.config.config_dir)
     if filename.lower().endswith(".json"):
         json_data = await hass.async_add_executor_job(lambda: prepare_export_json(statistics_dict, timezone_identifier, datetime_format, units_dict))
         await hass.async_add_executor_job(lambda: write_export_json(file_path, json_data))
-    else:
-        columns, rows = await hass.async_add_executor_job(
-            lambda: prepare_export_data(
-                statistics_dict,
-                timezone_identifier,
-                datetime_format,
-                decimal_separator=decimal_separator,
-                units_dict=units_dict,
-                counter_fields=counter_fields,
-            )
+        return sum(len(entity["values"]) for entity in json_data)
+    columns, rows = await hass.async_add_executor_job(
+        lambda: prepare_export_data(
+            statistics_dict,
+            timezone_identifier,
+            datetime_format,
+            decimal_separator=decimal_separator,
+            units_dict=units_dict,
+            counter_fields=counter_fields,
         )
-        await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    )
+    await hass.async_add_executor_job(lambda: write_export_file(file_path, columns, rows, delimiter))
+    return len(rows)
 
 
-async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> None:
+async def _raise_export_error(hass: HomeAssistant, error: HomeAssistantError) -> NoReturn:
+    """Raise the first export error and write additional errors to the config directory."""
+    errors = list(dict.fromkeys(error.errors if isinstance(error, helpers.AggregatedValidationError) else [str(error)]))
+    if not errors:
+        raise error
+
+    message = errors[0]
+    if len(errors) > 1:
+        log_path = Path(hass.config.config_dir) / "export_errors.log"
+        try:
+            await hass.async_add_executor_job(lambda: log_path.write_text("\n".join(errors) + "\n", encoding="utf-8"))
+        except OSError as write_error:
+            message += f"\nAdditional validation errors could not be written to {log_path}: {write_error}"
+        else:
+            message += "\nAdditional validation errors are listed in export_errors.log in the Home Assistant config folder."
+
+    raise HomeAssistantError(message) from None
+
+
+async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) -> dict:
+    """Handle an export and raise validation failures."""
+    try:
+        return await _handle_export_statistics(hass, call)
+    except HomeAssistantError as err:
+        await _raise_export_error(hass, err)
+
+
+async def _handle_export_statistics(hass: HomeAssistant, call: ServiceCall) -> dict[str, int]:
     """Handle export_statistics service implementation."""
     # Validate and extract parameters
     filename, entities_input, start_time_str, end_time_str, split_by, counter_fields = _validate_service_parameters(call)
@@ -460,7 +513,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
 
     # Export based on split_by parameter
     if split_by != "none":
-        await _export_split_statistics(
+        exported_values = await _export_split_statistics(
             hass,
             filename,
             statistics_dict,
@@ -473,7 +526,7 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
             counter_fields=counter_fields,
         )
     else:
-        await _export_single_file(
+        exported_values = await _export_single_file(
             hass,
             filename,
             statistics_dict,
@@ -486,4 +539,5 @@ async def handle_export_statistics_impl(hass: HomeAssistant, call: ServiceCall) 
         )
 
     hass.states.async_set("import_statistics.export_statistics", "OK")
-    _LOGGER.info("Export completed successfully")
+    _LOGGER.info("Export completed successfully - %d statistic values exported", exported_values)
+    return {"exported_values": exported_values}

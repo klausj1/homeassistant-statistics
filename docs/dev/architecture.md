@@ -27,7 +27,7 @@ Orchestrates the import flow for both file and JSON sources. Detects delta proce
 
 ### [`import_service_helper.py`](custom_components/import_statistics/import_service_helper.py)
 
-Handles data loading and DataFrame processing for imports. Loads CSV/TSV files with configurable delimiters and decimal separators, or constructs DataFrames from JSON input. Core processing validates columns and routes data through one of three paths: direct extraction (non-delta, non-mixed), mixed-type splitting via `split_dataframe_by_type()` and `handle_dataframe_mixed()`, or delta marker tuple return for async database lookup. The `ImportDataType` enum (`SENSOR`, `COUNTER`, `MIXED`, `DELTA`) classifies the data type for routing decisions.
+Handles data loading and DataFrame processing for imports. Loads CSV/TSV files with configurable delimiters and decimal separators, or constructs DataFrames from JSON input. Core processing validates columns and returns an `ImportDataClassification` containing an `ImportDataType` (`SENSOR`, `COUNTER`, `MIXED`) and an optional `CounterDataType` (`SUM_STATE`, `DELTA`, `BOTH`). `_process_import()` routes mixed files through `split_dataframe_by_type()`, and counter data through explicit counter-mode resolution.
 
 ---
 
@@ -297,12 +297,9 @@ CSV/TSV/JSON with mixed columns (min, max, mean, sum, state)
   ↓
 [Stage 1] prepare_data_to_import() [sync via executor]
   - are_columns_valid() allows all value columns to coexist
-  - _validate_and_detect_delta() returns ImportDataType.MIXED
+  - _validate_and_detect_delta() identifies mixed sensor/counter composition
   ↓
 [Stage 2] _process_import() detects MIXED type
-  - Dispatches to handle_dataframe_mixed()
-  ↓
-[Stage 3] handle_dataframe_mixed() [sync]
   - Calls split_dataframe_by_type(df)
     - Groups rows by statistic_id
     - Classifies each entity as SENSOR or COUNTER
@@ -310,16 +307,14 @@ CSV/TSV/JSON with mixed columns (min, max, mean, sum, state)
     - Returns (sensor_df, counter_df)
   - Processes sensor_df through handle_dataframe_no_delta()
     → extracts min/max/mean statistics
-  - Processes counter_df through handle_dataframe_no_delta()
-    → extracts sum/state statistics
-  - Merges both result dictionaries
+  - Processes counter_df through counter-mode resolution and the selected counter handler
   ↓
-[Stage 4] Normal import continues
+[Stage 3] Normal import continues
   - validate_entities_and_units()
   - async_import_statistics() / async_add_external_statistics()
 ```
 
-Key constraint: Delta columns remain incompatible with mixed imports. A file containing a `delta` column cannot also contain `min`, `max`, `mean`, `sum`, or `state` columns.
+Counter representation selection applies only to counter rows. Sensor rows may coexist in the same file with sum/state or delta counter rows, but a single `statistic_id` cannot contain both sensor and counter values.
 
 ---
 
@@ -412,11 +407,11 @@ Defense-in-depth for export filenames:
 
 Mixed-type files (containing both measurement and counter statistics) are handled by splitting before processing rather than modifying the core processing pipeline:
 
-- **Detection**: `_validate_and_detect_delta()` in [`import_service_helper.py`](custom_components/import_statistics/import_service_helper.py) returns `ImportDataType.MIXED` when both sensor columns (mean/min/max) and counter columns (sum/state) are present
+- **Detection**: `_validate_and_detect_delta()` in [`import_service_helper.py`](custom_components/import_statistics/import_service_helper.py) returns an `ImportDataClassification` with a file composition type and, when applicable, a counter representation type
 - **Classification**: `split_dataframe_by_type()` groups rows by `statistic_id` and inspects which value columns contain non-NaN data to classify each entity as sensor or counter
-- **Processing**: Each sub-DataFrame is processed independently through the existing `handle_dataframe_no_delta()` pipeline, preserving all existing validation and extraction logic
+- **Processing**: Sensor rows use `handle_dataframe_no_delta()`; counter rows use counter-mode resolution and the sum/state or delta handler
 - **Benefit**: Zero changes to the core row-level extraction functions (`get_mean_stat()`, `get_sum_stat()`), minimizing regression risk
-- **Constraint**: Delta processing is incompatible with mixed imports — the `delta` column cannot coexist with other value columns
+- **Constraint**: `split_dataframe_by_type()` rejects a single `statistic_id` containing both sensor (mean/min/max) and counter (sum/state/delta) values
 
 ---
 
@@ -548,6 +543,5 @@ This ensures:
 ## Known Limitations & Design Decisions
 
 1. **All-or-Nothing Imports**: If any row fails validation, the entire import fails (no partial imports)
-2. **Delta Incompatibility with Mixed**: Delta columns cannot coexist with other value columns (min/max/mean/sum/state) in the same file
-3. **Timezone Validation**: Must be valid in both directions (checked against pytz.all_timezones)
-4. **Full-Hour Timestamps**: All timestamps must be at exact hour boundary (minutes=0, seconds=0)
+2. **Timezone Validation**: Must be valid in both directions (checked against pytz.all_timezones)
+3. **Full-Hour Timestamps**: All timestamps must be at exact hour boundary (minutes=0, seconds=0)

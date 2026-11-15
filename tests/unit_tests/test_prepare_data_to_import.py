@@ -10,6 +10,7 @@ from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.const import (
+    ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
     ATTR_DELIMITER,
     ATTR_TIMEZONE_IDENTIFIER,
@@ -40,7 +41,7 @@ def test_prepare_data_to_import_valid_file_dot() -> None:
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert data_type == ImportDataType.SENSOR
+    assert data_type.import_type == ImportDataType.SENSOR
     assert len(df) > 0
     assert "statistic_id" in df.columns
     assert "start" in df.columns
@@ -67,7 +68,7 @@ def test_prepare_data_to_import_valid_file_comma() -> None:
     assert isinstance(df, pd.DataFrame)
     assert timezone_id == "Europe/London"
     assert datetime_format == DATETIME_DEFAULT_FORMAT
-    assert data_type == ImportDataType.SENSOR
+    assert data_type.import_type == ImportDataType.SENSOR
     assert len(df) > 0
 
 
@@ -135,12 +136,9 @@ def test_prepare_data_to_import_with_unknown_columns() -> None:
         call = ServiceCall("domain_name", "service_name", data, data)
         ha_timezone = "UTC"
 
-        # Call the function - should raise an error due to unknown columns
-        with pytest.raises(
-            HomeAssistantError,
-            match=re.escape("Unknown columns in file: comments, unknown_field."),
-        ):
-            prepare_data_to_import(file_path, call, ha_timezone)
+        # Column errors are collected for the service response.
+        df, _timezone_id, _datetime_format, _data_type = prepare_data_to_import(file_path, call, ha_timezone)
+        assert any("Unknown columns in file: comments, unknown_field." in error and "Source rows: [2]" in error for error in df.attrs["validation_errors"])
 
 
 def test_prepare_data_to_import_rejects_unsupported_extension() -> None:
@@ -212,3 +210,65 @@ def test_prepare_data_to_import_infers_delimiter_from_tsv_extension() -> None:
         df, _timezone_id, _datetime_format, _is_delta = prepare_data_to_import(file_path, call, ha_timezone)
         assert "statistic_id" in df.columns
         assert len(df) == 1
+
+
+def test_prepare_data_to_import_mismatched_delimiter_reports_missing_columns() -> None:
+    """Test that a delimiter mismatch is reported instead of crashing while parsing timestamps."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        Path(file_path).write_text(
+            "statistic_id\tunit\tstart\tmin\tmax\tmean\nsensor.temperature\t°C\t26.01.2024 00:00\t20.1\t25.5\t22.8\n",
+            encoding="utf-8",
+        )
+
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_DELIMITER: ",",
+        }
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        with pytest.raises(
+            HomeAssistantError,
+            match=re.escape("The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"),
+        ):
+            prepare_data_to_import(file_path, call, "UTC")
+
+
+def test_prepare_data_to_import_invalid_datetime_format() -> None:
+    """Test that an invalid datetime format is reported as an import validation error."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        Path(file_path).write_text(
+            "statistic_id\tstart\tunit\tmin\tmax\tmean\nsensor.temperature\t26.01.2024 00:00\t°C\t20.1\t25.5\t22.8\n",
+            encoding="utf-8",
+        )
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_DELIMITER: "\t",
+            ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%xxxMsss",
+        }
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        with pytest.raises(HomeAssistantError, match="Invalid datetime format"):
+            prepare_data_to_import(file_path, call, "UTC")
+
+
+def test_prepare_data_to_import_invalid_delimiter() -> None:
+    """Test that a delimiter outside the supported choices is rejected before reading the file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        Path(file_path).write_text(
+            "statistic_id\tstart\tunit\tsum\tstate\ncounter.example\t26.01.2024 00:00\tkWh\t20.1\t20.1\n",
+            encoding="utf-8",
+        )
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_DELIMITER: "x",
+        }
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        with pytest.raises(HomeAssistantError, match="Delimiter must be one of"):
+            prepare_data_to_import(file_path, call, "UTC")

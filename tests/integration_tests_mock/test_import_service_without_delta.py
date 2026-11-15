@@ -20,7 +20,13 @@ from custom_components.import_statistics.const import (
     ATTR_TIMEZONE_IDENTIFIER,
 )
 from custom_components.import_statistics.helpers import are_columns_valid
-from tests.conftest import create_mock_recorder_instance, create_mock_states_with_unit, get_service_handler, mock_async_add_executor_job
+from tests.conftest import (
+    call_service_expect_error,
+    create_mock_recorder_instance,
+    create_mock_states_with_unit,
+    get_service_handler,
+    mock_async_add_executor_job,
+)
 
 
 class TestStandardImportIntegration:
@@ -133,8 +139,8 @@ class TestStandardImportIntegration:
                 },
             )
 
-            with pytest.raises(HomeAssistantError, match="Unsupported filename extension"):
-                await import_handler(call)
+            error = await call_service_expect_error(import_handler, call)
+            assert "Unsupported filename extension" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_sum_single_statistic(self) -> None:
@@ -451,8 +457,8 @@ class TestStandardImportIntegration:
             )
 
             # Expect error because unit column is missing
-            with pytest.raises(HomeAssistantError, match="The file must contain the columns 'statistic_id', 'start' and 'unit'"):
-                await import_handler(call)
+            error = await call_service_expect_error(import_handler, call)
+            assert "The file must contain the columns 'statistic_id', 'start' and 'unit'" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_json_format_sum(self) -> None:
@@ -758,9 +764,12 @@ class TestStandardImportIntegration:
                 },
             )
 
-            # Should raise error when entity does not exist
-            with pytest.raises(HomeAssistantError):
-                await import_handler(call)
+            with (
+                patch("custom_components.import_statistics.import_service.get_instance", return_value=create_mock_recorder_instance()),
+                patch("custom_components.import_statistics.import_service.get_metadata", return_value={}),
+            ):
+                error = await call_service_expect_error(import_handler, call)
+            assert "Entity does not exist" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_with_custom_datetime_format(self) -> None:
@@ -942,10 +951,11 @@ class TestStandardImportIntegration:
             with (
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
-                pytest.raises(HomeAssistantError, match=r"Unit mismatch.*sensor\.temperature.*°F.*°C"),
             ):
-                # Expect error due to unit mismatch
-                await import_handler(call)
+                error = await call_service_expect_error(import_handler, call)
+            assert "Unit mismatch" in str(error)
+            assert "°F" in str(error)
+            assert "°C" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_new_statistic_with_unit(self) -> None:

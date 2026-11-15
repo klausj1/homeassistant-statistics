@@ -211,10 +211,18 @@ def handle_dataframe_delta(df: pd.DataFrame, references: dict) -> dict:
 
     # Vectorized validation: validate all delta values at once (if timestamps are already datetime objects)
     # Note: Timestamps are validated per-group below since they may not be parsed yet in unit tests
+    validation_errors = []
     if pd.api.types.is_datetime64_any_dtype(df["start"]):
-        helpers.validate_timestamps_vectorized(df)
+        try:
+            helpers.validate_timestamps_vectorized(df)
+        except helpers.AggregatedValidationError as err:
+            validation_errors.extend(err.errors)
 
-    helpers.validate_floats_vectorized(df, ["delta"])
+    try:
+        helpers.validate_floats_vectorized(df, ["delta"])
+    except helpers.AggregatedValidationError as err:
+        validation_errors.extend(err.errors)
+    helpers.handle_errors(validation_errors)
 
     # Group rows by statistic_id
     stats = {}

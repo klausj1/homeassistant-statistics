@@ -255,6 +255,26 @@ class TestIntegrationAll:
             return False
 
     @staticmethod
+    async def _call_service_with_response(
+        service_name: str,
+        data: dict[str, Any],
+        ha_url: str = "http://localhost:8123",
+        token: str = "",
+    ) -> tuple[int, str]:
+        """Call a Home Assistant service and return its HTTP status and response body."""
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
+                f"{ha_url}/api/services/{DOMAIN}/{service_name}?return_response",
+                json=data,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as response,
+        ):
+            return response.status, await response.text()
+
+    @staticmethod
     def _compare_tsv_files_strict(actual_path: Path, expected_path: Path, tolerance: float = 0.01) -> bool:
         """Compare two TSV files for equality with numeric tolerance (strict mode - raises on mismatch)."""
         with actual_path.open(encoding="utf-8-sig") as f:
@@ -618,18 +638,13 @@ class TestIntegrationAll:
                 "filename": "test_delta/export_after_step1.tsv",
                 "entities": [
                     "sensor.imp_inside_same_newest_1",
-                    "sensor:imp_inside_same_newest_2",
-                    "sensor.import_partly_before",
-                    "sensor:import_partly_at",
-                    "sensor.imp_before",
-                    "sensor:imp_before",
                     "sensor.imp_after",
-                    "sensor:imp_after",
+                    "sensor.imp_before",
                     "sensor.imp_partly_before",
                     "sensor:imp_partly_at",
                     "sensor:imp_inside",
                     "sensor:imp_inside_spike",
-                    "sensor:imp_inside_holes",
+                    "sensor:imp_inside_same_newest_2",
                     "sensor:imp_partly_after",
                 ],
                 "start_time": "2025-06-29 00:00:00",
@@ -668,18 +683,13 @@ class TestIntegrationAll:
                 "filename": "test_delta/export_after_step2.tsv",
                 "entities": [
                     "sensor.imp_inside_same_newest_1",
-                    "sensor:imp_inside_same_newest_2",
-                    "sensor.import_partly_before",
-                    "sensor:import_partly_at",
-                    "sensor.imp_before",
-                    "sensor:imp_before",
                     "sensor.imp_after",
-                    "sensor:imp_after",
+                    "sensor.imp_before",
                     "sensor.imp_partly_before",
                     "sensor:imp_partly_at",
                     "sensor:imp_inside",
                     "sensor:imp_inside_spike",
-                    "sensor:imp_inside_holes",
+                    "sensor:imp_inside_same_newest_2",
                     "sensor:imp_partly_after",
                 ],
                 "start_time": "2025-06-29 00:00:00",
@@ -718,18 +728,13 @@ class TestIntegrationAll:
                 "filename": "test_delta/export_after_step3.tsv",
                 "entities": [
                     "sensor.imp_inside_same_newest_1",
-                    "sensor:imp_inside_same_newest_2",
-                    "sensor.import_partly_before",
-                    "sensor:import_partly_at",
-                    "sensor.imp_before",
-                    "sensor:imp_before",
                     "sensor.imp_after",
-                    "sensor:imp_after",
+                    "sensor.imp_before",
                     "sensor.imp_partly_before",
                     "sensor:imp_partly_at",
                     "sensor:imp_inside",
                     "sensor:imp_inside_spike",
-                    "sensor:imp_inside_holes",
+                    "sensor:imp_inside_same_newest_2",
                     "sensor:imp_partly_after",
                 ],
                 "start_time": "2025-06-29 00:00:00",
@@ -773,18 +778,13 @@ class TestIntegrationAll:
         # Define entity lists and reference files from all three previous tests
         delta_entities = [
             "sensor.imp_inside_same_newest_1",
-            "sensor:imp_inside_same_newest_2",
-            "sensor.import_partly_before",
-            "sensor:import_partly_at",
-            "sensor.imp_before",
-            "sensor:imp_before",
             "sensor.imp_after",
-            "sensor:imp_after",
+            "sensor.imp_before",
             "sensor.imp_partly_before",
             "sensor:imp_partly_at",
             "sensor:imp_inside",
             "sensor:imp_inside_spike",
-            "sensor:imp_inside_holes",
+            "sensor:imp_inside_same_newest_2",
             "sensor:imp_partly_after",
         ]
 

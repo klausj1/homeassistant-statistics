@@ -64,14 +64,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:  # pylin
         },
     )
 
-    async def handle_export_statistics(call: ServiceCall) -> None:
+    async def handle_export_statistics(call: ServiceCall) -> ServiceResponse:
         """Handle the export statistics service call."""
-        await handle_export_statistics_impl(hass, call)
+        return await handle_export_statistics_impl(hass, call)
 
     hass.services.async_register(
         DOMAIN,
         "export_statistics",
         handle_export_statistics,
+        supports_response=SupportsResponse.OPTIONAL,
         description_placeholders={"pytz_url": "https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"},
     )
 

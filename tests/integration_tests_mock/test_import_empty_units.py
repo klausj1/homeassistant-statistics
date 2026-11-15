@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from homeassistant.core import ServiceCall
-from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics import async_setup
 from custom_components.import_statistics.const import (
@@ -15,7 +14,13 @@ from custom_components.import_statistics.const import (
     ATTR_FILENAME,
     ATTR_TIMEZONE_IDENTIFIER,
 )
-from tests.conftest import create_mock_recorder_instance, create_mock_states_with_unit, get_service_handler, mock_async_add_executor_job
+from tests.conftest import (
+    call_service_expect_error,
+    create_mock_recorder_instance,
+    create_mock_states_with_unit,
+    get_service_handler,
+    mock_async_add_executor_job,
+)
 
 
 class TestImportEmptyUnits:
@@ -129,10 +134,11 @@ class TestImportEmptyUnits:
             with (
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
-                pytest.raises(HomeAssistantError, match=r"Unit mismatch.*\(empty\).*°C"),
             ):
-                # Should fail - empty vs °C
-                await import_handler(call)
+                error = await call_service_expect_error(import_handler, call)
+            assert "Unit mismatch" in str(error)
+            assert "(empty)" in str(error)
+            assert "°C" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_unit_fails_when_database_empty(self) -> None:
@@ -181,10 +187,11 @@ class TestImportEmptyUnits:
             with (
                 patch("custom_components.import_statistics.import_service.get_instance", return_value=mock_recorder),
                 patch("custom_components.import_statistics.import_service.get_metadata", return_value=mock_metadata),
-                pytest.raises(HomeAssistantError, match=r"Unit mismatch.*°C.*\(empty\)"),
             ):
-                # Should fail - °C vs empty
-                await import_handler(call)
+                error = await call_service_expect_error(import_handler, call)
+            assert "Unit mismatch" in str(error)
+            assert "°C" in str(error)
+            assert "(empty)" in str(error)
 
     @pytest.mark.asyncio
     async def test_import_new_statistic_with_empty_unit(self) -> None:

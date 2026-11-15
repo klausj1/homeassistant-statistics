@@ -6,7 +6,7 @@ import logging
 import zoneinfo
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import pandas as pd
 import voluptuous as vol
@@ -23,6 +23,23 @@ class DeltaReferenceType(Enum):
 
     OLDER_REFERENCE = "older"  # Reference is 1+ hour before oldest import
     NEWER_REFERENCE = "newer"  # Reference is at or after newest import
+
+
+class AggregatedValidationError(HomeAssistantError):
+    """A collection of validation errors that can be returned by a service."""
+
+    def __init__(self, errors: list[str]) -> None:
+        """Initialize the collected validation errors."""
+        self.errors = errors
+        super().__init__("\n".join(errors))
+
+
+def handle_errors(errors: list[str]) -> None:
+    """Log and raise all collected validation errors."""
+    if not errors:
+        return
+    errors = list(dict.fromkeys(errors))
+    handle_error(errors)
 
 
 def get_source(statistic_id: str) -> str:
@@ -100,10 +117,9 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
     """
     columns = df.columns
 
-    # Check required columns: statistic_id, start, and unit (always required)
-    # Determine if this is delta or non-delta data first
-    has_delta = "delta" in columns
+    errors = []
 
+    # Check required columns: statistic_id, start, and unit (always required)
     if not ("statistic_id" in columns and "start" in columns and "unit" in columns):
         found_columns_num = len(columns)
         # embrace each column name with quotes for clarity
@@ -111,50 +127,55 @@ def are_columns_valid(df: pd.DataFrame) -> bool:
         found_columns_str = ", ".join(sorted(found_columns_quoted))
         error_str = "The file must contain the columns 'statistic_id', 'start' and 'unit'"
         error_str += f" (check delimiter). Number of found columns: {found_columns_num}. Found columns: {found_columns_str}"
-        handle_error(error_str)
+        errors.append(error_str)
 
-    # Check for value column requirements and incompatible combinations
-    has_mean_min_max = "mean" in columns or "min" in columns or "max" in columns
+    # Delta may coexist with sparse measurement/counter columns when values are populated
+    # only on specific rows. Ambiguity is resolved later using row-level populated data
+    # and the selected counter_mode.
 
-    # Delta cannot coexist with sum, state, mean, min, or max - check each individually to match test expectations
-    if has_delta and ("sum" in columns or "state" in columns or has_mean_min_max):
-        handle_error("Delta column cannot be used with 'sum', 'state', 'mean', 'min', or 'max' columns")
-
-    # Define allowed columns based on data type - unit is always allowed
-    allowed_columns = {"statistic_id", "start", "unit", "delta"} if has_delta else {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state"}
+    # Define allowed columns based on the full export/import schema. Sparse mixed files
+    # intentionally include both measurement and counter columns, and they are validated
+    # at the row-data level instead of by column names alone.
+    allowed_columns = {"statistic_id", "start", "unit", "mean", "min", "max", "sum", "state", "delta"}
 
     # Check for unknown columns
     unknown_columns = set(columns) - allowed_columns
     if unknown_columns:
         unknown_cols_str = ", ".join(sorted(unknown_columns))
         allowed_cols_str = ", ".join(sorted(allowed_columns))
-        handle_error(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
+        errors.append(f"Unknown columns in file: {unknown_cols_str}. Only these columns are allowed: {allowed_cols_str}")
 
     sensor_columns = {"mean", "min", "max"} & set(columns)
     if sensor_columns and sensor_columns != {"mean", "min", "max"}:
-        handle_error("Columns 'mean', 'min', and 'max' must either all be present or all be absent")
+        errors.append("Columns 'mean', 'min', and 'max' must either all be present or all be absent")
 
+    handle_errors(errors)
     return True
 
 
-def handle_error(error_string: str) -> None:
+def handle_error(error_string: str | list[str]) -> NoReturn:
     """
     Handle an error by logging a warning and raising a HomeAssistantError.
 
     Args:
     ----
-        error_string (str): The error message.
+        error_string: One error message or a collection of error messages.
 
     Raises:
     ------
         HomeAssistantError: The raised exception containing the error message.
 
     """
+    if isinstance(error_string, list):
+        for error in error_string:
+            _LOGGER.warning(error)
+        raise AggregatedValidationError(error_string)
+
     _LOGGER.warning(error_string)
     raise HomeAssistantError(error_string)
 
 
-def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
+def get_unit_from_row(unit_from_row: Any, statistic_id: str, *, row_number: int | None = None) -> str | None:
     """
     Get unit from the input row and normalize it.
 
@@ -164,6 +185,7 @@ def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
     ----
         unit_from_row: The unit from the imported file (could be str, NaN, None)
         statistic_id: The statistic id from the imported file
+        row_number: Optional source row number for error messages
 
     Returns:
     -------
@@ -187,8 +209,9 @@ def get_unit_from_row(unit_from_row: Any, statistic_id: str) -> str | None:
 
     # Reject invalid string literals that look like empty values
     if unit_str.lower() in ("nan", "none", "null"):
+        row_text = f" at row {row_number}" if row_number is not None else ""
         handle_error(
-            f"Invalid unit value: '{unit_str}'. "
+            f"Invalid unit value{row_text}: '{unit_str}'. "
             f"If you want an empty unit, leave the cell empty. "
             f"The strings 'nan', 'None', and 'null' are not valid units. "
             f"Statistic ID: {statistic_id}."
@@ -216,16 +239,25 @@ def validate_unit_consistency(unit_series: pd.Series, statistic_id: str) -> None
         HomeAssistantError: If more than one distinct normalized unit is found
 
     """
-    unique_raw_units = unit_series.unique()
     normalized_units: set[str | None] = set()
-
-    for raw_unit in unique_raw_units:
-        normalized = get_unit_from_row(raw_unit, statistic_id)
+    units_by_row = []
+    errors = []
+    for index, raw_unit in unit_series.items():
+        try:
+            normalized = get_unit_from_row(raw_unit, statistic_id, row_number=index + 2)
+        except HomeAssistantError as err:
+            errors.extend(err.errors if isinstance(err, AggregatedValidationError) else [str(err)])
+            continue
         normalized_units.add(normalized)
+        units_by_row.append((index + 2, normalized))
 
     if len(normalized_units) > 1:
         display_units = sorted(f"'{u}'" if u is not None else "'(empty)'" for u in normalized_units)
-        handle_error(f"Inconsistent units for '{statistic_id}': found {display_units}. All rows for the same statistic_id must have the same unit.")
+        row_numbers = sorted(row for row, _unit in units_by_row)
+        errors.append(
+            f"Inconsistent units for '{statistic_id}' at rows {row_numbers}: found {display_units}. All rows for the same statistic_id must have the same unit."
+        )
+    handle_errors(errors)
 
 
 # Build reverse mapping: converter class -> unit_class string (module-level, computed once)
@@ -288,6 +320,8 @@ def validate_delimiter(delimiter: str | None) -> str:
         return "\t"
     if not isinstance(delimiter, str) or len(delimiter) != 1:
         handle_error(f"Delimiter must be exactly 1 character or \\t, got: {delimiter!r}")
+    if delimiter not in {"\t", ";", ",", "|"}:
+        handle_error(f"Delimiter must be one of '\\t', ';', ',' or '|', got: {delimiter!r}")
     return delimiter
 
 
@@ -468,7 +502,8 @@ def validate_json_schema(json_data: dict) -> None:
         except (TypeError, ValueError):
             example_str = str(example)
 
-        handle_error(f"Invalid JSON import format: {exc}. Example of valid payload:\n{example_str}")
+        errors = [f"Invalid JSON import format: {error}. Example of valid payload:\n{example_str}" for error in exc.errors]
+        handle_errors(errors)
 
 
 def validate_filename(filename: str, config_dir: str) -> str:
@@ -595,16 +630,13 @@ def validate_timestamps_vectorized(df: pd.DataFrame) -> None:
     """
     # Check if any timestamp has non-zero minutes or seconds
     start_series: pd.Series[pd.Timestamp] = df["start"]  # type: ignore[assignment]
-    invalid_times = (start_series.dt.minute != 0) | (start_series.dt.second != 0)
+    invalid_times = start_series.notna() & ((start_series.dt.minute != 0) | (start_series.dt.second != 0))
 
     if invalid_times.any():
-        # Get first invalid timestamp for error message
-        first_invalid_idx: int = invalid_times.idxmax()  # type: ignore[assignment]
-        first_invalid = df.loc[first_invalid_idx, "start"]
-        # Convert to human-readable row number (1-based + 1 for header = +2)
-        human_row = first_invalid_idx + 2
-        msg = f"Invalid timestamp at row {human_row}: {first_invalid}. The timestamp must be a full hour."
-        raise HomeAssistantError(msg)
+        errors = [
+            f"Invalid timestamp at row {idx + 2}: {df.loc[idx, 'start']}. The timestamp must be a full hour." for idx in invalid_times[invalid_times].index
+        ]
+        handle_errors(errors)
 
 
 def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
@@ -621,30 +653,27 @@ def validate_floats_vectorized(df: pd.DataFrame, columns: list[str]) -> None:
         HomeAssistantError: If any value is NaN or cannot be converted to float
 
     """
+    errors = []
     for col in columns:
         if col not in df.columns:
             continue
 
-        # Check for NaN values
-        if df[col].isna().any():
-            first_na_idx = int(df[col].isna().idxmax()) + 2
-            msg = f"Invalid float value in column '{col}' at row {first_na_idx}: NaN/empty value not allowed. Check for missing or empty values in your data."
-            raise HomeAssistantError(msg)
-
-        # Try to convert to float (pandas should already have done this, but validate)
-        try:
-            # This will raise if any value cannot be converted
-            pd.to_numeric(df[col], errors="raise")
-        except (ValueError, TypeError) as exc:
-            # Find first problematic value
-            for idx, val in df[col].items():
-                try:
-                    float(val)
-                except (ValueError, TypeError):
-                    # Convert to human-readable row number (1-based + 1 for header = +2)
-                    human_row: int = idx + 2  # type: ignore[assignment]
-                    msg = f"Invalid float value in column '{col}' at row {human_row}: {val}. Check the decimal separator."
-                    raise HomeAssistantError(msg) from exc
+        for idx, value in df[col].items():
+            if pd.isna(value):
+                errors.append(
+                    f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. Check for missing or empty values in your data."
+                )
+                continue
+            try:
+                numeric_value = float(value)
+            except (ValueError, TypeError):
+                errors.append(f"Invalid float value in column '{col}' at row {idx + 2}: {value}. Check the decimal separator.")
+            else:
+                if pd.isna(numeric_value):
+                    errors.append(
+                        f"Invalid float value in column '{col}' at row {idx + 2}: NaN/empty value not allowed. Check for missing or empty values in your data."
+                    )
+    handle_errors(errors)
 
 
 def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
@@ -664,10 +693,8 @@ def validate_min_max_mean_vectorized(df: pd.DataFrame) -> None:
     invalid_mmm = ~((df["min"] <= df["mean"]) & (df["mean"] <= df["max"]))
 
     if invalid_mmm.any():
-        # Get first invalid row for error message
-        first_invalid_idx: int = invalid_mmm.idxmax()  # type: ignore[assignment]
-        row = df.loc[first_invalid_idx]
-        # Convert to human-readable row number (1-based + 1 for header = +2)
-        human_row = first_invalid_idx + 2
-        msg = f"Invalid values at row {human_row}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, mean must be between min and max."
-        raise HomeAssistantError(msg)
+        errors = []
+        for idx in invalid_mmm[invalid_mmm].index:
+            row = df.loc[idx]
+            errors.append(f"Invalid values at row {idx + 2}: min: {row['min']}, max: {row['max']}, mean: {row['mean']}, mean must be between min and max.")
+        handle_errors(errors)

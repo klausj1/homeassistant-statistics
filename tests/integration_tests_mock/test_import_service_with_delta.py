@@ -566,9 +566,8 @@ class TestDeltaImportIntegration:
             )
 
     @pytest.mark.asyncio
-    async def test_delta_column_with_incompatible_columns(self) -> None:
-        """Test that delta column cannot coexist with sum/state/mean columns."""
-        # Test delta + sum
+    async def test_delta_column_with_sparse_counter_or_measurement_columns(self) -> None:
+        """Sparse export files may contain delta plus sum/measurement columns before row validation."""
         df_with_sum = pd.DataFrame(
             {
                 "statistic_id": ["counter.energy"],
@@ -578,11 +577,8 @@ class TestDeltaImportIntegration:
                 "sum": [100.0],
             }
         )
+        assert are_columns_valid(df_with_sum)
 
-        with pytest.raises(HomeAssistantError):
-            are_columns_valid(df_with_sum)
-
-        # Test delta + mean
         df_with_mean = pd.DataFrame(
             {
                 "statistic_id": ["sensor.temp"],
@@ -590,8 +586,8 @@ class TestDeltaImportIntegration:
                 "unit": ["°C"],
                 "delta": [1.5],
                 "mean": [20.5],
+                "min": [18.0],
+                "max": [25.0],
             }
         )
-
-        with pytest.raises(HomeAssistantError):
-            are_columns_valid(df_with_mean)
+        assert are_columns_valid(df_with_mean)
