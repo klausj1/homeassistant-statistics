@@ -320,6 +320,8 @@ def validate_delimiter(delimiter: str | None) -> str:
         return "\t"
     if not isinstance(delimiter, str) or len(delimiter) != 1:
         handle_error(f"Delimiter must be exactly 1 character or \\t, got: {delimiter!r}")
+    if delimiter not in {"\t", ";", ",", "|"}:
+        handle_error(f"Delimiter must be one of '\\t', ';', ',' or '|', got: {delimiter!r}")
     return delimiter
 
 

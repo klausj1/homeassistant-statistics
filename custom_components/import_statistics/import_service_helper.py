@@ -4,6 +4,7 @@ Helper functions for import service - data preparation from files/JSON.
 Most helpers do not need a hass object; status helpers use the hass object for database lookups.
 """
 
+import re
 import zoneinfo
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -253,7 +254,10 @@ def _localize_timestamps_with_dst_handling(df: pd.DataFrame, timezone_identifier
 def _parse_import_timestamps(df: pd.DataFrame, datetime_format: str, timezone_identifier: str) -> list[str]:
     """Parse each timestamp, preserving valid rows and reporting every malformed value."""
     original_timestamps = df["start"].copy()
-    parsed_timestamps = pd.to_datetime(original_timestamps, format=datetime_format, errors="coerce")
+    try:
+        parsed_timestamps = pd.to_datetime(original_timestamps, format=datetime_format, errors="coerce")
+    except (re.error, TypeError, ValueError) as err:
+        helpers.handle_error(f"Invalid datetime format {datetime_format!r}: {err}")
     invalid_timestamps = parsed_timestamps.isna()
     errors = [
         f"Invalid timestamp format at row {index + 2}: {original_timestamps.loc[index]!r}. Expected format: {datetime_format}."

@@ -56,8 +56,8 @@ pytest -v tests/test_X.py # Run specific test file
 
 - `None` → `"\t"` (tab character)
 - String `"\\t"` → `"\t"` (actual tab, not backslash-t)
-- Any other single character → unchanged
-- Multi-character or empty string → raises error
+- Accepts only tab, semicolon, comma, and pipe delimiters
+- Any other delimiter → raises error
 
 ### Min/Max/Mean Constraint
 

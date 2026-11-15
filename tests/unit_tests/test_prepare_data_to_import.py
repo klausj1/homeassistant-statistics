@@ -10,6 +10,7 @@ from homeassistant.core import ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.import_statistics.const import (
+    ATTR_DATETIME_FORMAT,
     ATTR_DECIMAL,
     ATTR_DELIMITER,
     ATTR_TIMEZONE_IDENTIFIER,
@@ -231,4 +232,45 @@ def test_prepare_data_to_import_mismatched_delimiter_reports_missing_columns() -
             HomeAssistantError,
             match=re.escape("The file must contain the columns 'statistic_id', 'start' and 'unit' (check delimiter)"),
         ):
+            prepare_data_to_import(file_path, call, "UTC")
+
+
+def test_prepare_data_to_import_invalid_datetime_format() -> None:
+    """Test that an invalid datetime format is reported as an import validation error."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        Path(file_path).write_text(
+            "statistic_id\tstart\tunit\tmin\tmax\tmean\n"
+            "sensor.temperature\t26.01.2024 00:00\t°C\t20.1\t25.5\t22.8\n",
+            encoding="utf-8",
+        )
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_DELIMITER: "\t",
+            ATTR_DATETIME_FORMAT: "%d.%m.%Y %H:%xxxMsss",
+        }
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        with pytest.raises(HomeAssistantError, match="Invalid datetime format"):
+            prepare_data_to_import(file_path, call, "UTC")
+
+
+def test_prepare_data_to_import_invalid_delimiter() -> None:
+    """Test that a delimiter outside the supported choices is rejected before reading the file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = str(Path(temp_dir) / "test.tsv")
+        Path(file_path).write_text(
+            "statistic_id\tstart\tunit\tsum\tstate\n"
+            "counter.example\t26.01.2024 00:00\tkWh\t20.1\t20.1\n",
+            encoding="utf-8",
+        )
+        data = {
+            ATTR_DECIMAL: "dot ('.')",
+            ATTR_TIMEZONE_IDENTIFIER: "UTC",
+            ATTR_DELIMITER: "x",
+        }
+        call = ServiceCall("domain_name", "service_name", data, data)
+
+        with pytest.raises(HomeAssistantError, match="Delimiter must be one of"):
             prepare_data_to_import(file_path, call, "UTC")

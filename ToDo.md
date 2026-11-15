@@ -2,15 +2,10 @@
 
 ## Now
 
-Check:
-
-- Explain _validate_local_import_data, why is it so complex for counters, does this make sense?
-
 Bugs:
 
-fix: align export error handling to import
+fix: exception with wrong datetime_format / delimiter in service calls
 
-- For export, the change that on failures an error should be returned, with the first errors as exception text, and if there are multiple errors, the exception text should also contain a hint to the file export_errors.log (similar to import). Test with the error "entities must be a list" (which currently returns OK). Also test with more not existing entities (which currently only return the first not existing entity, fix this)
 - Import from file with wrong datetime_format (datetime_format: "%d.%m.%Y %H:%xxxMsss") leads to exception instead of an error. Add a test which finds the bug, then fix
 - Import from file with wrong delimiter (delimiter: x) leads to exception. Add a test which finds the bug, then fix
 - Add Unit tests for these methods. If they find bugs, fix the bugs: _parse_import_timestamps, collect_dataframe_validation_errors, _collect_validation_errors, _validate_dataframe_for_import, _validation_errors_from_exception, _validate_local_import_data
