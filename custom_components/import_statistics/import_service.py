@@ -586,7 +586,7 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
     imported_value_count = sum(len(stat[1]) for stat in stats.values())
     _LOGGER.info("Finished importing data - %d statistic values imported and committed to database", imported_value_count)
 
-    response = {"imported_values": imported_value_count, **status_counts}
+    response = {"imported_rows": imported_value_count, **status_counts}
     if ignore_unknown_entities:
         response["skipped_values"] = skipped_value_count
         response["skipped_statistics"] = skipped_ids
@@ -595,10 +595,10 @@ async def import_stats(hass: HomeAssistant, stats: dict, *, ignore_unknown_entit
 
 async def _get_import_status_counts(hass: HomeAssistant, stats: dict) -> dict[str, int]:
     """Count imported statistics by whether their data is new, existing, or empty."""
-    status_counts = {"new_data": 0, "existing_data": 0, "no_data": 0}
+    status_counts = {"entities_with_new_data": 0, "entities_with_existing_data": 0, "entities_without_any_data": 0}
     for metadata, statistics in stats.values():
         if not statistics:
-            status_counts["no_data"] += 1
+            status_counts["entities_without_any_data"] += 1
             continue
 
         statistic_id = metadata["statistic_id"]
@@ -606,9 +606,9 @@ async def _get_import_status_counts(hass: HomeAssistant, stats: dict) -> dict[st
         newest_db_record = await _get_newest_db_statistic(hass, statistic_id)
         newest_db_start = newest_db_record["start"] if newest_db_record else None
         if newest_db_start is None or newest_import_start > newest_db_start:
-            status_counts["new_data"] += 1
+            status_counts["entities_with_new_data"] += 1
         else:
-            status_counts["existing_data"] += 1
+            status_counts["entities_with_existing_data"] += 1
 
     return status_counts
 

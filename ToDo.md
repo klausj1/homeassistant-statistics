@@ -4,10 +4,6 @@
 
 Bugs:
 
-fix: exception with wrong datetime_format / delimiter in service calls
-
-- Import from file with wrong datetime_format (datetime_format: "%d.%m.%Y %H:%xxxMsss") leads to exception instead of an error. Add a test which finds the bug, then fix
-- Import from file with wrong delimiter (delimiter: x) leads to exception. Add a test which finds the bug, then fix
 - Add Unit tests for these methods. If they find bugs, fix the bugs: _parse_import_timestamps, collect_dataframe_validation_errors, _collect_validation_errors, _validate_dataframe_for_import, _validation_errors_from_exception, _validate_local_import_data
 
 Manual Tests:
@@ -20,7 +16,7 @@ Afterwards improve the names of the service response
 imported_values -> imported_rows
 
 new_data -> entities_with_new_data
-existing_data -> entities_with_existing_data
+existing_data -> entities_with_new_data
 no_data -> entities_without_any_data
 
 ## Bugs

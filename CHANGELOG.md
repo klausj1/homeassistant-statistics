@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changes
 
-- -- **Import Service Answer**: The long answer with all the imported statistics and their state `new_data`, `existing_data`, and `no_data` has been removed. Instead, only a summary of the states is returned.
+- -- **Import Service Answer**: The long answer with all the imported statistics and their state `new_data`, `existing_data`, and `no_data` has been removed. Instead, only a summary of the states is returned, with changed keywords: `new_data` -> `entities_with_new_data`, `existing_data` -> `entities_with_existing_data`, `no_data` -> `entities_without_any_data`
 
 ### Bug Fixes
 

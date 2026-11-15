@@ -52,10 +52,10 @@ class TestImportServiceResponse:
             result = await import_stats(hass, stats)
 
         assert result == {
-            "imported_values": 2,
-            "new_data": 1,
-            "existing_data": 1,
-            "no_data": 1,
+            "imported_rows": 2,
+            "entities_with_new_data": 1,
+            "entities_with_existing_data": 1,
+            "entities_without_any_data": 1,
         }
         assert mock_add.called
         assert "2 statistic values imported" in caplog.text
@@ -91,10 +91,10 @@ class TestImportServiceResponse:
             result = await import_stats(hass, stats, ignore_unknown_entities=True)
 
         assert result == {
-            "imported_values": 2,
-            "new_data": 1,
-            "existing_data": 0,
-            "no_data": 0,
+            "imported_rows": 2,
+            "entities_with_new_data": 1,
+            "entities_with_existing_data": 0,
+            "entities_without_any_data": 0,
             "skipped_values": 3,
             "skipped_statistics": ["sensor.missing"],
         }

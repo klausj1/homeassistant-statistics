@@ -283,7 +283,7 @@ class TestGetStatisticsFromRecorder:
             await get_statistics_from_recorder(hass, ["invalid_entity_id_no_separator"], "2024-01-26 12:00:00", "2024-01-26 13:00:00")
 
     @pytest.mark.asyncio
-    async def test_get_statistics_with_no_data_returns_error(self) -> None:
+    async def test_get_statistics_with_entities_without_any_data_returns_error(self) -> None:
         """Test that an error is raised when no statistics are found."""
         hass = MagicMock()
         hass.config = MagicMock()

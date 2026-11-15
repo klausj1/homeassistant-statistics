@@ -35,13 +35,13 @@ async def test_import_status_counts_match_previous_classifier() -> None:
                 {"start": dt.datetime(2025, 1, 1, 11, tzinfo=dt.UTC)},
             ],
         ),
-        "custom:no_data": ({"statistic_id": "custom:no_data"}, []),
+        "custom:entities_without_any_data": ({"statistic_id": "custom:entities_without_any_data"}, []),
     }
     db_starts = {
         "custom:newer": dt.datetime(2025, 1, 2, 9, tzinfo=dt.UTC),
         "custom:older": dt.datetime(2025, 1, 1, 11, tzinfo=dt.UTC),
         "custom:equal": dt.datetime(2025, 1, 1, 11, tzinfo=dt.UTC),
-        "custom:no_data": dt.datetime(2025, 1, 3, 10, tzinfo=dt.UTC),
+        "custom:entities_without_any_data": dt.datetime(2025, 1, 3, 10, tzinfo=dt.UTC),
     }
 
     async def newest_db_record(_hass: object, statistic_id: str) -> dict[str, dt.datetime] | None:
@@ -55,7 +55,7 @@ async def test_import_status_counts_match_previous_classifier() -> None:
     ):
         result = await _get_import_status_counts(object(), stats)
 
-    assert result == {"new_data": 2, "existing_data": 2, "no_data": 1}
+    assert result == {"entities_with_new_data": 2, "entities_with_existing_data": 2, "entities_without_any_data": 1}
 
 
 @pytest.mark.asyncio
@@ -75,7 +75,7 @@ async def test_import_status_counts_compare_timestamps_in_utc() -> None:
     ):
         result = await _get_import_status_counts(object(), stats)
 
-    assert result == {"new_data": 0, "existing_data": 1, "no_data": 0}
+    assert result == {"entities_with_new_data": 0, "entities_with_existing_data": 1, "entities_without_any_data": 0}
 
 
 @pytest.mark.asyncio
@@ -87,5 +87,5 @@ async def test_import_status_counts_empty_statistics_dict() -> None:
     ) as newest_db_statistic:
         result = await _get_import_status_counts(object(), {})
 
-    assert result == {"new_data": 0, "existing_data": 0, "no_data": 0}
+    assert result == {"entities_with_new_data": 0, "entities_with_existing_data": 0, "entities_without_any_data": 0}
     newest_db_statistic.assert_not_awaited()
