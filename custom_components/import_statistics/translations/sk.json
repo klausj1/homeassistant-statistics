@@ -1,0 +1,105 @@
+{
+    "services": {
+        "import_from_file": {
+            "description": "Importuje dlhodobé štatistické hodnoty (1 h) zo súboru tsv/csv",
+            "fields": {
+                "decimal": {
+                    "description": "Znak oddeľujúci desatinnú časť: bodka ('.') alebo čiarka (','). Predvolená je bodka ('.').",
+                    "name": "desiatkové"
+                },
+                "delimiter": {
+                    "description": "Oddeľovač medzi poľami. Ak chýba, odvodzuje sa z prípony názvu súboru: .csv používa čiarku. (,), .tsv používa tabulátor (\\t). Možnosti: tabulátor, bodkočiarka, čiarka alebo zvislá čiara",
+                    "name": "oddeľovač"
+                },
+                "filename": {
+                    "description": "Názov súboru vzhľadom na konfiguračný adresár na serveri Home Assistant (napr., 'import.tsv' alebo 'import.csv'). Podporované rozšírenia: .csv, .tsv",
+                    "name": "názov_súboru"
+                },
+                "timezone_identifier": {
+                    "description": "Identifikátor časového pásma (kontrola {pytz_url}). Ak nie je uvedené inak, používa časové pásmo nastavené v Home Assistant.",
+                    "name": "timezone_identifier"
+                },
+                "datetime_format": {
+                    "name": "datetime_format",
+                    "description": "Formát reťazcov dátumu a času v importovanom súbore. Predvolená hodnota je '%d.%m.%Y %H:%M'. d .. deň, m .. mesiac, y .. rok, H .. hodina, M .. minúta"
+                }
+            },
+            "name": "Importovať štatistiky zo súboru"
+        },
+        "import_from_json": {
+            "description": "Importuje dlhodobé štatistické hodnoty (1 h) z dát vo formáte JSON. Príklad očakávanej štruktúry JSON nájdete na adrese {json_example_url}.",
+            "name": "Importovať štatistiky z JSON"
+        },
+        "export_inventory": {
+            "name": "Export štatistík",
+            "description": "Exportuje inventár všetkých dlhodobých štatistík obsahujúci iba metadáta (bez údajov časových radov). Užitočné pri plánovaní migrácie a porovnávaní štatistík medzi inštanciami systému Home Assistant.",
+            "fields": {
+                "filename": {
+                    "name": "názov_súboru",
+                    "description": "Názov súboru vzhľadom na konfiguračný adresár na serveri Home Assistant (napr., 'statistics_inventory.tsv' alebo 'statistics_inventory.csv'). Podporované rozšírenia: .csv, .tsv"
+                },
+                "delimiter": {
+                    "name": "Oddeľovač",
+                    "description": "Oddeľovač medzi poľami. Ak chýba, odvodzuje sa z prípony názvu súboru.: .csv používa čiarku (,), .tsv používa tabulátor (\\t). Možnosti: tabulátor, bodkočiarka, čiarka alebo zvislá čiara"
+                },
+                "timezone_identifier": {
+                    "name": "timezone_identifier",
+                    "description": "Identifikátor časového pásma na formátovanie časových údajov. Ak nie je uvedený, použije sa časové pásmo nakonfigurované v systéme Home Assistant."
+                }
+            }
+        },
+        "export_statistics": {
+            "name": "Export štatistík do súboru",
+            "description": "Exportuje dlhodobé štatistické hodnoty (1 h) do súboru formátu TSV/CSV alebo JSON.",
+            "fields": {
+                "filename": {
+                    "name": "filename",
+                    "description": "Názov súboru vzhľadom na konfiguračný adresár na serveri Home Assistant (napr., 'exported.tsv', 'exported.csv', alebo 'exported.json'). Podporované rozšírenia: .csv, .tsv, .json"
+                },
+                "entities": {
+                    "name": "entity",
+                    "description": "Zoznam štatistických ID alebo ID entít na export (podporuje interné aj externé). Podporuje vzory zástupných znakov pomocou `*` (glob zhoda), napr. `sensor.*_temperature` alebo `sensor.*temp*`. Ak chcete exportovať všetky štatistiky, ponechajte prázdne. Obmedzenia: `*` samostatne nie je povolené; široké vzorce ako `sensor.*` / `sensor:*` nesmie sa miešať s inými položkami. Uistite sa, že používate zoznam Yaml s `- `"
+                },
+                "start_time": {
+                    "name": "start_time",
+                    "description": "Čas začiatku exportu štatistík vo formáte %Y-%m-%d %H:%M:%S (musí ísť o celú hodinu, napr. '2025-12-22 12:00:00'). Ak tento údaj vynecháte, export sa začne od najstaršej dostupnej štatistiky. Nezabudnite časový údaj v súbore YAML uzavrieť do úvodzoviek."
+                },
+                "end_time": {
+                    "name": "end_time",
+                    "description": "Čas ukončenia exportu štatistík vo formáte %Y-%m-%d %H:%M:%S (musí ísť o celú hodinu, napr. '2025-12-22 12:00:00'). Ak tento údaj chýba, export končí pri najnovšej dostupnej štatistike. V súbore YAML nezabudnite časový údaj uzavrieť do úvodzoviek."
+                },
+                "split_by": {
+                    "name": "split_by",
+                    "description": "Rozdeliť výstup do viacerých súborov podľa typu štatistiky: 'žiadne' (predvolene, kombinovaný súbor), 'measurement' (len priemer/min/max), 'counter' (len sum/stav/delta), alebo 'both' (zapíše oba súbory). Výstupné súbory budú pred príponou obsahovať prípony _measurements a _counters."
+                },
+                "timezone_identifier": {
+                    "name": "timezone_identifier",
+                    "description": "Identifikátor časového pásma (kontrola {pytz_url}). Ak nie je uvedené inak, používa časové pásmo nastavené v Home Assistant."
+                },
+                "delimiter": {
+                    "name": "oddeľovač",
+                    "description": "Oddeľovač medzi poľami. Ak chýba, odvodzuje sa z prípony názvu súboru.: .csv používa čiarku (,), .tsv používa tabulátor (\\t). Možnosti: tabulátor, bodkočiarka, čiarka alebo zvislá čiara"
+                },
+                "decimal": {
+                    "name": "desiatkové",
+                    "description": "Znak desatinného oddeľovača: bodka ('.') alebo čiarka (','). Predvolené je bodka ('.')."
+                },
+                "counter_fields": {
+                    "name": "counter_fields",
+                    "description": "Režim výstupu s počítadlom, len pre exporty do formátu CSV/TSV: 'both' (predvolené, zahŕňa stav/sum/delta), 'sum' (zahŕňa stav/sum), alebo 'delta' (zahŕňa iba delta). Táto možnosť sa pri exporte do formátu JSON ignoruje."
+                },
+                "datetime_format": {
+                    "name": "datetime_format",
+                    "description": "Formát reťazcov dátumu a času v exportovanom súbore. Predvolená hodnota je '%d.%m.%Y %H:%M'. d .. deň, m .. mesiac, y .. rok, H .. hodina, M .. minúta"
+                }
+            }
+        }
+    },
+    "config": {
+        "step": {
+            "user": {
+                "description": "Chcete do Home Assistant pridať integráciu Import Statistics?"
+            }
+        }
+    }
+}
